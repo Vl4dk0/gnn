@@ -5,6 +5,16 @@
 const API_BASE_URL = 'http://localhost:5555';
 
 /**
+ * Clear the canvas
+ */
+function clearCanvas() {
+    if (window.interactiveGraph) {
+        window.interactiveGraph.clear();
+    }
+    hideResults();
+}
+
+/**
  * Generate a random graph and populate input fields
  */
 async function generateRandomGraph() {
@@ -30,6 +40,11 @@ async function generateRandomGraph() {
         // Populate the input fields
         graphInput.value = data.graph;
         vertexInput.value = data.vertex;
+        
+        // Load into interactive graph
+        if (window.interactiveGraph) {
+            window.interactiveGraph.loadFromEdgeList(data.graph, data.vertex);
+        }
 
     } catch (error) {
         showError('Error generating graph: ' + error.message);
@@ -105,12 +120,7 @@ function displayResults(data) {
     document.getElementById('trueDegree').textContent = data.true_degree;
     document.getElementById('predictedDegree').textContent = data.predicted_degree;
     
-    const graphImage = document.getElementById('graphImage');
-    const placeholder = document.getElementById('placeholder');
-    
-    graphImage.src = 'data:image/png;base64,' + data.graph_image;
-    graphImage.classList.add('show');
-    placeholder.classList.add('hide');
+    // No longer displaying image - graph is already visible on canvas
 }
 
 /**
@@ -158,12 +168,6 @@ function showResults() {
  * Hide results section
  */
 function hideResults() {
-    const graphImage = document.getElementById('graphImage');
-    const placeholder = document.getElementById('placeholder');
-    
-    graphImage.classList.remove('show');
-    placeholder.classList.remove('hide');
-    
     document.getElementById('trueDegree').textContent = '-';
     document.getElementById('predictedDegree').textContent = '-';
 }
@@ -176,6 +180,26 @@ function initializeEventListeners() {
     document.getElementById('vertexInput').addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
             analyzeGraph();
+        }
+    });
+    
+    // Sync graph input with canvas when manually edited
+    document.getElementById('graphInput').addEventListener('input', function(e) {
+        const vertexInput = document.getElementById('vertexInput');
+        const targetVertex = vertexInput.value ? parseInt(vertexInput.value) : null;
+        
+        if (window.interactiveGraph) {
+            window.interactiveGraph.loadFromEdgeList(e.target.value, targetVertex);
+        }
+    });
+    
+    // Sync vertex input with canvas when manually edited
+    document.getElementById('vertexInput').addEventListener('input', function(e) {
+        const vertex = e.target.value ? parseInt(e.target.value) : null;
+        
+        if (window.interactiveGraph && vertex !== null) {
+            window.interactiveGraph.targetNode = vertex;
+            window.interactiveGraph.render();
         }
     });
 }
