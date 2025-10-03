@@ -25,6 +25,8 @@
         
         <button id="generateBtn" onclick="generateRandomGraph()">Generate Random Graph</button>
         
+        <button id="clearBtn" onclick="clearCanvas()" style="background: #555555;">Clear Canvas</button>
+        
         <button id="analyzeBtn" onclick="analyzeGraph()">Analyze</button>
         
         <div class="error-message" id="errorMessage"></div>
@@ -37,9 +39,15 @@
     <!-- Center Column: Graph Visualization -->
     <div class="graph-column">
         <div class="graph-container" id="graphContainer">
-            <img id="graphImage" src="" alt="Graph visualization will appear here">
-            <div class="placeholder" id="placeholder">
-                <p>Graph visualization will appear here</p>
+            <canvas id="graphCanvas"></canvas>
+            <div class="canvas-help">
+                <p><strong>Controls:</strong></p>
+                <p>• Double-click empty space: Create node</p>
+                <p>• Single-click node: Select node</p>
+                <p>• Drag node: Move it around</p>
+                <p>• Double-click node: Set as target</p>
+                <p>• Right-click node: Start/end edge</p>
+                <p>• Backspace: Delete selected node</p>
             </div>
         </div>
     </div>
@@ -57,6 +65,7 @@
         </div>
     </div>
 
+    <script src="js/interactive-graph.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>
