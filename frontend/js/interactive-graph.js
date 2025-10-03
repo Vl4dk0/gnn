@@ -163,6 +163,7 @@ class InteractiveGraph {
             this.targetNode = nodeIndex;
             this.updateTargetVertexInput();
             this.render();
+            this.triggerAnalyze();
         } else {
             // Create new node
             this.addNode(pos.x, pos.y);
@@ -184,14 +185,26 @@ class InteractiveGraph {
     }
     
     addNode(x, y) {
+        // Find the smallest available ID
+        const usedIds = new Set(this.nodes.map(node => node.id));
+        let newId = 0;
+        while (usedIds.has(newId)) {
+            newId++;
+        }
+        
         const node = {
-            id: this.nextNodeId++,
+            id: newId,
             x: x,
             y: y
         };
         this.nodes.push(node);
+        
+        // Update nextNodeId to be at least one more than the highest ID
+        this.nextNodeId = Math.max(this.nextNodeId, newId + 1);
+        
         this.updateGraphInput();
         this.render();
+        this.triggerAnalyze();
     }
     
     deleteNode(nodeIndex) {
@@ -227,28 +240,39 @@ class InteractiveGraph {
         this.updateGraphInput();
         this.updateTargetVertexInput();
         this.render();
+        this.triggerAnalyze();
     }
     
     addEdge(fromIndex, toIndex) {
         // Check if edge already exists
-        const exists = this.edges.some(edge => 
+        const edgeIndex = this.edges.findIndex(edge => 
             (edge.from === fromIndex && edge.to === toIndex) ||
             (edge.from === toIndex && edge.to === fromIndex)
         );
         
-        if (!exists) {
+        if (edgeIndex !== -1) {
+            // Edge exists - remove it (toggle off)
+            this.edges.splice(edgeIndex, 1);
+        } else {
+            // Edge doesn't exist - add it (toggle on)
             this.edges.push({ from: fromIndex, to: toIndex });
-            this.updateGraphInput();
-            this.render();
         }
+        
+        this.updateGraphInput();
+        this.render();
+        this.triggerAnalyze();
     }
     
     updateGraphInput() {
         const graphInput = document.getElementById('graphInput');
         if (!graphInput) return;
         
-        // Convert edges to edge list format
-        const edgeList = this.edges.map(edge => `${edge.from} ${edge.to}`).join('\n');
+        // Convert edges to edge list format using node IDs
+        const edgeList = this.edges.map(edge => {
+            const fromNode = this.nodes[edge.from];
+            const toNode = this.nodes[edge.to];
+            return `${fromNode.id} ${toNode.id}`;
+        }).join('\n');
         graphInput.value = edgeList;
     }
     
@@ -256,8 +280,10 @@ class InteractiveGraph {
         const vertexInput = document.getElementById('vertexInput');
         if (!vertexInput) return;
         
-        if (this.targetNode !== null) {
-            vertexInput.value = this.targetNode;
+        if (this.targetNode !== null && this.nodes[this.targetNode]) {
+            vertexInput.value = this.nodes[this.targetNode].id;
+        } else {
+            vertexInput.value = '';
         }
     }
     
@@ -334,7 +360,7 @@ class InteractiveGraph {
             this.ctx.font = 'bold 14px Arial';
             this.ctx.textAlign = 'center';
             this.ctx.textBaseline = 'middle';
-            this.ctx.fillText(index.toString(), node.x, node.y);
+            this.ctx.fillText(node.id.toString(), node.x, node.y);
         });
     }
     
@@ -357,6 +383,7 @@ class InteractiveGraph {
         this.targetNode = null;
         
         if (!edgeListText || edgeListText.trim() === '') {
+            this.updateTargetVertexInput();
             this.render();
             return;
         }
@@ -386,30 +413,44 @@ class InteractiveGraph {
         const centerY = this.canvas.height / 2;
         const radius = Math.min(centerX, centerY) * 0.6;
         
+        // Create a mapping from original IDs to array indices
+        const idToIndex = new Map();
+        
         nodeIds.forEach((id, index) => {
             const angle = (index / nodeIds.length) * Math.PI * 2 - Math.PI / 2;
             const x = centerX + Math.cos(angle) * radius;
             const y = centerY + Math.sin(angle) * radius;
             
-            this.nodes[id] = {
+            this.nodes.push({
                 id: id,
                 x: x,
                 y: y
-            };
+            });
+            
+            idToIndex.set(id, index);
         });
         
         this.nextNodeId = Math.max(...nodeIds) + 1;
         
-        // Create edges
+        // Create edges using array indices
         edgeList.forEach(({ from, to }) => {
-            this.edges.push({ from, to });
+            const fromIndex = idToIndex.get(from);
+            const toIndex = idToIndex.get(to);
+            
+            if (fromIndex !== undefined && toIndex !== undefined) {
+                this.edges.push({ from: fromIndex, to: toIndex });
+            }
         });
         
         // Set target vertex
-        if (targetVertex !== null && this.nodes[targetVertex]) {
-            this.targetNode = targetVertex;
+        if (targetVertex !== null) {
+            const targetIndex = idToIndex.get(targetVertex);
+            if (targetIndex !== undefined) {
+                this.targetNode = targetIndex;
+            }
         }
         
+        this.updateTargetVertexInput();
         this.render();
     }
     
@@ -423,6 +464,18 @@ class InteractiveGraph {
         this.updateGraphInput();
         this.updateTargetVertexInput();
         this.render();
+    }
+    
+    triggerAnalyze() {
+        // Only trigger analyze if there's a target node set
+        if (this.targetNode !== null && this.nodes.length > 0) {
+            // Use setTimeout to avoid blocking the UI
+            setTimeout(() => {
+                if (window.analyzeGraph) {
+                    window.analyzeGraph();
+                }
+            }, 100);
+        }
     }
 }
 
