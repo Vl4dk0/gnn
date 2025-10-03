@@ -29,10 +29,23 @@ def generate_random_graph():
         p = random.uniform(0.2, 0.4)
         G = nx.erdos_renyi_graph(num_nodes, p)
         
+        # Convert to MultiGraph to support self-loops
+        G = nx.MultiGraph(G)
+        
+        # Add some random self-loops
+        for _ in range(random.randint(0, num_nodes // 4)):
+            node = random.randint(0, num_nodes - 1)
+            G.add_edge(node, node)
+        
         # Convert graph to edge list string
         edge_list = []
         for u, v in G.edges():
             edge_list.append(f"{u} {v}")
+        
+        # Add isolated vertices (degree 0)
+        for node in G.nodes():
+            if G.degree(node) == 0:
+                edge_list.append(str(node))
         
         graph_str = "\n".join(edge_list)
         

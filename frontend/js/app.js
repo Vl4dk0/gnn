@@ -45,6 +45,9 @@ async function generateRandomGraph() {
         if (window.interactiveGraph) {
             window.interactiveGraph.loadFromEdgeList(data.graph, data.vertex);
         }
+        
+        // Automatically analyze the generated graph
+        await analyzeGraph();
 
     } catch (error) {
         showError('Error generating graph: ' + error.message);

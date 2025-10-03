@@ -110,77 +110,42 @@ Open your web browser and navigate to:
 
 ## How to Use
 
-### Option 1: Use Random Graph Generator
+### Interactive Canvas Editor
 
-1. **Click "Generate Random Graph"**: Automatically creates a random graph with 7-12 nodes and selects a random vertex
-2. **Click "Analyze"**: Instantly see the results
+1. **Draw a Graph**:
+   - Click on the canvas to add vertices
+   - Click and drag from one vertex to another to create edges
+   - Right-click on vertices or edges to delete them
 
-### Option 2: Manual Input
+2. **Select a Vertex**: Enter the vertex number you want to analyze
 
-1. **Enter Graph**: Input your graph as an edge list in the text area. Each line should contain two vertex numbers separated by a space.
-   
-   Example:
-   ```
-   0 1
-   0 2
-   1 2
-   1 3
-   2 3
-   ```
+3. **Click "Analyze"**: See the true degree and GNN prediction
 
-2. **Select Vertex**: Enter the vertex number you want to analyze.
+### Alternative: Use Random Graph Generator
 
-3. **Click "Analyze"**: The app will:
-   - Calculate the true degree of the vertex
-   - Generate a prediction using GNN (placeholder for now)
-   - Display a visualization with the target vertex highlighted with a green border
+- Click **"Generate Random Graph"** to automatically create a random graph (7-12 nodes) and analyze it
 
 ## Graph Input Format
 
-The graph should be entered as an edge list:
-- Each line represents one edge OR one isolated vertex
+If manually entering a graph as text, use this format:
 - **Edges**: Two integers per line, separated by a space
-- **Isolated vertices**: Single integer per line (for vertices with degree 0)
-- Vertices are identified by non-negative integers
-- **Supports multigraphs**: Multiple edges between same vertices and self-loops
-- Self-loops are counted twice in degree calculation (as per graph theory)
-- **Conflict error**: A vertex cannot be declared as both isolated and have edges
+- **Isolated vertices** (degree 0): Single integer per line
+- Supports self-loops and multiple edges between same vertices
 
-Example graphs:
-
-**Triangle:**
+**Example - Simple Graph:**
 ```
 0 1
 1 2
 2 0
 ```
 
-**Star Graph:**
-```
-0 1
-0 2
-0 3
-0 4
-```
-
-**Graph with Isolated Vertex:**
+**Example - Graph with Isolated Vertex:**
 ```
 0 1
 1 2
 3
 ```
-In this example, vertex 3 has degree 0 (isolated)
-
-**Graph with Self-loops:**
-```
-0 1
-0 2
-1 1
-1 1
-1 2
-2 3
-```
-In this example, vertex 1 has degree 6 (edge to 0: +1, two self-loops: +4, edge to 2: +1)
+In this example, vertex 3 has degree 0 (isolated).
 
 ## API Endpoints
 
