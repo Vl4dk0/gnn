@@ -15,7 +15,8 @@
 0 2
 1 2
 1 3
-2 3"></textarea>
+2 3
+4"></textarea>
         </div>
         
         <div class="input-section">
@@ -23,7 +24,7 @@
             <input type="number" id="vertexInput" placeholder="0" min="0" step="1">
         </div>
         
-        <button id="generateBtn" onclick="generateRandomGraph()">Generate Random Graph</button>
+        <button id="generateBtn" onclick="generateRandomGraph()">Random Graph</button>
         
         <button id="clearBtn" onclick="clearCanvas()" style="background: #555555;">Clear Canvas</button>
         
@@ -46,7 +47,8 @@
                 <p>• Single-click node: Select node</p>
                 <p>• Drag node: Move it around</p>
                 <p>• Double-click node: Set as target</p>
-                <p>• Right-click node: Start/end edge</p>
+                <p>• Right-click node: Start edge</p>
+                <p>• Click node: Complete edge (toggle)</p>
                 <p>• Backspace: Delete selected node</p>
             </div>
         </div>

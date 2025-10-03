@@ -118,11 +118,25 @@ class InteractiveGraph {
         const nodeIndex = this.findNodeAt(pos.x, pos.y);
         
         if (nodeIndex !== -1) {
-            // Select node and start dragging
+            // If drawing an edge, complete it
+            if (this.edgeStart !== null) {
+                this.addEdge(this.edgeStart, nodeIndex);
+                this.edgeStart = null;
+                this.render();
+                return;
+            }
+            
+            // Otherwise, select node and start dragging
             this.selectedNode = nodeIndex;
             this.draggingNode = nodeIndex;
             this.render();
         } else {
+            // Cancel edge drawing if clicking empty space
+            if (this.edgeStart !== null) {
+                this.edgeStart = null;
+                this.render();
+            }
+            
             // Deselect if clicking empty space
             this.selectedNode = null;
             this.render();
@@ -267,13 +281,57 @@ class InteractiveGraph {
         const graphInput = document.getElementById('graphInput');
         if (!graphInput) return;
         
-        // Convert edges to edge list format using node IDs
-        const edgeList = this.edges.map(edge => {
+        // Find vertices that have edges
+        const verticesWithEdges = new Set();
+        this.edges.forEach(edge => {
+            verticesWithEdges.add(edge.from);
+            verticesWithEdges.add(edge.to);
+        });
+        
+        // Build output with proper formatting
+        const lines = [];
+        
+        // First, collect isolated vertices (sorted)
+        const isolatedVertices = [];
+        this.nodes.forEach((node, index) => {
+            if (!verticesWithEdges.has(index)) {
+                isolatedVertices.push(node.id);
+            }
+        });
+        isolatedVertices.sort((a, b) => a - b);
+        
+        // Add isolated vertices to output
+        isolatedVertices.forEach(id => {
+            lines.push(`${id}`);
+        });
+        
+        // Collect and sort edges
+        const edgeList = [];
+        this.edges.forEach(edge => {
             const fromNode = this.nodes[edge.from];
             const toNode = this.nodes[edge.to];
-            return `${fromNode.id} ${toNode.id}`;
-        }).join('\n');
-        graphInput.value = edgeList;
+            const v1 = fromNode.id;
+            const v2 = toNode.id;
+            
+            // Store with smaller vertex first for consistent formatting
+            edgeList.push({
+                v1: Math.min(v1, v2),
+                v2: Math.max(v1, v2)
+            });
+        });
+        
+        // Sort edges: first by v1, then by v2
+        edgeList.sort((a, b) => {
+            if (a.v1 !== b.v1) return a.v1 - b.v1;
+            return a.v2 - b.v2;
+        });
+        
+        // Add edges to output
+        edgeList.forEach(edge => {
+            lines.push(`${edge.v1} ${edge.v2}`);
+        });
+        
+        graphInput.value = lines.join('\n');
     }
     
     updateTargetVertexInput() {
@@ -392,10 +450,18 @@ class InteractiveGraph {
         const nodeSet = new Set();
         const edgeList = [];
         
-        // Parse edges and collect nodes
+        // Parse edges and isolated vertices
         lines.forEach(line => {
             const parts = line.trim().split(/\s+/);
-            if (parts.length >= 2) {
+            
+            if (parts.length === 1) {
+                // Single number - isolated vertex
+                const vertex = parseInt(parts[0]);
+                if (!isNaN(vertex)) {
+                    nodeSet.add(vertex);
+                }
+            } else if (parts.length >= 2) {
+                // Two numbers - edge
                 const from = parseInt(parts[0]);
                 const to = parseInt(parts[1]);
                 

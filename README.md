@@ -94,11 +94,13 @@ Open your web browser and navigate to:
 ## Graph Input Format
 
 The graph should be entered as an edge list:
-- Each line represents one edge
-- Two integers per line, separated by a space
+- Each line represents one edge OR one isolated vertex
+- **Edges**: Two integers per line, separated by a space
+- **Isolated vertices**: Single integer per line (for vertices with degree 0)
 - Vertices are identified by non-negative integers
 - **Supports multigraphs**: Multiple edges between same vertices and self-loops
 - Self-loops are counted twice in degree calculation (as per graph theory)
+- **Conflict error**: A vertex cannot be declared as both isolated and have edges
 
 Example graphs:
 
@@ -116,6 +118,14 @@ Example graphs:
 0 3
 0 4
 ```
+
+**Graph with Isolated Vertex:**
+```
+0 1
+1 2
+3
+```
+In this example, vertex 3 has degree 0 (isolated)
 
 **Graph with Self-loops:**
 ```

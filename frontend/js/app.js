@@ -50,31 +50,91 @@ async function generateRandomGraph() {
         showError('Error generating graph: ' + error.message);
     } finally {
         generateBtn.disabled = false;
-        generateBtn.textContent = 'Generate Random Graph';
+        generateBtn.textContent = 'Random Graph';
     }
+}
+
+/**
+ * Format and clean the graph input
+ * Removes isolated vertices that have edges, sorts properly
+ */
+function formatGraphInput(graphStr) {
+    if (!graphStr || graphStr.trim() === '') return '';
+    
+    const lines = graphStr.trim().split('\n');
+    const isolatedVertices = new Set();
+    const edges = [];
+    
+    // Parse all lines
+    lines.forEach(line => {
+        const parts = line.trim().split(/\s+/);
+        if (parts.length === 1 && parts[0] !== '') {
+            const v = parseInt(parts[0]);
+            if (!isNaN(v)) {
+                isolatedVertices.add(v);
+            }
+        } else if (parts.length >= 2) {
+            const v1 = parseInt(parts[0]);
+            const v2 = parseInt(parts[1]);
+            if (!isNaN(v1) && !isNaN(v2)) {
+                edges.push({ v1, v2 });
+            }
+        }
+    });
+    
+    // Remove isolated vertices that actually have edges
+    edges.forEach(edge => {
+        isolatedVertices.delete(edge.v1);
+        isolatedVertices.delete(edge.v2);
+    });
+    
+    // Build formatted output
+    const output = [];
+    
+    // Add isolated vertices first (sorted)
+    const sortedIsolated = Array.from(isolatedVertices).sort((a, b) => a - b);
+    sortedIsolated.forEach(v => {
+        output.push(`${v}`);
+    });
+    
+    // Add edges (sorted, with smaller vertex first)
+    const formattedEdges = edges.map(edge => ({
+        v1: Math.min(edge.v1, edge.v2),
+        v2: Math.max(edge.v1, edge.v2)
+    }));
+    
+    formattedEdges.sort((a, b) => {
+        if (a.v1 !== b.v1) return a.v1 - b.v1;
+        return a.v2 - b.v2;
+    });
+    
+    formattedEdges.forEach(edge => {
+        output.push(`${edge.v1} ${edge.v2}`);
+    });
+    
+    return output.join('\n');
 }
 
 /**
  * Analyze the graph and display results
  */
 async function analyzeGraph() {
-    const graphInput = document.getElementById('graphInput').value.trim();
+    const graphInput = document.getElementById('graphInput');
     const vertexInput = document.getElementById('vertexInput').value.trim();
     const errorMessage = document.getElementById('errorMessage');
     const loading = document.getElementById('loading');
     const results = document.getElementById('results');
     const analyzeBtn = document.getElementById('analyzeBtn');
 
+    // Format and clean the graph input first
+    const formattedGraph = formatGraphInput(graphInput.value);
+    graphInput.value = formattedGraph;
+    
     // Reset UI
     hideError();
     hideResults();
 
-    // Validate input
-    if (!graphInput) {
-        showError('Please enter a graph (edge list)');
-        return;
-    }
-
+    // Validate input - vertex is required, but graph can be empty (for isolated vertices)
     if (vertexInput === '') {
         showError('Please enter a target vertex');
         return;
@@ -91,7 +151,7 @@ async function analyzeGraph() {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                graph: graphInput,
+                graph: formattedGraph,
                 vertex: parseInt(vertexInput)
             })
         });

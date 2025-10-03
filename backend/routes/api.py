@@ -84,8 +84,9 @@ def analyze_graph():
         # Parse the graph
         G = parse_edge_list(graph_str)
         
-        if len(G.nodes()) == 0:
-            return jsonify({"error": "Graph is empty"}), 400
+        # Check if target vertex exists in graph
+        if target_vertex not in G.nodes():
+            return jsonify({"error": f"Vertex {target_vertex} does not exist in the graph"}), 400
         
         # Get true degree
         true_degree = get_true_degree(G, target_vertex)
