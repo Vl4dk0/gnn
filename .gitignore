@@ -45,4 +45,5 @@ poetry.lock
 Thumbs.db
 
 # Environment
+# Environment
 .envrc
