@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GNN Vertex Degree Predictor</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!-- Left Column: Inputs -->
+    <div class="input-column">
+        <div class="input-section">
+            <label for="graphInput">Graph Input</label>
+            <textarea id="graphInput" placeholder="0 1
+0 2
+1 2
+1 3
+2 3"></textarea>
+        </div>
+        
+        <div class="input-section">
+            <label for="vertexInput">Target Vertex</label>
+            <input type="number" id="vertexInput" placeholder="0" min="0" step="1">
+        </div>
+        
+        <button id="generateBtn" onclick="generateRandomGraph()">Generate Random Graph</button>
+        
+        <button id="analyzeBtn" onclick="analyzeGraph()">Analyze</button>
+        
+        <div class="error-message" id="errorMessage"></div>
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Processing...</p>
+        </div>
+    </div>
+
+    <!-- Center Column: Graph Visualization -->
+    <div class="graph-column">
+        <div class="graph-container" id="graphContainer">
+            <img id="graphImage" src="" alt="Graph visualization will appear here">
+            <div class="placeholder" id="placeholder">
+                <p>Graph visualization will appear here</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Results -->
+    <div class="results-column">
+        <div class="result-box">
+            <h3>Expected Output</h3>
+            <div class="result-value" id="trueDegree">-</div>
+        </div>
+        
+        <div class="result-box">
+            <h3>GNN Output</h3>
+            <div class="result-value" id="predictedDegree">-</div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
