@@ -19,11 +19,6 @@
 4"></textarea>
         </div>
         
-        <div class="input-section">
-            <label for="vertexInput">Target Vertex</label>
-            <input type="number" id="vertexInput" placeholder="0" min="0" step="1">
-        </div>
-        
         <button id="generateBtn" onclick="generateRandomGraph()">Random Graph</button>
         
         <button id="clearBtn" onclick="clearCanvas()" style="background: #555555;">Clear Canvas</button>
@@ -37,33 +32,21 @@
         </div>
     </div>
 
-    <!-- Center Column: Graph Visualization -->
+    <!-- Center Column: Graph Visualization (Full Width) -->
     <div class="graph-column">
         <div class="graph-container" id="graphContainer">
             <canvas id="graphCanvas"></canvas>
-            <div class="canvas-help">
+            <button id="toggleControlsBtn" class="toggle-controls-btn" onclick="toggleControls()">Hide Controls</button>
+            <div class="canvas-help" id="canvasHelp">
                 <p><strong>Controls:</strong></p>
                 <p>• Double-click empty space: Create node</p>
                 <p>• Single-click node: Select node</p>
                 <p>• Drag node: Move it around</p>
-                <p>• Double-click node: Set as target</p>
+                <p>• Right-click + drag empty space: Pan canvas</p>
                 <p>• Right-click node: Start edge</p>
                 <p>• Click node: Complete edge (toggle)</p>
                 <p>• Backspace: Delete selected node</p>
             </div>
-        </div>
-    </div>
-
-    <!-- Right Column: Results -->
-    <div class="results-column">
-        <div class="result-box">
-            <h3>Expected Output</h3>
-            <div class="result-value" id="trueDegree">-</div>
-        </div>
-        
-        <div class="result-box">
-            <h3>GNN Output</h3>
-            <div class="result-value" id="predictedDegree">-</div>
         </div>
     </div>
 

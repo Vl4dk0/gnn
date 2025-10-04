@@ -11,7 +11,6 @@ function clearCanvas() {
     if (window.interactiveGraph) {
         window.interactiveGraph.clear();
     }
-    hideResults();
 }
 
 /**
@@ -20,7 +19,6 @@ function clearCanvas() {
 async function generateRandomGraph() {
     const generateBtn = document.getElementById('generateBtn');
     const graphInput = document.getElementById('graphInput');
-    const vertexInput = document.getElementById('vertexInput');
     
     // Disable button while generating
     generateBtn.disabled = true;
@@ -37,13 +35,12 @@ async function generateRandomGraph() {
             throw new Error(data.error || 'Failed to generate graph');
         }
 
-        // Populate the input fields
+        // Populate the input field
         graphInput.value = data.graph;
-        vertexInput.value = data.vertex;
         
         // Load into interactive graph
         if (window.interactiveGraph) {
-            window.interactiveGraph.loadFromEdgeList(data.graph, data.vertex);
+            window.interactiveGraph.loadFromEdgeList(data.graph, null);
         }
         
         // Automatically analyze the generated graph
@@ -123,10 +120,8 @@ function formatGraphInput(graphStr) {
  */
 async function analyzeGraph() {
     const graphInput = document.getElementById('graphInput');
-    const vertexInput = document.getElementById('vertexInput').value.trim();
     const errorMessage = document.getElementById('errorMessage');
     const loading = document.getElementById('loading');
-    const results = document.getElementById('results');
     const analyzeBtn = document.getElementById('analyzeBtn');
 
     // Format and clean the graph input first
@@ -135,11 +130,10 @@ async function analyzeGraph() {
     
     // Reset UI
     hideError();
-    hideResults();
 
-    // Validate input - vertex is required, but graph can be empty (for isolated vertices)
-    if (vertexInput === '') {
-        showError('Please enter a target vertex');
+    // Check if we already have predictions (graph hasn't changed)
+    if (window.interactiveGraph && window.interactiveGraph.nodePredictions.size > 0) {
+        // Already analyzed, no need to re-analyze
         return;
     }
 
@@ -148,25 +142,8 @@ async function analyzeGraph() {
     analyzeBtn.disabled = true;
 
     try {
-        const response = await fetch(`${API_BASE_URL}/analyze`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                graph: formattedGraph,
-                vertex: parseInt(vertexInput)
-            })
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            throw new Error(data.error || 'An error occurred');
-        }
-
-        // Display results
-        displayResults(data);
+        // Analyze all nodes to get predictions
+        await analyzeAllNodes(formattedGraph);
 
     } catch (error) {
         showError('Error: ' + error.message);
@@ -177,13 +154,48 @@ async function analyzeGraph() {
 }
 
 /**
- * Display the analysis results
+ * Analyze all nodes in the graph and update predictions
  */
-function displayResults(data) {
-    document.getElementById('trueDegree').textContent = data.true_degree;
-    document.getElementById('predictedDegree').textContent = data.predicted_degree;
+async function analyzeAllNodes(formattedGraph) {
+    if (!window.interactiveGraph || window.interactiveGraph.nodes.length === 0) {
+        return;
+    }
     
-    // No longer displaying image - graph is already visible on canvas
+    const predictions = [];
+    
+    // Get all node IDs from the interactive graph
+    const nodeIds = window.interactiveGraph.nodes.map(node => node.id);
+    
+    // Analyze each node
+    for (const nodeId of nodeIds) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/analyze`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    graph: formattedGraph,
+                    vertex: nodeId
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                predictions.push({
+                    nodeId: nodeId,
+                    predicted: data.predicted_degree,
+                    actual: data.true_degree
+                });
+            }
+        } catch (error) {
+            console.error(`Error analyzing node ${nodeId}:`, error);
+        }
+    }
+    
+    // Update the interactive graph with predictions
+    window.interactiveGraph.updatePredictions(predictions);
 }
 
 /**
@@ -221,51 +233,49 @@ function hideLoading() {
 }
 
 /**
- * Show results section
- */
-function showResults() {
-    // Results are always visible in new layout
-}
-
-/**
- * Hide results section
- */
-function hideResults() {
-    document.getElementById('trueDegree').textContent = '-';
-    document.getElementById('predictedDegree').textContent = '-';
-}
-
-/**
  * Initialize event listeners
  */
 function initializeEventListeners() {
-    // Allow Enter key in vertex input
-    document.getElementById('vertexInput').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            analyzeGraph();
-        }
-    });
-    
     // Sync graph input with canvas when manually edited
     document.getElementById('graphInput').addEventListener('input', function(e) {
-        const vertexInput = document.getElementById('vertexInput');
-        const targetVertex = vertexInput.value ? parseInt(vertexInput.value) : null;
-        
         if (window.interactiveGraph) {
-            window.interactiveGraph.loadFromEdgeList(e.target.value, targetVertex);
+            window.interactiveGraph.loadFromEdgeList(e.target.value, null);
         }
     });
+}
+
+/**
+ * Toggle the visibility of the controls help panel
+ */
+function toggleControls() {
+    const canvasHelp = document.getElementById('canvasHelp');
+    const toggleBtn = document.getElementById('toggleControlsBtn');
     
-    // Sync vertex input with canvas when manually edited
-    document.getElementById('vertexInput').addEventListener('input', function(e) {
-        const vertex = e.target.value ? parseInt(e.target.value) : null;
-        
-        if (window.interactiveGraph && vertex !== null) {
-            window.interactiveGraph.targetNode = vertex;
-            window.interactiveGraph.render();
-        }
-    });
+    if (canvasHelp.classList.contains('hidden')) {
+        canvasHelp.classList.remove('hidden');
+        toggleBtn.textContent = 'Hide Controls';
+        localStorage.setItem('controlsVisible', 'true');
+    } else {
+        canvasHelp.classList.add('hidden');
+        toggleBtn.textContent = 'Show Controls';
+        localStorage.setItem('controlsVisible', 'false');
+    }
+}
+
+/**
+ * Restore controls visibility from localStorage
+ */
+function restoreControlsState() {
+    const canvasHelp = document.getElementById('canvasHelp');
+    const toggleBtn = document.getElementById('toggleControlsBtn');
+    const controlsVisible = localStorage.getItem('controlsVisible');
+    
+    if (controlsVisible === 'false') {
+        canvasHelp.classList.add('hidden');
+        toggleBtn.textContent = 'Show Controls';
+    }
 }
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', initializeEventListeners);
+document.addEventListener('DOMContentLoaded', restoreControlsState);

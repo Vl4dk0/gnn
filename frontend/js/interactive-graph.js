@@ -18,16 +18,28 @@ class InteractiveGraph {
         this.targetNode = null;    // Target node for analysis (double click)
         this.draggingNode = null;
         this.edgeStart = null;     // For drawing edges with right-click
+        this.panningCanvas = false; // For panning the canvas
+        this.panStartX = 0;
+        this.panStartY = 0;
+        
+        // Canvas offset for panning
+        this.offsetX = 0;
+        this.offsetY = 0;
+        
+        // Prediction state - persists across interactions
+        this.nodePredictions = new Map(); // Map<nodeId, {predicted: number, actual: number, isWrong: boolean}>
         
         // Visual settings
         this.nodeRadius = 20;
         this.nodeColor = '#666666';
         this.selectedNodeColor = '#999999';
         this.targetNodeColor = '#666666';
-        this.targetNodeBorderColor = '#00ff00';
+        this.targetNodeBorderColor = '#1e90ff';  // Neon dark blue
+        this.targetNodeBorderWidth = 3;  // Border width
         this.edgeColor = '#555555';
         this.textColor = '#ffffff';
         this.backgroundColor = '#1a1a1a';
+        this.errorDotColor = '#ff0000';
         
         // Mouse state
         this.mouseX = 0;
@@ -65,10 +77,12 @@ class InteractiveGraph {
         this.canvas.addEventListener('mouseup', (e) => {
             if (e.button === 0) {
                 this.handleLeftRelease(e);
+            } else if (e.button === 2) {
+                this.handleRightRelease(e);
             }
         });
         
-        // Right click - start edge drawing
+        // Right click - start edge drawing or pan canvas
         this.canvas.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             this.handleRightClick(e);
@@ -89,12 +103,31 @@ class InteractiveGraph {
     getMousePos(e) {
         const rect = this.canvas.getBoundingClientRect();
         return {
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top
+            x: e.clientX - rect.left - this.offsetX,
+            y: e.clientY - rect.top - this.offsetY
         };
     }
     
     handleMouseMove(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const rawX = e.clientX - rect.left;
+        const rawY = e.clientY - rect.top;
+        
+        // Handle canvas panning
+        if (this.panningCanvas) {
+            const dx = rawX - this.panStartX;
+            const dy = rawY - this.panStartY;
+            
+            this.offsetX += dx;
+            this.offsetY += dy;
+            
+            this.panStartX = rawX;
+            this.panStartY = rawY;
+            
+            this.render();
+            return;
+        }
+        
         const pos = this.getMousePos(e);
         this.mouseX = pos.x;
         this.mouseY = pos.y;
@@ -162,26 +195,29 @@ class InteractiveGraph {
             }
             this.render();
         } else {
-            // Cancel edge drawing if clicking empty space
+            // Start panning canvas on empty space
+            const rect = this.canvas.getBoundingClientRect();
+            this.panningCanvas = true;
+            this.panStartX = e.clientX - rect.left;
+            this.panStartY = e.clientY - rect.top;
             this.edgeStart = null;
-            this.render();
         }
+    }
+    
+    handleRightRelease(e) {
+        this.panningCanvas = false;
     }
     
     handleDoubleClick(e) {
         const pos = this.getMousePos(e);
         const nodeIndex = this.findNodeAt(pos.x, pos.y);
         
-        if (nodeIndex !== -1) {
-            // Set as target node
-            this.targetNode = nodeIndex;
-            this.updateTargetVertexInput();
-            this.render();
-            this.triggerAnalyze();
-        } else {
-            // Create new node
+        if (nodeIndex === -1) {
+            // Add node on double-click empty space
             this.addNode(pos.x, pos.y);
+            this.render();
         }
+        // Double-clicking a node does nothing now
     }
     
     findNodeAt(x, y) {
@@ -199,6 +235,9 @@ class InteractiveGraph {
     }
     
     addNode(x, y) {
+        // Clear predictions since graph structure changed
+        this.nodePredictions.clear();
+        
         // Find the smallest available ID
         const usedIds = new Set(this.nodes.map(node => node.id));
         let newId = 0;
@@ -223,6 +262,9 @@ class InteractiveGraph {
     
     deleteNode(nodeIndex) {
         if (nodeIndex < 0 || nodeIndex >= this.nodes.length) return;
+        
+        // Clear predictions since graph structure changed
+        this.nodePredictions.clear();
         
         // Remove all edges connected to this node
         this.edges = this.edges.filter(edge => 
@@ -252,12 +294,14 @@ class InteractiveGraph {
         }
         
         this.updateGraphInput();
-        this.updateTargetVertexInput();
         this.render();
         this.triggerAnalyze();
     }
     
     addEdge(fromIndex, toIndex) {
+        // Clear predictions since graph structure changed
+        this.nodePredictions.clear();
+        
         // Check if edge already exists
         const edgeIndex = this.edges.findIndex(edge => 
             (edge.from === fromIndex && edge.to === toIndex) ||
@@ -334,21 +378,14 @@ class InteractiveGraph {
         graphInput.value = lines.join('\n');
     }
     
-    updateTargetVertexInput() {
-        const vertexInput = document.getElementById('vertexInput');
-        if (!vertexInput) return;
-        
-        if (this.targetNode !== null && this.nodes[this.targetNode]) {
-            vertexInput.value = this.nodes[this.targetNode].id;
-        } else {
-            vertexInput.value = '';
-        }
-    }
-    
     render() {
         // Clear canvas
         this.ctx.fillStyle = this.backgroundColor;
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Save context and apply offset for panning
+        this.ctx.save();
+        this.ctx.translate(this.offsetX, this.offsetY);
         
         // Draw edges
         this.ctx.strokeStyle = this.edgeColor;
@@ -388,14 +425,9 @@ class InteractiveGraph {
         this.nodes.forEach((node, index) => {
             // Determine node color
             let fillColor = this.nodeColor;
-            let hasBorder = false;
             
             if (index === this.selectedNode) {
                 fillColor = this.selectedNodeColor;
-            }
-            
-            if (index === this.targetNode) {
-                hasBorder = true;
             }
             
             // Draw node circle
@@ -404,22 +436,46 @@ class InteractiveGraph {
             this.ctx.arc(node.x, node.y, this.nodeRadius, 0, Math.PI * 2);
             this.ctx.fill();
             
-            // Draw border for target node
-            if (hasBorder) {
-                this.ctx.strokeStyle = this.targetNodeBorderColor;
-                this.ctx.lineWidth = 3;
-                this.ctx.beginPath();
-                this.ctx.arc(node.x, node.y, this.nodeRadius, 0, Math.PI * 2);
-                this.ctx.stroke();
-            }
-            
             // Draw node ID
             this.ctx.fillStyle = this.textColor;
             this.ctx.font = 'bold 14px Arial';
             this.ctx.textAlign = 'center';
             this.ctx.textBaseline = 'middle';
             this.ctx.fillText(node.id.toString(), node.x, node.y);
+            
+            // Draw prediction info if prediction was wrong
+            const predictionInfo = this.nodePredictions.get(node.id);
+            if (predictionInfo && predictionInfo.isWrong) {
+                const offsetX = node.x + this.nodeRadius * 0.8;
+                const offsetY = node.y + this.nodeRadius * 0.8;
+                
+                // Set font for prediction display
+                this.ctx.font = 'bold 14px Arial';
+                this.ctx.textAlign = 'left';
+                this.ctx.textBaseline = 'middle';
+                
+                // Draw correct value in green
+                this.ctx.fillStyle = '#00ff00';
+                const correctText = predictionInfo.actual.toString();
+                this.ctx.fillText(correctText, offsetX, offsetY);
+                
+                // Measure width to position slash and predicted value
+                const correctWidth = this.ctx.measureText(correctText).width;
+                
+                // Draw slash in white
+                this.ctx.fillStyle = this.textColor;
+                const slashX = offsetX + correctWidth;
+                this.ctx.fillText('/', slashX, offsetY);
+                const slashWidth = this.ctx.measureText('/').width;
+                
+                // Draw predicted value in red
+                this.ctx.fillStyle = this.errorDotColor;
+                this.ctx.fillText(predictionInfo.predicted.toString(), slashX + slashWidth, offsetY);
+            }
         });
+        
+        // Restore context after applying offset
+        this.ctx.restore();
     }
     
     drawSelfLoop(node) {
@@ -439,9 +495,9 @@ class InteractiveGraph {
         this.nextNodeId = 0;
         this.selectedNode = null;
         this.targetNode = null;
+        this.nodePredictions.clear();
         
         if (!edgeListText || edgeListText.trim() === '') {
-            this.updateTargetVertexInput();
             this.render();
             return;
         }
@@ -516,7 +572,6 @@ class InteractiveGraph {
             }
         }
         
-        this.updateTargetVertexInput();
         this.render();
     }
     
@@ -527,14 +582,29 @@ class InteractiveGraph {
         this.selectedNode = null;
         this.targetNode = null;
         this.edgeStart = null;
+        this.nodePredictions.clear();
         this.updateGraphInput();
-        this.updateTargetVertexInput();
+        this.render();
+    }
+    
+    updatePredictions(predictions) {
+        // predictions should be an array of {nodeId, predicted, actual}
+        this.nodePredictions.clear();
+        
+        predictions.forEach(pred => {
+            this.nodePredictions.set(pred.nodeId, {
+                predicted: pred.predicted,
+                actual: pred.actual,
+                isWrong: pred.predicted !== pred.actual
+            });
+        });
+        
         this.render();
     }
     
     triggerAnalyze() {
-        // Only trigger analyze if there's a target node set
-        if (this.targetNode !== null && this.nodes.length > 0) {
+        // Trigger analyze only if predictions haven't been calculated yet
+        if (this.nodes.length > 0 && this.nodePredictions.size === 0) {
             // Use setTimeout to avoid blocking the UI
             setTimeout(() => {
                 if (window.analyzeGraph) {
