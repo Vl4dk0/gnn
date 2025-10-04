@@ -21,8 +21,6 @@
         
         <button id="generateBtn" onclick="generateRandomGraph()">Random Graph</button>
         
-        <button id="clearBtn" onclick="clearCanvas()" style="background: #555555;">Clear Canvas</button>
-        
         <button id="analyzeBtn" onclick="analyzeGraph()">Analyze</button>
         
         <div class="error-message" id="errorMessage"></div>
@@ -36,7 +34,8 @@
     <div class="graph-column">
         <div class="graph-container" id="graphContainer">
             <canvas id="graphCanvas"></canvas>
-            <button id="toggleControlsBtn" class="toggle-controls-btn" onclick="toggleControls()">Hide Controls</button>
+            <button id="clearBtn" class="canvas-action-btn" onclick="clearCanvas()">Clear Canvas</button>
+            <button id="toggleControlsBtn" class="canvas-action-btn" onclick="toggleControls()">Hide Controls</button>
             <div class="canvas-help" id="canvasHelp">
                 <p><strong>Controls:</strong></p>
                 <p>• Double-click empty space: Create node</p>

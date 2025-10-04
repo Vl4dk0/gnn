@@ -157,7 +157,7 @@ button:disabled {
 /* Center Column - Graph */
 .graph-column {
     background: #0f0f0f;
-    padding: 40px;
+    padding: 15px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -206,10 +206,9 @@ button:disabled {
     padding: 2px 0;
 }
 
-.toggle-controls-btn {
+.canvas-action-btn {
     position: absolute;
     top: 20px;
-    right: 20px;
     background: rgba(102, 102, 102, 0.9);
     color: #ffffff;
     border: 1px solid #555555;
@@ -224,9 +223,18 @@ button:disabled {
     letter-spacing: 0.5px;
     z-index: 10;
     pointer-events: auto;
+    white-space: nowrap;
 }
 
-.toggle-controls-btn:hover {
+#clearBtn {
+    right: 180px;
+}
+
+#toggleControlsBtn {
+    right: 20px;
+}
+
+.canvas-action-btn:hover {
     background: rgba(119, 119, 119, 0.9);
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
