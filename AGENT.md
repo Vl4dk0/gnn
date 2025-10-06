@@ -108,29 +108,12 @@ Open your web browser and navigate to:
 
 **http://localhost:5555/**
 
-## How to Use
-
-### Interactive Canvas Editor
-
-1. **Draw a Graph**:
-   - Click on the canvas to add vertices
-   - Click and drag from one vertex to another to create edges
-   - Right-click on vertices or edges to delete them
-
-2. **Select a Vertex**: Enter the vertex number you want to analyze
-
-3. **Click "Analyze"**: See the true degree and GNN prediction
-
-### Alternative: Use Random Graph Generator
-
-- Click **"Generate Random Graph"** to automatically create a random graph (7-12 nodes) and analyze it
-
 ## Graph Input Format
 
 If manually entering a graph as text, use this format:
 - **Edges**: Two integers per line, separated by a space
 - **Isolated vertices** (degree 0): Single integer per line
-- Supports self-loops and multiple edges between same vertices
+- Supports self-loops
 
 **Example - Simple Graph:**
 ```
@@ -145,7 +128,7 @@ If manually entering a graph as text, use this format:
 1 2
 3
 ```
-In this example, vertex 3 has degree 0 (isolated).
+In this example, vertex 3 has no edges.
 
 ## API Endpoints
 
