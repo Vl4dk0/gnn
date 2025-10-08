@@ -23,12 +23,43 @@ body {
     display: flex;
     flex-direction: column;
     gap: 25px;
+    overflow-y: auto;
 }
 
 .input-section {
     display: flex;
     flex-direction: column;
     gap: 10px;
+}
+
+/* Controls Section */
+.controls-section {
+    margin-top: 20px;
+    padding: 20px;
+    background: #1a1a1a;
+    border-radius: 8px;
+    border: 1px solid #555555;
+}
+
+.controls-section h3 {
+    color: #ffffff;
+    font-size: 0.95em;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0 0 15px 0;
+    font-weight: 600;
+}
+
+.control-item {
+    color: #cccccc;
+    font-size: 0.85em;
+    line-height: 1.8;
+    padding: 4px 0;
+}
+
+.control-item strong {
+    color: #ffffff;
+    font-weight: 600;
 }
 
 label {
@@ -180,70 +211,6 @@ button:disabled {
     cursor: crosshair;
 }
 
-.canvas-help {
-    position: absolute;
-    top: 20px;
-    left: 20px;
-    background: rgba(42, 42, 42, 0.9);
-    padding: 15px 20px;
-    border-radius: 8px;
-    border: 1px solid #555555;
-    color: #cccccc;
-    font-size: 0.85em;
-    line-height: 1.6;
-    pointer-events: none;
-    transition: opacity 0.3s ease, transform 0.3s ease;
-}
-
-.canvas-help.hidden {
-    opacity: 0;
-    transform: translateX(-20px);
-    pointer-events: none;
-}
-
-.canvas-help p {
-    margin: 0;
-    padding: 2px 0;
-}
-
-.canvas-action-btn {
-    position: absolute;
-    top: 20px;
-    background: rgba(102, 102, 102, 0.9);
-    color: #ffffff;
-    border: 1px solid #555555;
-    padding: 8px 16px;
-    font-size: 12px;
-    font-weight: 600;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    width: auto;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    z-index: 10;
-    pointer-events: auto;
-    white-space: nowrap;
-}
-
-#clearBtn {
-    right: 180px;
-}
-
-#toggleControlsBtn {
-    right: 20px;
-}
-
-.canvas-action-btn:hover {
-    background: rgba(119, 119, 119, 0.9);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-}
-
-.canvas-help strong {
-    color: #ffffff;
-}
-
 .placeholder {
     color: #555555;
     font-size: 1.2em;
@@ -362,6 +329,48 @@ button:disabled {
 
 .settings-btn:hover .gear-icon {
     fill: #cccccc;
+}
+
+/* Trash Button */
+.trash-btn {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    z-index: 10;
+    padding: 0;
+    outline: none;
+}
+
+.trash-btn:hover {
+    transform: scale(1.15);
+    background: transparent;
+}
+
+.trash-btn:active {
+    transform: scale(1);
+    background: transparent;
+}
+
+.trash-btn:focus {
+    outline: none;
+    background: transparent;
+}
+
+.trash-icon {
+    width: 40px;
+    height: 40px;
+    display: block;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+    transition: all 0.3s ease;
 }
 
 /* Modal Overlay */

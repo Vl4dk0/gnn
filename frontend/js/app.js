@@ -255,38 +255,6 @@ function initializeEventListeners() {
 }
 
 /**
- * Toggle the visibility of the controls help panel
- */
-function toggleControls() {
-  const canvasHelp = document.getElementById("canvasHelp");
-  const toggleBtn = document.getElementById("toggleControlsBtn");
-
-  if (canvasHelp.classList.contains("hidden")) {
-    canvasHelp.classList.remove("hidden");
-    toggleBtn.textContent = "Hide Controls";
-    localStorage.setItem("controlsVisible", "true");
-  } else {
-    canvasHelp.classList.add("hidden");
-    toggleBtn.textContent = "Show Controls";
-    localStorage.setItem("controlsVisible", "false");
-  }
-}
-
-/**
- * Restore controls visibility from localStorage
- */
-function restoreControlsState() {
-  const canvasHelp = document.getElementById("canvasHelp");
-  const toggleBtn = document.getElementById("toggleControlsBtn");
-  const controlsVisible = localStorage.getItem("controlsVisible");
-
-  if (controlsVisible === "false") {
-    canvasHelp.classList.add("hidden");
-    toggleBtn.textContent = "Show Controls";
-  }
-}
-
-/**
  * Settings Management
  */
 const DEFAULT_SETTINGS = {
@@ -412,5 +380,4 @@ function initializeSettings() {
 
 // Initialize when DOM is loaded
 document.addEventListener("DOMContentLoaded", initializeEventListeners);
-document.addEventListener("DOMContentLoaded", restoreControlsState);
 document.addEventListener("DOMContentLoaded", initializeSettings);
