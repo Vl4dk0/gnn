@@ -138,8 +138,8 @@ def evaluate_model(model, num_test_graphs=100):
 
     Returns:
         Dictionary with evaluation metrics:
-        - mse: Mean Squared Error
-        - mae: Mean Absolute Error
+        - mean_squared_error: Mean Squared Error
+        - mean_absolute_error: Mean Absolute Error
         - accuracy: Percentage of exact predictions (rounded)
     """
     model.eval()
@@ -156,7 +156,7 @@ def evaluate_model(model, num_test_graphs=100):
             # Round predictions (same as what frontend sees)
             predictions_rounded = torch.round(out)
 
-            # MSE and MAE on ROUNDED predictions (same as frontend)
+            # Mean Squared Error and Mean Absolute Error on ROUNDED predictions (same as frontend)
             loss = F.mse_loss(predictions_rounded, data.y)
             mae = F.l1_loss(predictions_rounded, data.y)
 
@@ -169,9 +169,9 @@ def evaluate_model(model, num_test_graphs=100):
             total_predictions += data.y.numel()
 
     metrics = {
-        'mse':
+        'mean_squared_error':
         total_loss / num_test_graphs,
-        'mae':
+        'mean_absolute_error':
         total_mae / num_test_graphs,
         'accuracy': (total_correct / total_predictions) *
         100 if total_predictions > 0 else 0
@@ -201,8 +201,8 @@ def save_model_info(metrics,
         'hidden_dim': hidden_dim,
         'learning_rate': lr,
         'metrics': {
-            'mse': round(metrics['mse'], 4),
-            'mae': round(metrics['mae'], 4),
+            'mean_squared_error': round(metrics['mean_squared_error'], 4),
+            'mean_absolute_error': round(metrics['mean_absolute_error'], 4),
             'accuracy': round(metrics['accuracy'], 2)
         },
         'model_path': 'backend/models/trained_gnn.pt'
@@ -284,10 +284,10 @@ def train_gnn(num_epochs=None,
     previous_info = load_model_info()
     if previous_info:
         best_accuracy = previous_info['metrics']['accuracy']
-        best_mae = previous_info['metrics']['mae']
+        best_mae = previous_info['metrics']['mean_absolute_error']
         print(f"Found existing model:")
         print(f"  - Best Accuracy: {best_accuracy:.2f}%")
-        print(f"  - Best MAE: {best_mae:.4f}")
+        print(f"  - Best Mean Absolute Error: {best_mae:.4f}")
         print(f"  - From Epoch: {previous_info['epoch']}")
         print("=" * 60)
     else:
@@ -315,38 +315,38 @@ def train_gnn(num_epochs=None,
             # Print progress
             if epoch % print_every == 0 or epoch == 1:
                 print(f"Epoch {epoch:4d} | Train Loss: {epoch_loss:.4f} | "
-                      f"Test MSE: {metrics['mse']:.4f} | "
-                      f"Test MAE: {metrics['mae']:.4f} | "
+                      f"Test Mean Squared Error: {metrics['mean_squared_error']:.4f} | "
+                      f"Test Mean Absolute Error: {metrics['mean_absolute_error']:.4f} | "
                       f"Accuracy: {metrics['accuracy']:.2f}%")
 
             # Save model only if it's better
             # Primary metric: accuracy, secondary: MAE (lower is better)
             is_better = (metrics['accuracy'] > best_accuracy) or \
-                       (metrics['accuracy'] == best_accuracy and metrics['mae'] < best_mae)
+                       (metrics['accuracy'] == best_accuracy and metrics['mean_absolute_error'] < best_mae)
 
             if is_better:
                 best_accuracy = metrics['accuracy']
-                best_mae = metrics['mae']
+                best_mae = metrics['mean_absolute_error']
 
                 # Save model and info
                 save_model(model)
                 save_model_info(metrics, epoch, hidden_dim, lr)
 
                 print(
-                    f"  ✓ New best model! Accuracy: {best_accuracy:.2f}%, MAE: {best_mae:.4f}"
+                    f"  ✓ New best model! Accuracy: {best_accuracy:.2f}%, Mean Absolute Error: {best_mae:.4f}"
                 )
 
     # Final evaluation
     print("=" * 60)
     print("Training complete! Final evaluation on 200 test graphs:")
     final_metrics = evaluate_model(model, num_test_graphs=200)
-    print(f"  Test MSE: {final_metrics['mse']:.4f}")
-    print(f"  Test MAE: {final_metrics['mae']:.4f}")
+    print(f"  Test Mean Squared Error: {final_metrics['mean_squared_error']:.4f}")
+    print(f"  Test Mean Absolute Error: {final_metrics['mean_absolute_error']:.4f}")
     print(f"  Accuracy: {final_metrics['accuracy']:.2f}%")
     print("=" * 60)
     print(f"Best model achieved:")
     print(f"  Accuracy: {best_accuracy:.2f}%")
-    print(f"  MAE: {best_mae:.4f}")
+    print(f"  Mean Absolute Error: {best_mae:.4f}")
     print("=" * 60)
 
     return model

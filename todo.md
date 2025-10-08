@@ -7,5 +7,5 @@
 - [ ] Clear canvas should be changed to an icon button with tooltip (delete graph), made into a trash can icon and be in the bottom right corner of the canvas
 - [ ] Controls should be moved from canvas to the section on the left, with the input box and buttons. Controls should be listed at the bottom of that section. Show/Hide controls button should be removed.
 - [x] Middle click on vertex should remove it.
-- [ ] Do not write mse and mae, write the mean_squared_error and mean_absolute_error instead
+- [x] Do not write mse and mae, write the mean_squared_error and mean_absolute_error instead
 

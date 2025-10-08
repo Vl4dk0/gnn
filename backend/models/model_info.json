@@ -4,8 +4,8 @@
   "hidden_dim": 64,
   "learning_rate": 0.005,
   "metrics": {
-    "mse": 2.2552,
-    "mae": 1.0323,
+    "mean_squared_error": 2.2552,
+    "mean_absolute_error": 1.0323,
     "accuracy": 35.04
   },
   "model_path": "backend/models/trained_gnn.pt"
