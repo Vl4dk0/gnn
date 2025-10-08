@@ -10,6 +10,8 @@ from flask import request
 from backend.services.graph_service import get_true_degree
 from backend.services.graph_service import predict_all_nodes
 from backend.services.graph_service import predict_degree_with_gnn
+from backend.utils.graph_generation import generate_random_graph
+from backend.utils.graph_generation import graph_to_edge_list
 from backend.utils.graph_parser import parse_edge_list
 
 api_bp = Blueprint('api', __name__)
@@ -41,7 +43,7 @@ def get_config():
 
 
 @api_bp.route('/generate', methods=['GET'])
-def generate_random_graph():
+def generate_random_graph_endpoint():
     """
     Generate a random graph with 7-12 nodes.
 
@@ -51,29 +53,10 @@ def generate_random_graph():
     }
     """
     try:
-        num_nodes = random.randint(7, 12)
-
-        # Generate a random graph (no multiple edges, self-loops allowed)
-        p = random.uniform(0.2, 0.4)
-        G = nx.erdos_renyi_graph(num_nodes, p)
-
-        # small chance for self-loop
-        for i in range(num_nodes):
-            if random.random() < 1 / 10:
-                G.add_edge(i, i)
-
-        # Convert graph to edge list string
-        edge_list = []
-        for u, v in G.edges():
-            edge_list.append(f"{u} {v}")
-
-        # Add isolated vertices (degree 0)
-        for node in G.nodes():
-            if G.degree(node) == 0:
-                edge_list.append(str(node))
-
-        graph_str = "\n".join(edge_list)
-
+        # Use centralized graph generation
+        G = generate_random_graph()
+        graph_str = graph_to_edge_list(G)
+        
         return jsonify({"graph": graph_str})
 
     except Exception as e:

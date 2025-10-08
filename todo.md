@@ -3,7 +3,7 @@
 - [x] There is no more need to return random vertex for graph generation.
 - [x] Analyze doesnt have to send the picture anymore, as we dont render it anymore. It should adjust to what we do now, meaning return the correct/guessed for all of the nodes.
 - [x] disable ability to have multiple edges, self-loops are still allowed.
-- [ ] It would be better if the graph generation was done by the same thing for the train_gnn.py and for the web app. add to backend.utils.graph_generation and import function from there in both places
+- [x] It would be better if the graph generation was done by the same thing for the train_gnn.py and for the web app. add to backend.utils.graph_generation and import function from there in both places
 - [ ] Clear canvas should be changed to an icon button with tooltip (delete graph), made into a trash can icon and be in the bottom right corner of the canvas
 - [ ] Controls should be moved from canvas to the section on the left, with the input box and buttons. Controls should be listed at the bottom of that section. Show/Hide controls button should be removed.
 - [x] Middle click on vertex should remove it.

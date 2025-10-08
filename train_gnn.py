@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from torch_geometric.data import Data
 
 from backend.models.degree_gnn import DegreeGNN
+from backend.utils.graph_generation import generate_random_graph
 
 
 load_dotenv()
@@ -18,7 +19,7 @@ load_dotenv()
 
 def generate_random_graph_data(num_nodes_range=None, p_range=None):
     """
-    Generate a random graph for training.
+    Generate a random graph for training using centralized graph generation.
 
     Args:
         num_nodes_range: Range of number of nodes (min, max) - defaults from env vars
@@ -27,39 +28,11 @@ def generate_random_graph_data(num_nodes_range=None, p_range=None):
     Returns:
         PyTorch Geometric Data object
     """
-    # Get defaults from environment variables
-    if num_nodes_range is None:
-        num_nodes_min = int(os.getenv('GRAPH_NUM_NODES_MIN', 5))
-        num_nodes_max = int(os.getenv('GRAPH_NUM_NODES_MAX', 12))
-        num_nodes_range = (num_nodes_min, num_nodes_max)
+    # Generate graph using centralized utility
+    G = generate_random_graph(num_nodes_range=num_nodes_range, p_range=p_range)
     
-    if p_range is None:
-        edge_prob_min = float(os.getenv('GRAPH_EDGE_PROB_MIN', 0.15))
-        edge_prob_max = float(os.getenv('GRAPH_EDGE_PROB_MAX', 0.6))
-        p_range = (edge_prob_min, edge_prob_max)
+    num_nodes = len(G.nodes())
     
-    # Random graph parameters
-    num_nodes = random.randint(*num_nodes_range)
-    p = random.uniform(*p_range)
-
-    # Generate random graph (allow self-loops and multiple edges)
-    G = nx.erdos_renyi_graph(num_nodes, p)
-
-    # Add some random self-loops
-    for _ in range(random.randint(0, num_nodes // 3)):
-        node = random.randint(0, num_nodes - 1)
-        G.add_edge(node, node)
-
-    # Convert to MultiGraph to allow multiple edges
-    G = nx.MultiGraph(G)
-
-    # Add some random multiple edges
-    edges = list(G.edges())
-    if edges:
-        for _ in range(random.randint(0, len(edges) // 4)):
-            u, v = random.choice(edges)
-            G.add_edge(u, v)
-
     # Get node degrees (true labels)
     degrees = torch.tensor([G.degree(i) for i in range(num_nodes)],
                            dtype=torch.float)
