@@ -1,4 +1,5 @@
 """API routes for the application."""
+import os
 import random
 
 import networkx as nx
@@ -7,11 +8,36 @@ from flask import jsonify
 from flask import request
 
 from backend.services.graph_service import get_true_degree
+from backend.services.graph_service import predict_all_nodes
 from backend.services.graph_service import predict_degree_with_gnn
-from backend.services.visualization_service import create_graph_visualization
 from backend.utils.graph_parser import parse_edge_list
 
 api_bp = Blueprint('api', __name__)
+
+
+@api_bp.route('/config', methods=['GET'])
+def get_config():
+    """
+    Get frontend configuration from environment variables.
+    
+    Returns:
+    {
+        "apiBaseUrl": "http://localhost:5555"
+    }
+    """
+    port = os.getenv('PORT', '5555')
+    host = os.getenv('HOST', '0.0.0.0')
+    
+    # Construct API base URL
+    # For localhost/0.0.0.0, use localhost in the URL
+    if host in ['0.0.0.0', '127.0.0.1', 'localhost']:
+        api_base_url = f"http://localhost:{port}"
+    else:
+        api_base_url = f"http://{host}:{port}"
+    
+    return jsonify({
+        "apiBaseUrl": api_base_url
+    })
 
 
 @api_bp.route('/generate', methods=['GET'])
@@ -21,18 +47,15 @@ def generate_random_graph():
 
     Returns:
     {
-        "graph": "3\n0 1\n0 2\n...",  // edge list as string
-        "vertex": 3                // randomly selected vertex
+        "graph": "3\n0 1\n0 2\n..."  // edge list as string
     }
     """
     try:
         num_nodes = random.randint(7, 12)
 
-        # Generate a random graph
+        # Generate a random graph (no multiple edges, self-loops allowed)
         p = random.uniform(0.2, 0.4)
         G = nx.erdos_renyi_graph(num_nodes, p)
-
-        G = nx.MultiGraph(G)
 
         # small chance for self-loop
         for i in range(num_nodes):
@@ -51,10 +74,7 @@ def generate_random_graph():
 
         graph_str = "\n".join(edge_list)
 
-        # Select a random vertex
-        random_vertex = random.randint(0, num_nodes - 1)
-
-        return jsonify({"graph": graph_str, "vertex": random_vertex})
+        return jsonify({"graph": graph_str})
 
     except Exception as e:
         return jsonify({"error":
@@ -64,19 +84,28 @@ def generate_random_graph():
 @api_bp.route('/analyze', methods=['POST'])
 def analyze_graph():
     """
-    Endpoint to analyze a graph and predict vertex degree.
+    Endpoint to analyze a graph and predict vertex degrees for all nodes.
 
     Expected JSON payload:
     {
-        "graph": "0 1\n0 2\n1 2",  // edge list as string
-        "vertex": 0                 // target vertex
+        "graph": "0 1\n0 2\n1 2"  // edge list as string
     }
 
     Returns:
     {
-        "true_degree": 2,
-        "predicted_degree": 2.0,
-        "graph_image": "base64_encoded_image"
+        "predictions": [
+            {
+                "node_id": 0,
+                "true_degree": 2,
+                "predicted_degree": 2.0
+            },
+            {
+                "node_id": 1,
+                "true_degree": 2,
+                "predicted_degree": 2.0
+            },
+            ...
+        ]
     }
     """
     try:
@@ -86,38 +115,17 @@ def analyze_graph():
             return jsonify({"error": "No data provided"}), 400
 
         graph_str = data.get('graph')
-        target_vertex = data.get('vertex')
 
         if graph_str is None:
             return jsonify({"error": "Graph data is required"}), 400
 
-        if target_vertex is None:
-            return jsonify({"error": "Target vertex is required"}), 400
-
         # Parse the graph
         G = parse_edge_list(graph_str)
 
-        # Check if target vertex exists in graph
-        if target_vertex not in G.nodes():
-            return jsonify({
-                "error":
-                f"Vertex {target_vertex} does not exist in the graph"
-            }), 400
+        # Get predictions for all nodes
+        predictions = predict_all_nodes(G)
 
-        # Get true degree
-        true_degree = get_true_degree(G, target_vertex)
-
-        # Get predicted degree (placeholder for now)
-        predicted_degree = predict_degree_with_gnn(G, target_vertex)
-
-        # Create visualization
-        # graph_image = create_graph_visualization(G, target_vertex)
-
-        return jsonify({
-            "true_degree": true_degree,
-            "predicted_degree": predicted_degree,
-            "graph_image": None
-        })
+        return jsonify({"predictions": predictions})
 
     except ValueError as e:
         return jsonify({"error": str(e)}), 400

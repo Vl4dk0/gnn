@@ -2,8 +2,6 @@
  * Main application logic for GNN Vertex Degree Predictor
  */
 
-const API_BASE_URL = "http://localhost:5555";
-
 /**
  * Clear the canvas
  */
@@ -107,7 +105,19 @@ function formatGraphInput(graphStr) {
     return a.v2 - b.v2;
   });
 
+  // Remove duplicate edges (keep only unique edges)
+  const uniqueEdges = [];
+  const edgeSet = new Set();
+  
   formattedEdges.forEach((edge) => {
+    const edgeKey = `${edge.v1},${edge.v2}`;
+    if (!edgeSet.has(edgeKey)) {
+      edgeSet.add(edgeKey);
+      uniqueEdges.push(edge);
+    }
+  });
+
+  uniqueEdges.forEach((edge) => {
     output.push(`${edge.v1} ${edge.v2}`);
   });
 
@@ -162,41 +172,33 @@ async function analyzeAllNodes(formattedGraph) {
     return;
   }
 
-  const predictions = [];
+  try {
+    const response = await fetch(`${API_BASE_URL}/analyze`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        graph: formattedGraph,
+      }),
+    });
 
-  // Get all node IDs from the interactive graph
-  const nodeIds = window.interactiveGraph.nodes.map((node) => node.id);
+    const data = await response.json();
 
-  // Analyze each node
-  for (const nodeId of nodeIds) {
-    try {
-      const response = await fetch(`${API_BASE_URL}/analyze`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          graph: formattedGraph,
-          vertex: nodeId,
-        }),
-      });
+    if (response.ok && data.predictions) {
+      // Transform the predictions to match the expected format
+      const predictions = data.predictions.map((pred) => ({
+        nodeId: pred.node_id,
+        predicted: pred.predicted_degree,
+        actual: pred.true_degree,
+      }));
 
-      const data = await response.json();
-
-      if (response.ok) {
-        predictions.push({
-          nodeId: nodeId,
-          predicted: data.predicted_degree,
-          actual: data.true_degree,
-        });
-      }
-    } catch (error) {
-      console.error(`Error analyzing node ${nodeId}:`, error);
+      // Update the interactive graph with predictions
+      window.interactiveGraph.updatePredictions(predictions);
     }
+  } catch (error) {
+    console.error("Error analyzing graph:", error);
   }
-
-  // Update the interactive graph with predictions
-  window.interactiveGraph.updatePredictions(predictions);
 }
 
 /**

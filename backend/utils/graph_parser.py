@@ -2,21 +2,21 @@
 import networkx as nx
 
 
-def parse_edge_list(edge_list_str: str) -> nx.MultiGraph:
+def parse_edge_list(edge_list_str: str) -> nx.Graph:
     """
-    Parse edge list string into a NetworkX multigraph.
+    Parse edge list string into a NetworkX graph.
 
     Args:
         edge_list_str: String containing edges, one per line (e.g., "0 1\n0 2")
                       Single numbers represent isolated vertices (e.g., "3")
 
     Returns:
-        NetworkX MultiGraph object (allows self-loops and multiple edges)
+        NetworkX Graph object (allows self-loops but NOT multiple edges)
 
     Raises:
         ValueError: If edge format is invalid
     """
-    G = nx.MultiGraph()
+    G = nx.Graph()
 
     lines = edge_list_str.strip().split('\n')
     for line_num, line in enumerate(lines, 1):
