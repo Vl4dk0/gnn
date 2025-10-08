@@ -1,5 +1,5 @@
 - [x] create .env and .env.example. There should be the port number in it. Settings for training should also be added to .env
-- [ ] For random graph, there should be a slider to control the minimum and maximum number of nodes, probability of edge creation etc. Add a settigns button popup to control these parameters, allow/disallow self-loops, force the graph to be asymmetric/symmetric, sparse/dense etc. These options should be stored to localstorage.
+- [x] For random graph, there should be a slider to control the minimum and maximum number of nodes, probability of edge creation etc. Add a settigns button popup to control these parameters, allow/disallow self-loops, force the graph to be asymmetric/symmetric, sparse/dense etc. but only stuff, that are easy to check using builtin nx functions.
 - [x] There is no more need to return random vertex for graph generation.
 - [x] Analyze doesnt have to send the picture anymore, as we dont render it anymore. It should adjust to what we do now, meaning return the correct/guessed for all of the nodes.
 - [x] disable ability to have multiple edges, self-loops are still allowed.

@@ -42,10 +42,19 @@ def get_config():
     })
 
 
-@api_bp.route('/generate', methods=['GET'])
+@api_bp.route('/generate', methods=['POST'])
 def generate_random_graph_endpoint():
     """
-    Generate a random graph with 7-12 nodes.
+    Generate a random graph with configurable parameters.
+
+    Expected JSON payload (all optional):
+    {
+        "minNodes": 5,
+        "maxNodes": 12,
+        "minProb": 0.15,
+        "maxProb": 0.60,
+        "allowSelfLoops": true
+    }
 
     Returns:
     {
@@ -53,8 +62,21 @@ def generate_random_graph_endpoint():
     }
     """
     try:
+        data = request.get_json() or {}
+        
+        # Get parameters from request or use defaults
+        min_nodes = data.get('minNodes', 5)
+        max_nodes = data.get('maxNodes', 12)
+        min_prob = data.get('minProb', 0.15)
+        max_prob = data.get('maxProb', 0.60)
+        allow_self_loops = data.get('allowSelfLoops', True)
+        
         # Use centralized graph generation
-        G = generate_random_graph()
+        G = generate_random_graph(
+            num_nodes_range=(min_nodes, max_nodes),
+            p_range=(min_prob, max_prob),
+            self_loop_prob=0.1 if allow_self_loops else 0.0
+        )
         graph_str = graph_to_edge_list(G)
         
         return jsonify({"graph": graph_str})

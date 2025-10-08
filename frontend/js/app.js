@@ -23,8 +23,15 @@ async function generateRandomGraph() {
   generateBtn.textContent = "Generating...";
 
   try {
+    // Load settings from localStorage
+    const settings = loadSettings();
+    
     const response = await fetch(`${API_BASE_URL}/generate`, {
-      method: "GET",
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(settings),
     });
 
     const data = await response.json();
@@ -279,6 +286,131 @@ function restoreControlsState() {
   }
 }
 
+/**
+ * Settings Management
+ */
+const DEFAULT_SETTINGS = {
+  minNodes: 5,
+  maxNodes: 12,
+  minProb: 0.15,
+  maxProb: 0.60,
+  allowSelfLoops: true
+};
+
+function loadSettings() {
+  const saved = localStorage.getItem("graphSettings");
+  return saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
+}
+
+function saveSettingsToStorage(settings) {
+  localStorage.setItem("graphSettings", JSON.stringify(settings));
+}
+
+function openSettings() {
+  const modal = document.getElementById("settingsModal");
+  const settings = loadSettings();
+  
+  // Populate current values
+  document.getElementById("minNodes").value = settings.minNodes;
+  document.getElementById("maxNodes").value = settings.maxNodes;
+  document.getElementById("minProb").value = Math.round(settings.minProb * 100);
+  document.getElementById("maxProb").value = Math.round(settings.maxProb * 100);
+  document.getElementById("allowSelfLoops").checked = settings.allowSelfLoops;
+  
+  // Update displays and highlights
+  updateNodeRangeDisplay();
+  updateProbRangeDisplay();
+  
+  modal.classList.add("show");
+}
+
+function closeSettings() {
+  const modal = document.getElementById("settingsModal");
+  modal.classList.remove("show");
+}
+
+function saveSettings() {
+  const minNodes = parseInt(document.getElementById("minNodes").value);
+  const maxNodes = parseInt(document.getElementById("maxNodes").value);
+  const minProb = parseInt(document.getElementById("minProb").value) / 100;
+  const maxProb = parseInt(document.getElementById("maxProb").value) / 100;
+  const allowSelfLoops = document.getElementById("allowSelfLoops").checked;
+  
+  // Validate
+  if (minNodes > maxNodes) {
+    alert("Minimum nodes cannot be greater than maximum nodes");
+    return;
+  }
+  
+  if (minProb > maxProb) {
+    alert("Minimum probability cannot be greater than maximum probability");
+    return;
+  }
+  
+  const settings = {
+    minNodes,
+    maxNodes,
+    minProb,
+    maxProb,
+    allowSelfLoops
+  };
+  
+  saveSettingsToStorage(settings);
+  closeSettings();
+}
+
+function updateNodeRangeDisplay() {
+  const minNodes = document.getElementById("minNodes").value;
+  const maxNodes = document.getElementById("maxNodes").value;
+  document.getElementById("nodeRangeDisplay").textContent = `${minNodes} - ${maxNodes}`;
+  updateRangeHighlight("minNodes", "maxNodes", "nodeRangeHighlight");
+}
+
+function updateProbRangeDisplay() {
+  const minProb = document.getElementById("minProb").value;
+  const maxProb = document.getElementById("maxProb").value;
+  document.getElementById("probRangeDisplay").textContent = 
+    `${(minProb / 100).toFixed(2)} - ${(maxProb / 100).toFixed(2)}`;
+  updateRangeHighlight("minProb", "maxProb", "probRangeHighlight");
+}
+
+function updateRangeHighlight(minId, maxId, highlightId) {
+  const minSlider = document.getElementById(minId);
+  const maxSlider = document.getElementById(maxId);
+  const highlight = document.getElementById(highlightId);
+  
+  if (!highlight) return;
+  
+  const min = parseFloat(minSlider.min);
+  const max = parseFloat(minSlider.max);
+  const minVal = parseFloat(minSlider.value);
+  const maxVal = parseFloat(maxSlider.value);
+  
+  // Calculate percentage positions
+  const minPercent = ((minVal - min) / (max - min)) * 100;
+  const maxPercent = ((maxVal - min) / (max - min)) * 100;
+  
+  // Update highlight position and width
+  highlight.style.left = minPercent + '%';
+  highlight.style.width = (maxPercent - minPercent) + '%';
+}
+
+function initializeSettings() {
+  // Update displays when sliders change
+  document.getElementById("minNodes").addEventListener("input", updateNodeRangeDisplay);
+  document.getElementById("maxNodes").addEventListener("input", updateNodeRangeDisplay);
+  document.getElementById("minProb").addEventListener("input", updateProbRangeDisplay);
+  document.getElementById("maxProb").addEventListener("input", updateProbRangeDisplay);
+  
+  // Close modal when clicking outside
+  document.getElementById("settingsModal").addEventListener("click", function(e) {
+    if (e.target === this) {
+      closeSettings();
+    }
+  });
+}
+
 // Initialize when DOM is loaded
 document.addEventListener("DOMContentLoaded", initializeEventListeners);
 document.addEventListener("DOMContentLoaded", restoreControlsState);
+document.addEventListener("DOMContentLoaded", initializeSettings);
