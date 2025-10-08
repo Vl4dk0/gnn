@@ -1,11 +1,11 @@
-- [] create .env and .env.example. There should be the port number in it. Settings for training should also be added to .env
-- [] For random graph, there should be a slider to control the minimum and maximum number of nodes, probability of edge creation etc. Add a settigns button popup to control these parameters, allow/disallow self-loops, force the graph to be asymmetric/symmetric, sparse/dense etc. These options should be stored to localstorage.
-- [] There is no more need to return random vertex for graph generation.
-- [] Analyze doesnt have to send the picture anymore, as we dont render it anymore. It should adjust to what we do now, meaning return the correct/guessed for all of the nodes.
-- [] disable ability to have multiple edges, self-loops are still allowed.
-- [] It would be better if the graph generation was done by the same thing for the train_gnn.py and for the web app. add to backend.utils.graph_generation and import function from there in both places
-- [] Clear canvas should be changed to an icon button with tooltip, made into a trash can icon and be in the bottom right corner
-- [] Controls should be moved from canvas to the section on the left, with the input box and buttons. Controls should be listed at the bottom of that section. Show/Hide controls button should be removed.
-- [] Middle click on vertex should remove it.
-- [] Do not write mse and mae, write the mean_squared_error and mean_absolute_error instead
-- [] settings for training should be added to .env
+- [x] create .env and .env.example. There should be the port number in it. Settings for training should also be added to .env
+- [ ] For random graph, there should be a slider to control the minimum and maximum number of nodes, probability of edge creation etc. Add a settigns button popup to control these parameters, allow/disallow self-loops, force the graph to be asymmetric/symmetric, sparse/dense etc. These options should be stored to localstorage.
+- [ ] There is no more need to return random vertex for graph generation.
+- [ ] Analyze doesnt have to send the picture anymore, as we dont render it anymore. It should adjust to what we do now, meaning return the correct/guessed for all of the nodes.
+- [ ] disable ability to have multiple edges, self-loops are still allowed.
+- [ ] It would be better if the graph generation was done by the same thing for the train_gnn.py and for the web app. add to backend.utils.graph_generation and import function from there in both places
+- [ ] Clear canvas should be changed to an icon button with tooltip, made into a trash can icon and be in the bottom right corner
+- [ ] Controls should be moved from canvas to the section on the left, with the input box and buttons. Controls should be listed at the bottom of that section. Show/Hide controls button should be removed.
+- [ ] Middle click on vertex should remove it.
+- [ ] Do not write mse and mae, write the mean_squared_error and mean_absolute_error instead
+- [ ] settings for training should be added to .env

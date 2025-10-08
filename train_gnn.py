@@ -7,22 +7,37 @@ from datetime import datetime
 import networkx as nx
 import torch
 import torch.nn.functional as F
+from dotenv import load_dotenv
 from torch_geometric.data import Data
 
 from backend.models.degree_gnn import DegreeGNN
 
 
-def generate_random_graph_data(num_nodes_range=(5, 12), p_range=(0.15, 0.6)):
+load_dotenv()
+
+
+def generate_random_graph_data(num_nodes_range=None, p_range=None):
     """
     Generate a random graph for training.
 
     Args:
-        num_nodes_range: Range of number of nodes (min, max) - smaller range for better learning
-        p_range: Range of edge probability for Erdős-Rényi model - higher density for more edges
+        num_nodes_range: Range of number of nodes (min, max) - defaults from env vars
+        p_range: Range of edge probability for Erdős-Rényi model - defaults from env vars
 
     Returns:
         PyTorch Geometric Data object
     """
+    # Get defaults from environment variables
+    if num_nodes_range is None:
+        num_nodes_min = int(os.getenv('GRAPH_NUM_NODES_MIN', 5))
+        num_nodes_max = int(os.getenv('GRAPH_NUM_NODES_MAX', 12))
+        num_nodes_range = (num_nodes_min, num_nodes_max)
+    
+    if p_range is None:
+        edge_prob_min = float(os.getenv('GRAPH_EDGE_PROB_MIN', 0.15))
+        edge_prob_max = float(os.getenv('GRAPH_EDGE_PROB_MAX', 0.6))
+        p_range = (edge_prob_min, edge_prob_max)
+    
     # Random graph parameters
     num_nodes = random.randint(*num_nodes_range)
     p = random.uniform(*p_range)
@@ -216,26 +231,40 @@ def load_model_info(path='backend/models/model_info.json'):
     return None
 
 
-def train_gnn(num_epochs=5000,
-              hidden_dim=64,
-              lr=0.005,
-              print_every=100,
-              eval_every=20,
-              graphs_per_epoch=10):
+def train_gnn(num_epochs=None,
+              hidden_dim=None,
+              lr=None,
+              print_every=None,
+              eval_every=None,
+              graphs_per_epoch=None):
     """
     Main training function with improved training and selective saving.
 
     Args:
-        num_epochs: Number of training epochs
-        hidden_dim: Hidden dimension size
-        lr: Learning rate
-        print_every: Print progress every N epochs
-        eval_every: Evaluate and potentially save every N epochs
-        graphs_per_epoch: Number of graphs to train on per epoch
+        num_epochs: Number of training epochs (defaults from env vars)
+        hidden_dim: Hidden dimension size (defaults from env vars)
+        lr: Learning rate (defaults from env vars)
+        print_every: Print progress every N epochs (defaults from env vars)
+        eval_every: Evaluate and potentially save every N epochs (defaults from env vars)
+        graphs_per_epoch: Number of graphs to train on per epoch (defaults from env vars)
 
     Returns:
         Trained model
     """
+    # Get defaults from environment variables
+    if num_epochs is None:
+        num_epochs = int(os.getenv('TRAINING_NUM_EPOCHS', 5000))
+    if hidden_dim is None:
+        hidden_dim = int(os.getenv('TRAINING_HIDDEN_DIM', 64))
+    if lr is None:
+        lr = float(os.getenv('TRAINING_LEARNING_RATE', 0.005))
+    if print_every is None:
+        print_every = int(os.getenv('TRAINING_PRINT_EVERY', 100))
+    if eval_every is None:
+        eval_every = int(os.getenv('TRAINING_EVAL_EVERY', 20))
+    if graphs_per_epoch is None:
+        graphs_per_epoch = int(os.getenv('TRAINING_GRAPHS_PER_EPOCH', 10))
+
     print("=" * 60)
     print("Training GNN for Degree Prediction")
     print("=" * 60)
@@ -362,13 +391,5 @@ def load_model(path='backend/models/trained_gnn.pt',
 
 
 if __name__ == "__main__":
-    # Train the model with improved configuration
-    # Optimized for 80%+ accuracy with richer features and more training
-    model = train_gnn(
-        num_epochs=10000,  # Long training for convergence
-        hidden_dim=64,  # Large model for better capacity
-        lr=0.005,  # Lower learning rate for stability
-        print_every=200,  # Print every 200 epochs
-        eval_every=50,  # Evaluate every 50 epochs
-        graphs_per_epoch=50  # Much more graphs per epoch for better learning
-    )
+    # Train the model - parameters default to .env values
+    model = train_gnn()

@@ -1,10 +1,13 @@
 import os
 
+from dotenv import load_dotenv
 from flask import Flask
 from flask import send_from_directory
 from flask_cors import CORS
 
 from backend.routes.api import api_bp
+
+load_dotenv()
 
 
 def create_app():
@@ -35,8 +38,12 @@ def create_app():
 if __name__ == '__main__':
     app = create_app()
 
+    port = int(os.getenv('PORT', 5555))
+    host = os.getenv('HOST', '0.0.0.0')
+    debug = os.getenv('DEBUG', 'True').lower() == 'true'
+
     print("Starting GNN Vertex Degree Predictor Server...")
-    print("Server running on http://localhost:5555")
+    print(f"Server running on http://localhost:{port}")
     print("Press CTRL+C to quit")
 
-    app.run(debug=True, host='0.0.0.0', port=5555)
+    app.run(debug=debug, host=host, port=port)
