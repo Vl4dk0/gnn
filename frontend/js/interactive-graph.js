@@ -72,6 +72,10 @@ class InteractiveGraph {
       if (e.button === 0) {
         // Left click
         this.handleLeftClick(e);
+      } else if (e.button === 1) {
+        // Middle click - remove vertex
+        e.preventDefault();
+        this.handleMiddleClick(e);
       }
     });
 
@@ -207,6 +211,16 @@ class InteractiveGraph {
 
   handleRightRelease(e) {
     this.panningCanvas = false;
+  }
+
+  handleMiddleClick(e) {
+    const pos = this.getMousePos(e);
+    const nodeIndex = this.findNodeAt(pos.x, pos.y);
+
+    if (nodeIndex !== -1) {
+      // Delete the node
+      this.deleteNode(nodeIndex);
+    }
   }
 
   handleDoubleClick(e) {

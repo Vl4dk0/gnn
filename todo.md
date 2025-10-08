@@ -6,6 +6,6 @@
 - [ ] It would be better if the graph generation was done by the same thing for the train_gnn.py and for the web app. add to backend.utils.graph_generation and import function from there in both places
 - [ ] Clear canvas should be changed to an icon button with tooltip (delete graph), made into a trash can icon and be in the bottom right corner of the canvas
 - [ ] Controls should be moved from canvas to the section on the left, with the input box and buttons. Controls should be listed at the bottom of that section. Show/Hide controls button should be removed.
-- [ ] Middle click on vertex should remove it.
+- [x] Middle click on vertex should remove it.
 - [ ] Do not write mse and mae, write the mean_squared_error and mean_absolute_error instead
 
