@@ -128,8 +128,8 @@ def evaluate_model(model, num_test_graphs=100):
             predictions_rounded = torch.round(out)
 
             # Mean Squared Error and Mean Absolute Error on ROUNDED predictions (same as frontend)
-            loss = F.mse_loss(predictions_rounded, data.y)
-            mae = F.l1_loss(predictions_rounded, data.y)
+            loss = F.mse_loss(predictions_rounded, data.y) # type: ignore
+            mae = F.l1_loss(predictions_rounded, data.y) # type: ignore
 
             # Accuracy (exact match after rounding)
             correct = (predictions_rounded == data.y).sum().item()
@@ -137,7 +137,7 @@ def evaluate_model(model, num_test_graphs=100):
             total_loss += loss.item()
             total_mae += mae.item()
             total_correct += correct
-            total_predictions += data.y.numel()
+            total_predictions += data.y.numel() # type: ignore
 
     metrics = {
         "mean_squared_error":
