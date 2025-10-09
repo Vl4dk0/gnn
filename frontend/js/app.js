@@ -142,11 +142,8 @@ async function analyzeGraph() {
   const formattedGraph = formatGraphInput(graphInput.value);
   
   // Only update the input if the formatted version is different
-  // Use a flag to prevent the input event from reloading the graph
   if (graphInput.value !== formattedGraph) {
-    window.suppressGraphReload = true;
-    graphInput.value = formattedGraph;
-    window.suppressGraphReload = false;
+    graphInput.value = formattedGraph; // setting value programmatically does not fire 'input'
   }
 
   // Reset UI
@@ -247,11 +244,6 @@ function hideLoading() {
 function initializeEventListeners() {
   // Sync graph input with canvas when manually edited
   document.getElementById("graphInput").addEventListener("input", function (e) {
-    // Don't reload if we're programmatically updating the input during analyze
-    if (window.suppressGraphReload) {
-      return;
-    }
-    
     if (window.interactiveGraph) {
       window.interactiveGraph.loadFromEdgeList(e.target.value, null);
     }

@@ -391,10 +391,8 @@ class InteractiveGraph {
       lines.push(`${edge.v1} ${edge.v2}`);
     });
 
-    // Prevent the input event from reloading the graph
-    window.suppressGraphReload = true;
+    // Update the textarea; programmatic value assignment does not trigger 'input'
     graphInput.value = lines.join("\n");
-    window.suppressGraphReload = false;
   }
 
   render() {
