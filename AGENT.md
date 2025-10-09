@@ -6,33 +6,24 @@ A web application with an interactive graph editor that uses Graph Neural Networ
 
 - 🎨 **Interactive Canvas-based Graph Editor**
   - Draw graphs by clicking to add vertices
-  - Click and drag between vertices to create edges
-  - Right-click vertices or edges to delete them
-  - Visual feedback with hover effects
+  - Right-click and drag between vertices to create edges
   
 - 🤖 **GNN-based Degree Prediction**
   - 3-layer Graph Convolutional Network (GCN)
-  - Trained on random graphs (5-12 nodes)
-  - 4 rich node features per vertex
-  - Current accuracy: ~35% (improving with training)
+  - Trained on random graphs (small)
   
 - 📊 **Real-time Graph Analysis**
-  - True degree calculation (supports multigraphs with self-loops)
+  - True degree calculation
   - GNN prediction comparison
-  - Visual graph rendering
+  - Interactive graph rendering
   
 - 🎲 **Random Graph Generator**
-  - Generates graphs with 7-12 nodes
-  - Supports multiple edges and self-loops
-  - Automatic vertex selection
+  - Generates graphs with modifiable range of nodes
+  - Supports self-loops, but not multiple edges
 
 ## Trained Model
 
 The repository includes a pre-trained GNN model:
-- **Architecture**: 3-layer GCN with 64 hidden units
-- **Training**: 10,000 epochs on random graphs
-- **Performance**: ~35% exact match accuracy
-- **Features**: 4-dimensional node features (normalized index, random embedding, clustering coefficient)
 - **Model files**: 
   - `backend/models/trained_gnn.pt` - PyTorch model weights
   - `backend/models/model_info.json` - Training metrics and metadataDegree Predictor
@@ -195,12 +186,7 @@ poetry run python train_gnn.py
 ```
 
 Training configuration:
-- **Epochs**: 10,000
-- **Graphs per epoch**: 50 (for thorough learning)
-- **Graph size**: 5-12 nodes
-- **Hidden dimensions**: 64
-- **Learning rate**: 0.005
-- **Node features**: 4 (normalized index, random embedding, clustering coefficient)
+located in `.env` file
 
 The training script:
 - Evaluates every 50 epochs
@@ -211,9 +197,7 @@ The training script:
 ## Model Performance
 
 The included model achieves:
-- **Accuracy**: ~35% exact match (improving with continued training)
-- **MAE**: ~1.03 (on rounded predictions)
-- **Training**: Evaluated on graphs with 5-12 nodes
+`backend.models.model_info.json`
 
 Note: The accuracy metric represents exact matches between predicted and true degrees after rounding. An 80% accuracy means 80% of vertices will show identical "Correct" and "GNN" values in the UI.
 
@@ -224,6 +208,3 @@ Note: The accuracy metric represents exact matches between predicted and true de
 - **Three-Column Layout**:
   - Left: Input controls (canvas editor, vertex selection)
   - Center: Graph visualization and analysis button
-  - Right: Results display (True Degree, GNN Prediction)
-- **Target Vertex Highlighting**: Green border on selected vertex
-- **Edge Editing**: Right-click to delete vertices and edges
