@@ -462,9 +462,9 @@ class InteractiveGraph {
       this.ctx.textBaseline = "middle";
       this.ctx.fillText(node.id.toString(), node.x, node.y);
 
-      // Draw prediction info if prediction was wrong
+      // Draw prediction info if available
       const predictionInfo = this.nodePredictions.get(node.id);
-      if (predictionInfo && predictionInfo.isWrong) {
+      if (predictionInfo) {
         const offsetX = node.x + this.nodeRadius * 0.8;
         const offsetY = node.y + this.nodeRadius * 0.8;
 
@@ -473,22 +473,27 @@ class InteractiveGraph {
         this.ctx.textAlign = "left";
         this.ctx.textBaseline = "middle";
 
-        // Draw correct value in green
-        this.ctx.fillStyle = "#00ff00";
+        // Determine colors based on whether prediction matches actual
+        const isCorrect = predictionInfo.predicted === predictionInfo.actual;
+        const correctColor = isCorrect ? "#888888" : "#00ff00"; // Gray if correct, green if wrong
+        const predictedColor = isCorrect ? "#888888" : this.errorDotColor; // Gray if correct, red if wrong
+
+        // Draw correct value
+        this.ctx.fillStyle = correctColor;
         const correctText = predictionInfo.actual.toString();
         this.ctx.fillText(correctText, offsetX, offsetY);
 
         // Measure width to position slash and predicted value
         const correctWidth = this.ctx.measureText(correctText).width;
 
-        // Draw slash in white
-        this.ctx.fillStyle = this.textColor;
+        // Draw slash in white (or gray if correct)
+        this.ctx.fillStyle = isCorrect ? "#888888" : this.textColor;
         const slashX = offsetX + correctWidth;
         this.ctx.fillText("/", slashX, offsetY);
         const slashWidth = this.ctx.measureText("/").width;
 
-        // Draw predicted value in red
-        this.ctx.fillStyle = this.errorDotColor;
+        // Draw predicted value
+        this.ctx.fillStyle = predictedColor;
         this.ctx.fillText(
           predictionInfo.predicted.toString(),
           slashX + slashWidth,
