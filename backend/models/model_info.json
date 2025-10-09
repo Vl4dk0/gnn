@@ -1,13 +1,12 @@
 {
-  "last_updated": "2025-10-04T01:07:45.724818",
-  "epoch": 4900,
+  "last_updated": "2025-10-09T12:34:46.480026",
+  "epoch": 1300,
   "hidden_dim": 64,
   "learning_rate": 0.005,
   "metrics": {
-    "mean_squared_error": 2.2552,
-    "mean_absolute_error": 1.0323,
-    "accuracy": 35.04
+    "mean_squared_error": 0.0,
+    "mean_absolute_error": 0.0,
+    "accuracy": 100.0
   },
   "model_path": "backend/models/trained_gnn.pt"
 }
-

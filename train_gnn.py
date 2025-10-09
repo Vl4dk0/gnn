@@ -13,7 +13,6 @@ from torch_geometric.data import Data
 from backend.models.degree_gnn import DegreeGNN
 from backend.utils.graph_generation import generate_random_graph
 
-
 load_dotenv()
 
 
@@ -30,9 +29,9 @@ def generate_random_graph_data(num_nodes_range=None, p_range=None):
     """
     # Generate graph using centralized utility
     G = generate_random_graph(num_nodes_range=num_nodes_range, p_range=p_range)
-    
+
     num_nodes = len(G.nodes())
-    
+
     # Get node degrees (true labels)
     degrees = torch.tensor([G.degree(i) for i in range(num_nodes)],
                            dtype=torch.float)
@@ -41,8 +40,7 @@ def generate_random_graph_data(num_nodes_range=None, p_range=None):
     edge_index = []
     for u, v in G.edges():
         edge_index.append([u, v])
-        if u != v:  # Don't duplicate self-loops
-            edge_index.append([v, u])
+        edge_index.append([v, u])
 
     if len(edge_index) == 0:
         # If no edges, create empty edge_index
@@ -142,12 +140,12 @@ def evaluate_model(model, num_test_graphs=100):
             total_predictions += data.y.numel()
 
     metrics = {
-        'mean_squared_error':
+        "mean_squared_error":
         total_loss / num_test_graphs,
-        'mean_absolute_error':
+        "mean_absolute_error":
         total_mae / num_test_graphs,
-        'accuracy': (total_correct / total_predictions) *
-        100 if total_predictions > 0 else 0
+        "accuracy": (total_correct / total_predictions) *
+        100 if total_predictions > 0 else 0,
     }
 
     return metrics
@@ -157,7 +155,7 @@ def save_model_info(metrics,
                     epoch,
                     hidden_dim,
                     lr,
-                    path='backend/models/model_info.json'):
+                    path="backend/models/model_info.json"):
     """
     Save model information and metrics to JSON file.
 
@@ -169,26 +167,26 @@ def save_model_info(metrics,
         path: Path to save the JSON file
     """
     info = {
-        'last_updated': datetime.now().isoformat(),
-        'epoch': epoch,
-        'hidden_dim': hidden_dim,
-        'learning_rate': lr,
-        'metrics': {
-            'mean_squared_error': round(metrics['mean_squared_error'], 4),
-            'mean_absolute_error': round(metrics['mean_absolute_error'], 4),
-            'accuracy': round(metrics['accuracy'], 2)
+        "last_updated": datetime.now().isoformat(),
+        "epoch": epoch,
+        "hidden_dim": hidden_dim,
+        "learning_rate": lr,
+        "metrics": {
+            "mean_squared_error": round(metrics["mean_squared_error"], 4),
+            "mean_absolute_error": round(metrics["mean_absolute_error"], 4),
+            "accuracy": round(metrics["accuracy"], 2),
         },
-        'model_path': 'backend/models/trained_gnn.pt'
+        "model_path": "backend/models/trained_gnn.pt",
     }
 
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, 'w') as f:
+    with open(path, "w") as f:
         json.dump(info, f, indent=2)
 
     print(f"Model info saved to {path}")
 
 
-def load_model_info(path='backend/models/model_info.json'):
+def load_model_info(path="backend/models/model_info.json"):
     """
     Load model information from JSON file.
 
@@ -199,17 +197,19 @@ def load_model_info(path='backend/models/model_info.json'):
         Dictionary with model info, or None if file doesn't exist
     """
     if os.path.exists(path):
-        with open(path, 'r') as f:
+        with open(path, "r") as f:
             return json.load(f)
     return None
 
 
-def train_gnn(num_epochs=None,
-              hidden_dim=None,
-              lr=None,
-              print_every=None,
-              eval_every=None,
-              graphs_per_epoch=None):
+def train_gnn(
+    num_epochs=None,
+    hidden_dim=None,
+    lr=None,
+    print_every=None,
+    eval_every=None,
+    graphs_per_epoch=None,
+):
     """
     Main training function with improved training and selective saving.
 
@@ -226,17 +226,17 @@ def train_gnn(num_epochs=None,
     """
     # Get defaults from environment variables
     if num_epochs is None:
-        num_epochs = int(os.getenv('TRAINING_NUM_EPOCHS', 5000))
+        num_epochs = int(os.getenv("TRAINING_NUM_EPOCHS", 5000))
     if hidden_dim is None:
-        hidden_dim = int(os.getenv('TRAINING_HIDDEN_DIM', 64))
+        hidden_dim = int(os.getenv("TRAINING_HIDDEN_DIM", 64))
     if lr is None:
-        lr = float(os.getenv('TRAINING_LEARNING_RATE', 0.005))
+        lr = float(os.getenv("TRAINING_LEARNING_RATE", 0.005))
     if print_every is None:
-        print_every = int(os.getenv('TRAINING_PRINT_EVERY', 100))
+        print_every = int(os.getenv("TRAINING_PRINT_EVERY", 100))
     if eval_every is None:
-        eval_every = int(os.getenv('TRAINING_EVAL_EVERY', 20))
+        eval_every = int(os.getenv("TRAINING_EVAL_EVERY", 20))
     if graphs_per_epoch is None:
-        graphs_per_epoch = int(os.getenv('TRAINING_GRAPHS_PER_EPOCH', 10))
+        graphs_per_epoch = int(os.getenv("TRAINING_GRAPHS_PER_EPOCH", 10))
 
     print("=" * 60)
     print("Training GNN for Degree Prediction")
@@ -250,14 +250,16 @@ def train_gnn(num_epochs=None,
     print("=" * 60)
 
     # Initialize model
-    model = DegreeGNN(hidden_dim=hidden_dim)
+    sample_data = generate_random_graph_data()
+    input_dim = sample_data.x.size(1) if sample_data.x is not None else 1
+    model = DegreeGNN(hidden_dim=hidden_dim, input_dim=input_dim)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
     # Load previous best metrics if they exist
     previous_info = load_model_info()
     if previous_info:
-        best_accuracy = previous_info['metrics']['accuracy']
-        best_mae = previous_info['metrics']['mean_absolute_error']
+        best_accuracy = previous_info["metrics"]["accuracy"]
+        best_mae = previous_info["metrics"]["mean_absolute_error"]
         print(f"Found existing model:")
         print(f"  - Best Accuracy: {best_accuracy:.2f}%")
         print(f"  - Best Mean Absolute Error: {best_mae:.4f}")
@@ -265,7 +267,7 @@ def train_gnn(num_epochs=None,
         print("=" * 60)
     else:
         best_accuracy = 0
-        best_mae = float('inf')
+        best_mae = float("inf")
         print("No previous model found. Starting fresh.")
         print("=" * 60)
 
@@ -287,19 +289,21 @@ def train_gnn(num_epochs=None,
 
             # Print progress
             if epoch % print_every == 0 or epoch == 1:
-                print(f"Epoch {epoch:4d} | Train Loss: {epoch_loss:.4f} | "
-                      f"Test Mean Squared Error: {metrics['mean_squared_error']:.4f} | "
-                      f"Test Mean Absolute Error: {metrics['mean_absolute_error']:.4f} | "
-                      f"Accuracy: {metrics['accuracy']:.2f}%")
+                print(
+                    f"Epoch {epoch:4d} | Train Loss: {epoch_loss:.4f} | "
+                    f"Test Mean Squared Error: {metrics['mean_squared_error']:.4f} | "
+                    f"Test Mean Absolute Error: {metrics['mean_absolute_error']:.4f} | "
+                    f"Accuracy: {metrics['accuracy']:.2f}%")
 
             # Save model only if it's better
             # Primary metric: accuracy, secondary: MAE (lower is better)
-            is_better = (metrics['accuracy'] > best_accuracy) or \
-                       (metrics['accuracy'] == best_accuracy and metrics['mean_absolute_error'] < best_mae)
+            is_better = (metrics["accuracy"] > best_accuracy) or (
+                metrics["accuracy"] == best_accuracy
+                and metrics["mean_absolute_error"] < best_mae)
 
             if is_better:
-                best_accuracy = metrics['accuracy']
-                best_mae = metrics['mean_absolute_error']
+                best_accuracy = metrics["accuracy"]
+                best_mae = metrics["mean_absolute_error"]
 
                 # Save model and info
                 save_model(model)
@@ -313,8 +317,12 @@ def train_gnn(num_epochs=None,
     print("=" * 60)
     print("Training complete! Final evaluation on 200 test graphs:")
     final_metrics = evaluate_model(model, num_test_graphs=200)
-    print(f"  Test Mean Squared Error: {final_metrics['mean_squared_error']:.4f}")
-    print(f"  Test Mean Absolute Error: {final_metrics['mean_absolute_error']:.4f}")
+    print(
+        f"  Test Mean Squared Error: {final_metrics['mean_squared_error']:.4f}"
+    )
+    print(
+        f"  Test Mean Absolute Error: {final_metrics['mean_absolute_error']:.4f}"
+    )
     print(f"  Accuracy: {final_metrics['accuracy']:.2f}%")
     print("=" * 60)
     print(f"Best model achieved:")
@@ -325,14 +333,14 @@ def train_gnn(num_epochs=None,
     return model
 
 
-def save_model(model, path='backend/models/trained_gnn.pt'):
+def save_model(model, path="backend/models/trained_gnn.pt"):
     """Save the trained model."""
     os.makedirs(os.path.dirname(path), exist_ok=True)
     torch.save(model.state_dict(), path)
     print(f"Model saved to {path}")
 
 
-def load_model(path='backend/models/trained_gnn.pt',
+def load_model(path="backend/models/trained_gnn.pt",
                hidden_dim=None,
                input_dim=4):
     """
@@ -347,7 +355,7 @@ def load_model(path='backend/models/trained_gnn.pt',
     if hidden_dim is None:
         info = load_model_info()
         if info:
-            hidden_dim = info.get('hidden_dim', 16)
+            hidden_dim = info.get("hidden_dim", 16)
         else:
             hidden_dim = 16
 

@@ -61,4 +61,3 @@ class DegreeGNN(torch.nn.Module):
         x = self.conv4(x, edge_index)
 
         return x
-
