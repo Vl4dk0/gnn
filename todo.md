@@ -1,11 +1,2 @@
-- [x] create .env and .env.example. There should be the port number in it. Settings for training should also be added to .env
-- [x] For random graph, there should be a slider to control the minimum and maximum number of nodes, probability of edge creation etc. Add a settigns button popup to control these parameters, allow/disallow self-loops, force the graph to be asymmetric/symmetric, sparse/dense etc. but only stuff, that are easy to check using builtin nx functions.
-- [x] There is no more need to return random vertex for graph generation.
-- [x] Analyze doesnt have to send the picture anymore, as we dont render it anymore. It should adjust to what we do now, meaning return the correct/guessed for all of the nodes.
-- [x] disable ability to have multiple edges, self-loops are still allowed.
-- [x] It would be better if the graph generation was done by the same thing for the train_gnn.py and for the web app. add to backend.utils.graph_generation and import function from there in both places
-- [x] Clear canvas should be changed to an icon button with tooltip (delete graph), made into a trash can icon and be in the bottom right corner of the canvas
-- [x] Controls should be moved from canvas to the section on the left, with the input box and buttons. Controls should be listed at the bottom of that section. Show/Hide controls button should be removed.
-- [x] Middle click on vertex should remove it.
-- [x] Do not write mse and mae, write the mean_squared_error and mean_absolute_error instead
-
+- [x] On analyze, everything twitches and moves a little. this didnt happen before, why is it happening now ? Fix it
+- [ ] When I adjust input pointers in settings, I shouldnt be able to drag the left one to the right of the right one. and vice versa.

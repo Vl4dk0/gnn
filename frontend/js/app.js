@@ -136,13 +136,18 @@ function formatGraphInput(graphStr) {
  */
 async function analyzeGraph() {
   const graphInput = document.getElementById("graphInput");
-  const errorMessage = document.getElementById("errorMessage");
-  const loading = document.getElementById("loading");
   const analyzeBtn = document.getElementById("analyzeBtn");
 
   // Format and clean the graph input first
   const formattedGraph = formatGraphInput(graphInput.value);
-  graphInput.value = formattedGraph;
+  
+  // Only update the input if the formatted version is different
+  // Use a flag to prevent the input event from reloading the graph
+  if (graphInput.value !== formattedGraph) {
+    window.suppressGraphReload = true;
+    graphInput.value = formattedGraph;
+    window.suppressGraphReload = false;
+  }
 
   // Reset UI
   hideError();
@@ -209,37 +214,31 @@ async function analyzeAllNodes(formattedGraph) {
 }
 
 /**
- * Show error message
+ * Show error message (just log to console)
  */
 function showError(message) {
-  const errorMessage = document.getElementById("errorMessage");
-  errorMessage.textContent = message;
-  errorMessage.classList.add("show");
+  console.error(message);
 }
 
 /**
- * Hide error message
+ * Hide error message (no-op since we don't show errors)
  */
 function hideError() {
-  const errorMessage = document.getElementById("errorMessage");
-  errorMessage.classList.remove("show");
-  errorMessage.textContent = "";
+  // No-op
 }
 
 /**
- * Show loading spinner
+ * Show loading spinner (no-op)
  */
 function showLoading() {
-  const loading = document.getElementById("loading");
-  loading.classList.add("show");
+  // No loading UI
 }
 
 /**
- * Hide loading spinner
+ * Hide loading spinner (no-op)
  */
 function hideLoading() {
-  const loading = document.getElementById("loading");
-  loading.classList.remove("show");
+  // No loading UI
 }
 
 /**
@@ -248,6 +247,11 @@ function hideLoading() {
 function initializeEventListeners() {
   // Sync graph input with canvas when manually edited
   document.getElementById("graphInput").addEventListener("input", function (e) {
+    // Don't reload if we're programmatically updating the input during analyze
+    if (window.suppressGraphReload) {
+      return;
+    }
+    
     if (window.interactiveGraph) {
       window.interactiveGraph.loadFromEdgeList(e.target.value, null);
     }
