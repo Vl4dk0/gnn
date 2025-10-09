@@ -332,17 +332,58 @@ function saveSettings() {
 }
 
 function updateNodeRangeDisplay() {
-  const minNodes = document.getElementById("minNodes").value;
-  const maxNodes = document.getElementById("maxNodes").value;
-  document.getElementById("nodeRangeDisplay").textContent = `${minNodes} - ${maxNodes}`;
+  const minSlider = document.getElementById("minNodes");
+  const maxSlider = document.getElementById("maxNodes");
+  
+  // Enforce constraints: min can't be greater than max
+  if (parseInt(minSlider.value) > parseInt(maxSlider.value)) {
+    minSlider.value = maxSlider.value;
+  }
+  
+  document.getElementById("nodeRangeDisplay").textContent = 
+    `${minSlider.value} - ${maxSlider.value}`;
+  updateRangeHighlight("minNodes", "maxNodes", "nodeRangeHighlight");
+}
+
+function updateNodeRangeDisplayMax() {
+  const minSlider = document.getElementById("minNodes");
+  const maxSlider = document.getElementById("maxNodes");
+  
+  // Enforce constraints: max can't be less than min
+  if (parseInt(maxSlider.value) < parseInt(minSlider.value)) {
+    maxSlider.value = minSlider.value;
+  }
+  
+  document.getElementById("nodeRangeDisplay").textContent = 
+    `${minSlider.value} - ${maxSlider.value}`;
   updateRangeHighlight("minNodes", "maxNodes", "nodeRangeHighlight");
 }
 
 function updateProbRangeDisplay() {
-  const minProb = document.getElementById("minProb").value;
-  const maxProb = document.getElementById("maxProb").value;
+  const minSlider = document.getElementById("minProb");
+  const maxSlider = document.getElementById("maxProb");
+  
+  // Enforce constraints: min can't be greater than max
+  if (parseInt(minSlider.value) > parseInt(maxSlider.value)) {
+    minSlider.value = maxSlider.value;
+  }
+  
   document.getElementById("probRangeDisplay").textContent = 
-    `${(minProb / 100).toFixed(2)} - ${(maxProb / 100).toFixed(2)}`;
+    `${(minSlider.value / 100).toFixed(2)} - ${(maxSlider.value / 100).toFixed(2)}`;
+  updateRangeHighlight("minProb", "maxProb", "probRangeHighlight");
+}
+
+function updateProbRangeDisplayMax() {
+  const minSlider = document.getElementById("minProb");
+  const maxSlider = document.getElementById("maxProb");
+  
+  // Enforce constraints: max can't be less than min
+  if (parseInt(maxSlider.value) < parseInt(minSlider.value)) {
+    maxSlider.value = minSlider.value;
+  }
+  
+  document.getElementById("probRangeDisplay").textContent = 
+    `${(minSlider.value / 100).toFixed(2)} - ${(maxSlider.value / 100).toFixed(2)}`;
   updateRangeHighlight("minProb", "maxProb", "probRangeHighlight");
 }
 
@@ -370,9 +411,9 @@ function updateRangeHighlight(minId, maxId, highlightId) {
 function initializeSettings() {
   // Update displays when sliders change
   document.getElementById("minNodes").addEventListener("input", updateNodeRangeDisplay);
-  document.getElementById("maxNodes").addEventListener("input", updateNodeRangeDisplay);
+  document.getElementById("maxNodes").addEventListener("input", updateNodeRangeDisplayMax);
   document.getElementById("minProb").addEventListener("input", updateProbRangeDisplay);
-  document.getElementById("maxProb").addEventListener("input", updateProbRangeDisplay);
+  document.getElementById("maxProb").addEventListener("input", updateProbRangeDisplayMax);
   
   // Close modal when clicking outside
   document.getElementById("settingsModal").addEventListener("click", function(e) {
