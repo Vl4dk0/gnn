@@ -3,126 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GNN Vertex Degree Predictor</title>
-    <link rel="stylesheet" href="css/styles.css">
+    <title>GNN Projects</title>
+    <link rel="stylesheet" href="css/landing.css">
 </head>
 <body>
-    <!-- Floating Settings Button -->
-    <button id="settingsBtn" class="settings-btn" onclick="openSettings()" title="Graph Settings">
-        <svg class="gear-icon" viewBox="0 0 45.973 45.973" xmlns="http://www.w3.org/2000/svg">
-            <path d="M43.454,18.443h-2.437c-0.453-1.766-1.16-3.42-2.082-4.933l1.752-1.756c0.473-0.473,0.733-1.104,0.733-1.774
-                c0-0.669-0.262-1.301-0.733-1.773l-2.92-2.917c-0.947-0.948-2.602-0.947-3.545-0.001l-1.826,1.815
-                C30.9,6.232,29.296,5.56,27.529,5.128V2.52c0-1.383-1.105-2.52-2.488-2.52h-4.128c-1.383,0-2.471,1.137-2.471,2.52v2.607
-                c-1.766,0.431-3.38,1.104-4.878,1.977l-1.825-1.815c-0.946-0.948-2.602-0.947-3.551-0.001L5.27,8.205
-                C4.802,8.672,4.535,9.318,4.535,9.978c0,0.669,0.259,1.299,0.733,1.772l1.752,1.76c-0.921,1.513-1.629,3.167-2.081,4.933H2.501
-                C1.117,18.443,0,19.555,0,20.935v4.125c0,1.384,1.117,2.471,2.501,2.471h2.438c0.452,1.766,1.159,3.43,2.079,4.943l-1.752,1.763
-                c-0.474,0.473-0.734,1.106-0.734,1.776s0.261,1.303,0.734,1.776l2.92,2.919c0.474,0.473,1.103,0.733,1.772,0.733
-                s1.299-0.261,1.773-0.733l1.833-1.816c1.498,0.873,3.112,1.545,4.878,1.978v2.604c0,1.383,1.088,2.498,2.471,2.498h4.128
-                c1.383,0,2.488-1.115,2.488-2.498v-2.605c1.767-0.432,3.371-1.104,4.869-1.977l1.817,1.812c0.474,0.475,1.104,0.735,1.775,0.735
-                c0.67,0,1.301-0.261,1.774-0.733l2.92-2.917c0.473-0.472,0.732-1.103,0.734-1.772c0-0.67-0.262-1.299-0.734-1.773l-1.75-1.77
-                c0.92-1.514,1.627-3.179,2.08-4.943h2.438c1.383,0,2.52-1.087,2.52-2.471v-4.125C45.973,19.555,44.837,18.443,43.454,18.443z
-                M22.976,30.85c-4.378,0-7.928-3.517-7.928-7.852c0-4.338,3.55-7.85,7.928-7.85c4.379,0,7.931,3.512,7.931,7.85
-                C30.906,27.334,27.355,30.85,22.976,30.85z"/>
-        </svg>
-    </button>
+    <div class="projects-grid">
+        <a href="/degree/index.html" class="project-card">
+            <h2 class="project-title">Degree Predictor</h2>
+            <p class="project-description">
+                Interactive graph visualization with GNN-powered degree prediction.
+            </p>
+            <span class="project-status status-active">Active</span>
+        </a>
 
-    <!-- Left Column: Inputs -->
-    <div class="input-column">
-        <div class="input-section">
-            <label for="graphInput">Graph Input</label>
-            <textarea id="graphInput" placeholder="0 1
-0 2
-1 2
-1 3
-2 3
-4"></textarea>
-        </div>
-        
-        <button id="generateBtn" onclick="generateRandomGraph()">Random Graph</button>
-        
-        <button id="analyzeBtn" onclick="analyzeGraph()">Analyze</button>
-        
-        <!-- Controls Section -->
-        <div class="controls-section">
-            <h3>Controls</h3>
-            <div class="control-item">
-                <strong>Double-click empty space:</strong> Create node
-            </div>
-            <div class="control-item">
-                <strong>Single-click node:</strong> Select node
-            </div>
-            <div class="control-item">
-                <strong>Drag node:</strong> Move it around
-            </div>
-            <div class="control-item">
-                <strong>Right-click + drag empty space:</strong> Pan canvas
-            </div>
-            <div class="control-item">
-                <strong>Right-click node:</strong> Start edge
-            </div>
-            <div class="control-item">
-                <strong>Click node:</strong> Complete edge (toggle)
-            </div>
-            <div class="control-item">
-                <strong>Middle-click node:</strong> Delete node
-            </div>
-            <div class="control-item">
-                <strong>Backspace:</strong> Delete selected node
-            </div>
-        </div>
+        <a href="/cage/index.html" class="project-card">
+            <h2 class="project-title">Cage Generator</h2>
+            <p class="project-description">
+                RL-based cage graph generation using reinforcement learning.
+            </p>
+            <span class="project-status status-coming-soon">Coming Soon</span>
+        </a>
     </div>
-
-    <!-- Settings Modal -->
-    <div id="settingsModal" class="modal">
-        <div class="modal-content">
-            <h2>Graph Generation Settings</h2>
-            
-            <div class="setting-group">
-                <label>Number of Nodes: <span id="nodeRangeDisplay">5 - 12</span></label>
-                <div class="range-slider-container">
-                    <div class="range-track-highlight" id="nodeRangeHighlight"></div>
-                    <input type="range" id="minNodes" min="3" max="20" value="5" class="range-slider">
-                    <input type="range" id="maxNodes" min="3" max="20" value="12" class="range-slider">
-                </div>
-            </div>
-            
-            <div class="setting-group">
-                <label>Edge Probability: <span id="probRangeDisplay">0.15 - 0.60</span></label>
-                <div class="range-slider-container">
-                    <div class="range-track-highlight" id="probRangeHighlight"></div>
-                    <input type="range" id="minProb" min="0" max="100" value="15" class="range-slider">
-                    <input type="range" id="maxProb" min="0" max="100" value="60" class="range-slider">
-                </div>
-            </div>
-            
-            <div class="setting-group">
-                <label>
-                    <input type="checkbox" id="allowSelfLoops" checked>
-                    Allow Self-Loops
-                </label>
-            </div>
-            
-            <div class="setting-group">
-                <button class="primary-btn" onclick="saveSettings()">Save</button>
-                <button class="secondary-btn" onclick="closeSettings()">Cancel</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Center Column: Graph Visualization (Full Width) -->
-    <div class="graph-column">
-        <div class="graph-container" id="graphContainer">
-            <canvas id="graphCanvas"></canvas>
-            <button id="clearBtn" class="trash-btn" onclick="clearCanvas()" title="Delete Graph">
-                <svg class="trash-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M4 6H20M16 6L15.7294 5.18807C15.4671 4.40125 15.3359 4.00784 15.0927 3.71698C14.8779 3.46013 14.6021 3.26132 14.2905 3.13878C13.9376 3 13.523 3 12.6936 3H11.3064C10.477 3 10.0624 3 9.70951 3.13878C9.39792 3.26132 9.12208 3.46013 8.90729 3.71698C8.66405 4.00784 8.53292 4.40125 8.27064 5.18807L8 6M18 6V16.2C18 17.8802 18 18.7202 17.673 19.362C17.3854 19.9265 16.9265 20.3854 16.362 20.673C15.7202 21 14.8802 21 13.2 21H10.8C9.11984 21 8.27976 21 7.63803 20.673C7.07354 20.3854 6.6146 19.9265 6.32698 19.362C6 18.7202 6 17.8802 6 16.2V6M14 10V17M10 10V17" stroke="#cccccc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-            </button>
-        </div>
-    </div>
-
-    <script src="js/config.js"></script>
-    <script src="js/interactive-graph.js"></script>
-    <script src="js/app.js"></script>
 </body>
 </html>
