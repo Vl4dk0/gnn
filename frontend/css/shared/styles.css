@@ -280,47 +280,40 @@ button:disabled {
     transition: all 0.3s ease;
 }
 
-/* Back Button */
+/* Back Button (text pill) */
 .back-btn {
     position: absolute;
-    top: 15px;
-    left: 20px;
-    display: flex;
+    top: 16px;
+    left: 16px;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    z-index: 10;
-    padding: 0;
-    outline: none;
+    height: 32px;
+    padding: 0 10px;
+    font-size: 12px;
+    color: #e0e0e0;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 999px;
     text-decoration: none;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    z-index: 10;
 }
 
 .back-btn:hover {
-    transform: scale(1.15);
-    background: transparent;
+    background: rgba(255,255,255,0.12);
+    border-color: rgba(255,255,255,0.2);
+    color: #ffffff;
 }
 
 .back-btn:active {
-    transform: scale(1);
-    background: transparent;
+    transform: translateY(0); /* no jump */
 }
 
 .back-btn:focus {
     outline: none;
-    background: transparent;
-}
-
-.back-btn svg {
-    width: 40px;
-    height: 40px;
-    display: block;
-    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
-    transition: all 0.3s ease;
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.15);
 }
 
 .settings-btn:hover {
