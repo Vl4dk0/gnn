@@ -1,17 +1,19 @@
 """Training script for the degree prediction GNN."""
 import json
 import os
-import random
+import sys
 from datetime import datetime
 
-import networkx as nx
 import torch
 import torch.nn.functional as F
 from dotenv import load_dotenv
 from torch_geometric.data import Data
 
-from backend.models.degree_gnn import DegreeGNN
-from backend.utils.graph_generation import generate_random_graph
+# Add project root to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
+
+from ai.degree.model import DegreeGNN
+from utils.graph_utils import generate_random_graph
 
 load_dotenv()
 
@@ -155,7 +157,7 @@ def save_model_info(metrics,
                     epoch,
                     hidden_dim,
                     lr,
-                    path="backend/models/model_info.json"):
+                    path="ai/degree/model_info.json"):
     """
     Save model information and metrics to JSON file.
 
@@ -176,7 +178,7 @@ def save_model_info(metrics,
             "mean_absolute_error": round(metrics["mean_absolute_error"], 4),
             "accuracy": round(metrics["accuracy"], 2),
         },
-        "model_path": "backend/models/trained_gnn.pt",
+        "model_path": "ai/degree/trained_gnn.pt",
     }
 
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -186,7 +188,7 @@ def save_model_info(metrics,
     print(f"Model info saved to {path}")
 
 
-def load_model_info(path="backend/models/model_info.json"):
+def load_model_info(path="ai/degree/model_info.json"):
     """
     Load model information from JSON file.
 
@@ -333,14 +335,14 @@ def train_gnn(
     return model
 
 
-def save_model(model, path="backend/models/trained_gnn.pt"):
+def save_model(model, path="ai/degree/trained_gnn.pt"):
     """Save the trained model."""
     os.makedirs(os.path.dirname(path), exist_ok=True)
     torch.save(model.state_dict(), path)
     print(f"Model saved to {path}")
 
 
-def load_model(path="backend/models/trained_gnn.pt",
+def load_model(path="ai/degree/trained_gnn.pt",
                hidden_dim=None,
                input_dim=4):
     """

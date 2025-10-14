@@ -3,20 +3,18 @@
  * Loads API configuration from the backend
  */
 
-let API_BASE_URL = "http://localhost:5555"; // Default fallback
+let API_BASE_URL = "http://localhost:5555/api/degree"; // Default for degree prediction
 
 /**
  * Load configuration from the backend
  */
 async function loadConfig() {
   try {
-    // Try to fetch config from the server
-    const response = await fetch(`${API_BASE_URL}/config`);
+    // Try to fetch config from the server (shared endpoint)
+    const response = await fetch(`http://localhost:5555/api/config`);
     if (response.ok) {
       const config = await response.json();
-      if (config.apiBaseUrl) {
-        API_BASE_URL = config.apiBaseUrl;
-      }
+      // Config loaded successfully
     }
   } catch (error) {
     console.warn("Could not load config from server, using defaults:", error);

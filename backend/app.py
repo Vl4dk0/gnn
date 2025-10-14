@@ -1,11 +1,12 @@
 import os
 
 from dotenv import load_dotenv
-from flask import Flask
+from flask import Flask, jsonify
 from flask import send_from_directory
 from flask_cors import CORS
 
-from backend.routes.api import api_bp
+from backend.routes.degree import degree_bp
+from backend.routes.cage import cage_bp
 
 load_dotenv()
 
@@ -20,7 +21,22 @@ def create_app():
     CORS(app)  # Enable CORS for all routes
 
     # Register blueprints
-    app.register_blueprint(api_bp)
+    app.register_blueprint(degree_bp)
+    app.register_blueprint(cage_bp)
+
+    # Shared config endpoint (not project-specific)
+    @app.route('/api/config')
+    def get_config():
+        """Get model configuration information."""
+        import json
+        try:
+            with open("ai/degree/model_info.json", "r") as f:
+                model_info = json.load(f)
+            return jsonify(model_info)
+        except FileNotFoundError:
+            return jsonify({"error": "Model info not found"}), 404
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
 
     @app.route('/')
     def index():

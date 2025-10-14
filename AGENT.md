@@ -44,35 +44,49 @@ A web application that visualizes graphs and predicts vertex degrees using Graph
 
 ```
 .
+├── ai/
+│   ├── degree/                     # Degree prediction GNN
+│   │   ├── model.py                # DegreeGNN architecture (SAGEConv layers)
+│   │   ├── train.py                # Training script
+│   │   ├── trained_gnn.pt          # Trained model weights
+│   │   └── model_info.json         # Training metrics and metadata
+│   └── cage/                       # Cage graph generator (RL-based, in development)
 ├── backend/
 │   ├── __init__.py
 │   ├── app.py                      # Flask application factory
-│   ├── models/
-│   │   ├── __init__.py
-│   │   ├── degree_gnn.py           # GNN model architecture (3-layer GCN)
-│   │   ├── trained_gnn.pt          # Trained model weights
-│   │   └── model_info.json         # Training metrics and metadata
 │   ├── routes/
 │   │   ├── __init__.py
-│   │   └── api.py                  # API endpoints
+│   │   ├── degree.py               # Degree prediction API (/api/degree/*)
+│   │   └── cage.py                 # Cage generator API (/api/cage/*)
 │   ├── services/
 │   │   ├── __init__.py
-│   │   ├── graph_service.py        # Graph analysis and GNN prediction
-│   │   └── visualization_service.py # Graph visualization
+│   │   └── graph_service.py        # Graph analysis and GNN prediction
 │   └── utils/
 │       ├── __init__.py
 │       └── graph_parser.py         # Graph parsing utilities
+├── utils/
+│   └── graph_utils.py              # Shared graph generation utilities
 ├── frontend/
-│   ├── index.html                  # Main HTML page
+│   ├── index.html                  # Landing page with project selector
+│   ├── degree/
+│   │   └── index.html              # Degree predictor UI
+│   ├── cage/
+│   │   └── index.html              # Cage generator UI
 │   ├── css/
-│   │   └── styles.css              # All styles
+│   │   ├── landing.css             # Landing page styles
+│   │   └── shared/
+│   │       └── styles.css          # Shared UI styles
 │   └── js/
-│       ├── app.js                  # API integration
-│       └── interactive-graph.js    # Canvas-based graph editor
-├── train_gnn.py                    # GNN training script
+│       ├── degree/
+│       │   └── app.js              # Degree predictor logic
+│       ├── cage/
+│       │   └── app.js              # Cage generator logic
+│       └── shared/
+│           ├── config.js           # Shared configuration
+│           └── interactive-graph.js # Canvas-based graph editor
 ├── run.py                          # Main entry point
 ├── pyproject.toml                  # Poetry dependencies
-└── README.md                       # This file
+└── README.md
 ```
 
 ## Setup Instructions

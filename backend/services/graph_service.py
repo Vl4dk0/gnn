@@ -38,11 +38,16 @@ def load_gnn_model():
         return _model
 
     try:
-        from backend.models.degree_gnn import DegreeGNN
+        from ai.degree.model import DegreeGNN
         import json
+        import sys
 
-        model_path = "backend/models/trained_gnn.pt"
-        info_path = "backend/models/model_info.json"
+        # Add project root to path
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        sys.path.insert(0, project_root)
+
+        model_path = "ai/degree/trained_gnn.pt"
+        info_path = "ai/degree/model_info.json"
 
         if not os.path.exists(model_path):
             print(f"Warning: No trained model found at {model_path}")

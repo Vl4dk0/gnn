@@ -83,8 +83,9 @@ textarea, input[type="number"] {
 }
 
 textarea {
-    resize: vertical;
-    min-height: 200px;
+    resize: none;
+    height: 200px;
+    overflow-y: auto;
 }
 
 textarea:focus, input[type="number"]:focus {
@@ -239,9 +240,9 @@ button:disabled {
 
 /* Settings Button */
 .settings-btn {
-    position: fixed;
-    top: 30px;
-    right: 30px;
+    position: absolute;
+    top: 20px;
+    right: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -251,9 +252,68 @@ button:disabled {
     border: none;
     cursor: pointer;
     transition: all 0.3s ease;
-    z-index: 100;
+    z-index: 10;
     padding: 0;
     outline: none;
+}
+
+.settings-btn:hover {
+    transform: scale(1.15);
+    background: transparent;
+}
+
+.settings-btn:active {
+    transform: scale(1);
+    background: transparent;
+}
+
+.settings-btn:focus {
+    outline: none;
+    background: transparent;
+}
+
+.gear-icon {
+    width: 40px;
+    height: 40px;
+    display: block;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+    transition: all 0.3s ease;
+}
+
+/* Back Button (text pill) */
+.back-btn {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 32px;
+    padding: 0 10px;
+    font-size: 12px;
+    color: #e0e0e0;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 999px;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    z-index: 10;
+}
+
+.back-btn:hover {
+    background: rgba(255,255,255,0.12);
+    border-color: rgba(255,255,255,0.2);
+    color: #ffffff;
+}
+
+.back-btn:active {
+    transform: translateY(0); /* no jump */
+}
+
+.back-btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.15);
 }
 
 .settings-btn:hover {

@@ -1,2 +1,0 @@
-- [x] On analyze, everything twitches and moves a little. this didnt happen before, why is it happening now ? Fix it
-- [x] When I adjust input pointers in settings, I shouldnt be able to drag the left one to the right of the right one. and vice versa.
