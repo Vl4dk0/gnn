@@ -1,23 +1,30 @@
 """
-Monte Carlo graph generation for cage graphs.
+Random Walk for cage graph generation (Baseline 1).
 
-Smart incremental validation approach.
+Pure random exploration with probabilistic operation selection.
+No intelligence, no learning, no tree search - just random walk with deletion for backtracking.
 """
 
 import random
 import time
 import networkx as nx
 
-from utils.graph_utils import compute_girth, moore_bound, is_valid_cage
+from utils.graph_utils import (
+    compute_girth, 
+    moore_bound, 
+    is_valid_cage,
+    can_add_edge_preserving_girth
+)
 
 
-class CageGenerator:
-    """Monte Carlo generator for cage graphs with efficient validation."""
+class RandomWalkGenerator:
+    """Random walk generator for cage graphs."""
     
-    def __init__(self, k, g):
+    def __init__(self, k, g, max_steps=500):
         self.k = k
         self.g = g
-        self.graph = nx.Graph()  # type: ignore
+        self.max_steps = max_steps
+        self.graph = nx.Graph()
         self.step_count = 0
         self.is_complete = False
         self.success = False
@@ -55,33 +62,11 @@ class CageGenerator:
         if self.graph.degree(u) >= self.k or self.graph.degree(v) >= self.k:  # type: ignore
             return False
         
-        # Check girth constraint - smart incremental check
-        # Only need to find shortest cycle through the new edge
-        if not self._would_preserve_girth(u, v):
+        # Check girth constraint using smart incremental validation
+        if not can_add_edge_preserving_girth(self.graph, u, v, self.g):
             return False
         
         return True
-    
-    def _would_preserve_girth(self, u, v):
-        """
-        Check if adding edge (u,v) would preserve girth >= g.
-        
-        Smart approach: Find shortest path from v to u in current graph.
-        If path exists and path_length + 1 < g, adding edge creates too-small cycle.
-        """
-        if u == v:
-            # Self-loop creates cycle of length 1
-            return self.g <= 1
-        
-        try:
-            # Find shortest path from v to u (excluding the direct edge)
-            path_length = nx.shortest_path_length(self.graph, u, v)  # type: ignore
-            # Adding edge would create cycle of length path_length + 1
-            cycle_length = path_length + 1
-            return cycle_length >= self.g
-        except nx.NetworkXNoPath:  # type: ignore
-            # No path exists, adding edge won't create a cycle
-            return True
     
     def add_edge(self, u, v):
         """Add edge (u,v) to graph and update regularity count."""
@@ -161,7 +146,7 @@ class CageGenerator:
         num_nodes = len(self.graph.nodes())  # type: ignore
         return num_nodes > 0 and self.nodes_with_correct_degree == num_nodes
     
-    def monte_carlo_step(self):
+    def step(self):
         """
         Execute one Monte Carlo step for graph generation.
         
@@ -226,14 +211,9 @@ class CageGenerator:
                 self.remove_vertex(node)
         
         # Check if we should terminate
-        # Complete if: regular + correct girth + reasonable number of steps
+        # Only complete if we found a valid cage (regular + correct girth)
         if self.is_regular() and num_nodes >= mb:
             girth = compute_girth(self.graph)  # type: ignore
-            if girth >= self.g:
+            if girth == self.g:  # Must be exactly g, not just >= g
                 self.is_complete = True
                 self.success = True
-        
-        # Also terminate if too many steps
-        if self.step_count >= 500:
-            self.is_complete = True
-            self.success = is_valid_cage(self.graph, self.k, self.g)  # type: ignore

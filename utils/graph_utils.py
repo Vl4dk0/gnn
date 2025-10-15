@@ -191,3 +191,117 @@ def is_valid_cage(G, k, g):
     
     computed_girth = compute_girth(G)
     return computed_girth == g
+
+
+def can_add_edge_preserving_girth(G, u, v, target_girth):
+    """
+    Check if adding edge (u,v) would preserve girth >= target_girth.
+    
+    Smart incremental approach: Only check shortest path through new edge.
+    Uses the insight that the smallest cycle can only change around the newly added edge.
+    
+    Args:
+        G: NetworkX Graph object
+        u, v: Nodes to connect
+        target_girth: Minimum acceptable girth
+    
+    Returns:
+        True if edge can be added without creating cycle < target_girth
+    """
+    if u == v:
+        # Self-loop creates cycle of length 1
+        return target_girth <= 1
+    
+    try:
+        # Find shortest path from u to v (excluding the direct edge)
+        path_length = nx.shortest_path_length(G, u, v)
+        # Adding edge would create cycle of length path_length + 1
+        cycle_length = path_length + 1
+        return cycle_length >= target_girth
+    except nx.NetworkXNoPath:
+        # No path exists, adding edge won't create a cycle
+        return True
+
+
+def compute_regularity_score(G, k):
+    """
+    Compute how close the graph is to being k-regular.
+    
+    Args:
+        G: NetworkX Graph object
+        k: Target degree
+    
+    Returns:
+        Score in [0, 1] where 1 = perfectly regular
+    """
+    if len(G.nodes()) == 0:
+        return 0.0
+    
+    nodes_at_correct_degree = sum(1 for node in G.nodes() if G.degree(node) == k)
+    return nodes_at_correct_degree / len(G.nodes())
+
+
+def get_nodes_by_degree(G, k):
+    """
+    Categorize nodes by their degree relative to k.
+    
+    Args:
+        G: NetworkX Graph object
+        k: Target degree
+    
+    Returns:
+        dict with keys 'low', 'correct', 'high' containing node lists
+    """
+    low = []
+    correct = []
+    high = []
+    
+    for node in G.nodes():
+        deg = G.degree(node)
+        if deg < k:
+            low.append(node)
+        elif deg == k:
+            correct.append(node)
+        else:
+            high.append(node)
+    
+    return {'low': low, 'correct': correct, 'high': high}
+
+
+def score_graph_quality(G, k, g):
+    """
+    Score how close a graph is to being a valid (k,g)-cage.
+    
+    Used for beam search and other algorithms that need to rank partial graphs.
+    
+    Args:
+        G: NetworkX Graph object
+        k: Target degree
+        g: Target girth
+    
+    Returns:
+        Score in [0, 1] where 1 = valid cage
+    """
+    if len(G.nodes()) == 0:
+        return 0.0
+    
+    # Component 1: Regularity (40% weight)
+    regularity = compute_regularity_score(G, k)
+    
+    # Component 2: Size relative to Moore bound (30% weight)
+    num_nodes = len(G.nodes())
+    mb = moore_bound(k, g)
+    size_score = 1.0 - abs(num_nodes - mb) / max(mb, num_nodes)
+    
+    # Component 3: Girth (30% weight)
+    current_girth = compute_girth(G)
+    if current_girth == float('inf'):
+        girth_score = 0.5  # No cycles yet, neutral
+    elif current_girth < g:
+        girth_score = 0.0  # Violated constraint
+    elif current_girth == g:
+        girth_score = 1.0  # Perfect
+    else:
+        girth_score = 0.8  # Larger than needed, okay but not optimal
+    
+    return 0.4 * regularity + 0.3 * size_score + 0.3 * girth_score
