@@ -25,7 +25,7 @@ async function generateRandomGraph() {
   try {
     // Load settings from localStorage
     const settings = loadSettings();
-    
+
     const response = await fetch(`${API_BASE_URL}/generate`, {
       method: "POST",
       headers: {
@@ -115,7 +115,7 @@ function formatGraphInput(graphStr) {
   // Remove duplicate edges (keep only unique edges)
   const uniqueEdges = [];
   const edgeSet = new Set();
-  
+
   formattedEdges.forEach((edge) => {
     const edgeKey = `${edge.v1},${edge.v2}`;
     if (!edgeSet.has(edgeKey)) {
@@ -140,7 +140,7 @@ async function analyzeGraph() {
 
   // Format and clean the graph input first
   const formattedGraph = formatGraphInput(graphInput.value);
-  
+
   // Only update the input if the formatted version is different
   if (graphInput.value !== formattedGraph) {
     graphInput.value = formattedGraph; // setting value programmatically does not fire 'input'
@@ -257,8 +257,8 @@ const DEFAULT_SETTINGS = {
   minNodes: 5,
   maxNodes: 12,
   minProb: 0.15,
-  maxProb: 0.60,
-  allowSelfLoops: true
+  maxProb: 0.6,
+  allowSelfLoops: true,
 };
 
 function loadSettings() {
@@ -273,18 +273,18 @@ function saveSettingsToStorage(settings) {
 function openSettings() {
   const modal = document.getElementById("settingsModal");
   const settings = loadSettings();
-  
+
   // Populate current values
   document.getElementById("minNodes").value = settings.minNodes;
   document.getElementById("maxNodes").value = settings.maxNodes;
   document.getElementById("minProb").value = Math.round(settings.minProb * 100);
   document.getElementById("maxProb").value = Math.round(settings.maxProb * 100);
   document.getElementById("allowSelfLoops").checked = settings.allowSelfLoops;
-  
+
   // Update displays and highlights
   updateNodeRangeDisplay();
   updateProbRangeDisplay();
-  
+
   modal.classList.add("show");
 }
 
@@ -299,26 +299,26 @@ function saveSettings() {
   const minProb = parseInt(document.getElementById("minProb").value) / 100;
   const maxProb = parseInt(document.getElementById("maxProb").value) / 100;
   const allowSelfLoops = document.getElementById("allowSelfLoops").checked;
-  
+
   // Validate
   if (minNodes > maxNodes) {
     alert("Minimum nodes cannot be greater than maximum nodes");
     return;
   }
-  
+
   if (minProb > maxProb) {
     alert("Minimum probability cannot be greater than maximum probability");
     return;
   }
-  
+
   const settings = {
     minNodes,
     maxNodes,
     minProb,
     maxProb,
-    allowSelfLoops
+    allowSelfLoops,
   };
-  
+
   saveSettingsToStorage(settings);
   closeSettings();
 }
@@ -326,13 +326,13 @@ function saveSettings() {
 function updateNodeRangeDisplay() {
   const minSlider = document.getElementById("minNodes");
   const maxSlider = document.getElementById("maxNodes");
-  
+
   // Enforce constraints: min can't be greater than max
   if (parseInt(minSlider.value) > parseInt(maxSlider.value)) {
     minSlider.value = maxSlider.value;
   }
-  
-  document.getElementById("nodeRangeDisplay").textContent = 
+
+  document.getElementById("nodeRangeDisplay").textContent =
     `${minSlider.value} - ${maxSlider.value}`;
   updateRangeHighlight("minNodes", "maxNodes", "nodeRangeHighlight");
 }
@@ -340,13 +340,13 @@ function updateNodeRangeDisplay() {
 function updateNodeRangeDisplayMax() {
   const minSlider = document.getElementById("minNodes");
   const maxSlider = document.getElementById("maxNodes");
-  
+
   // Enforce constraints: max can't be less than min
   if (parseInt(maxSlider.value) < parseInt(minSlider.value)) {
     maxSlider.value = minSlider.value;
   }
-  
-  document.getElementById("nodeRangeDisplay").textContent = 
+
+  document.getElementById("nodeRangeDisplay").textContent =
     `${minSlider.value} - ${maxSlider.value}`;
   updateRangeHighlight("minNodes", "maxNodes", "nodeRangeHighlight");
 }
@@ -354,13 +354,13 @@ function updateNodeRangeDisplayMax() {
 function updateProbRangeDisplay() {
   const minSlider = document.getElementById("minProb");
   const maxSlider = document.getElementById("maxProb");
-  
+
   // Enforce constraints: min can't be greater than max
   if (parseInt(minSlider.value) > parseInt(maxSlider.value)) {
     minSlider.value = maxSlider.value;
   }
-  
-  document.getElementById("probRangeDisplay").textContent = 
+
+  document.getElementById("probRangeDisplay").textContent =
     `${(minSlider.value / 100).toFixed(2)} - ${(maxSlider.value / 100).toFixed(2)}`;
   updateRangeHighlight("minProb", "maxProb", "probRangeHighlight");
 }
@@ -368,13 +368,13 @@ function updateProbRangeDisplay() {
 function updateProbRangeDisplayMax() {
   const minSlider = document.getElementById("minProb");
   const maxSlider = document.getElementById("maxProb");
-  
+
   // Enforce constraints: max can't be less than min
   if (parseInt(maxSlider.value) < parseInt(minSlider.value)) {
     maxSlider.value = minSlider.value;
   }
-  
-  document.getElementById("probRangeDisplay").textContent = 
+
+  document.getElementById("probRangeDisplay").textContent =
     `${(minSlider.value / 100).toFixed(2)} - ${(maxSlider.value / 100).toFixed(2)}`;
   updateRangeHighlight("minProb", "maxProb", "probRangeHighlight");
 }
@@ -383,36 +383,46 @@ function updateRangeHighlight(minId, maxId, highlightId) {
   const minSlider = document.getElementById(minId);
   const maxSlider = document.getElementById(maxId);
   const highlight = document.getElementById(highlightId);
-  
+
   if (!highlight) return;
-  
+
   const min = parseFloat(minSlider.min);
   const max = parseFloat(minSlider.max);
   const minVal = parseFloat(minSlider.value);
   const maxVal = parseFloat(maxSlider.value);
-  
+
   // Calculate percentage positions
   const minPercent = ((minVal - min) / (max - min)) * 100;
   const maxPercent = ((maxVal - min) / (max - min)) * 100;
-  
+
   // Update highlight position and width
-  highlight.style.left = minPercent + '%';
-  highlight.style.width = (maxPercent - minPercent) + '%';
+  highlight.style.left = minPercent + "%";
+  highlight.style.width = maxPercent - minPercent + "%";
 }
 
 function initializeSettings() {
   // Update displays when sliders change
-  document.getElementById("minNodes").addEventListener("input", updateNodeRangeDisplay);
-  document.getElementById("maxNodes").addEventListener("input", updateNodeRangeDisplayMax);
-  document.getElementById("minProb").addEventListener("input", updateProbRangeDisplay);
-  document.getElementById("maxProb").addEventListener("input", updateProbRangeDisplayMax);
-  
+  document
+    .getElementById("minNodes")
+    .addEventListener("input", updateNodeRangeDisplay);
+  document
+    .getElementById("maxNodes")
+    .addEventListener("input", updateNodeRangeDisplayMax);
+  document
+    .getElementById("minProb")
+    .addEventListener("input", updateProbRangeDisplay);
+  document
+    .getElementById("maxProb")
+    .addEventListener("input", updateProbRangeDisplayMax);
+
   // Close modal when clicking outside
-  document.getElementById("settingsModal").addEventListener("click", function(e) {
-    if (e.target === this) {
-      closeSettings();
-    }
-  });
+  document
+    .getElementById("settingsModal")
+    .addEventListener("click", function (e) {
+      if (e.target === this) {
+        closeSettings();
+      }
+    });
 }
 
 // Initialize when DOM is loaded

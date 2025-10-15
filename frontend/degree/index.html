@@ -21,9 +21,9 @@
         
         <button id="generateBtn" onclick="generateRandomGraph()">Random Graph</button>
         
-        <button id="analyzeBtn" onclick="analyzeGraph()">Analyze</button>
+    <button id="analyzeBtn" onclick="analyzeGraph()">Analyze</button>
         
-        <!-- Controls Section -->
+    <!-- Controls Section -->
         <div class="controls-section">
             <h3>Controls</h3>
             <div class="control-item">
@@ -51,6 +51,9 @@
                 <strong>Backspace:</strong> Delete selected node
             </div>
         </div>
+
+    <!-- Back Link (left menu) -->
+    <a href="/" class="back-btn" title="Projects">Projects</a>
     </div>
 
     <!-- Settings Modal -->
@@ -94,8 +97,6 @@
     <div class="graph-column">
         <div class="graph-container" id="graphContainer">
             <canvas id="graphCanvas"></canvas>
-            <!-- Go Back Button -->
-            <a href="/" class="back-btn" title="Back to Projects">Back to Projects</a>
             <!-- Settings Button -->
             <button id="settingsBtn" class="settings-btn" onclick="openSettings()" title="Graph Settings">
                 <svg class="gear-icon" viewBox="0 0 45.973 45.973" xmlns="http://www.w3.org/2000/svg">
