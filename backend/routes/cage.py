@@ -7,7 +7,7 @@ import threading
 
 from flask import Blueprint, jsonify, request
 
-from ai.cage.generator import CageGenerator
+from ai.cage import MCTSGenerator
 from utils.graph_utils import graph_to_edge_list, is_valid_cage, compute_girth, is_k_regular, moore_bound
 
 # Create blueprint with /api/cage prefix
@@ -45,9 +45,9 @@ def generate():
     if g < 3:
         return jsonify({'error': 'g must be >= 3'}), 400
     
-    # Create new session
+    # Create new session with MCTS generator
     session_id = str(uuid.uuid4())
-    generator = CageGenerator(k, g)
+    generator = MCTSGenerator(k, g)
     
     with session_lock:
         generation_sessions[session_id] = generator
@@ -70,9 +70,9 @@ def get_status(session_id):
     if not generator:
         return jsonify({'error': 'Session not found'}), 404
     
-    # Execute one Monte Carlo step
+    # Execute one step
     if not generator.is_complete:
-        generator.monte_carlo_step()
+        generator.step()
     
     # Compute girth and convert infinity to null for JSON
     girth_val = compute_girth(generator.graph) if len(generator.graph.edges()) > 0 else float('inf')  # type: ignore
