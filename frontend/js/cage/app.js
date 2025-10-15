@@ -1,9 +1,13 @@
 /**
- * Main application logic for GNN Cage Generator
+ * Main application logic for GNN Cage Generator (MCTS + GNN)
  */
 
 // Override API_BASE_URL for cage endpoints
 API_BASE_URL = "http://localhost:5555/api/cage";
+
+// Global state
+let currentSessionId = null;
+let pollingInterval = null;
 
 /**
  * Clear the canvas
@@ -15,339 +19,234 @@ function clearCanvas() {
 }
 
 /**
- * Format and clean the graph input
- * Reuse same rules as degree predictor
+ * Start MCTS-based cage generation
  */
-function formatGraphInput(graphStr) {
-  if (!graphStr || graphStr.trim() === "") return "";
-
-  const lines = graphStr.trim().split("\n");
-  const isolatedVertices = new Set();
-  const edges = [];
-
-  lines.forEach((line) => {
-    const parts = line.trim().split(/\s+/);
-    if (parts.length === 1 && parts[0] !== "") {
-      const v = parseInt(parts[0]);
-      if (!isNaN(v)) {
-        isolatedVertices.add(v);
-      }
-    } else if (parts.length >= 2) {
-      const v1 = parseInt(parts[0]);
-      const v2 = parseInt(parts[1]);
-      if (!isNaN(v1) && !isNaN(v2)) {
-        edges.push({ v1, v2 });
-      }
-    }
-  });
-
-  edges.forEach((edge) => {
-    isolatedVertices.delete(edge.v1);
-    isolatedVertices.delete(edge.v2);
-  });
-
-  const output = [];
-
-  const sortedIsolated = Array.from(isolatedVertices).sort((a, b) => a - b);
-  sortedIsolated.forEach((v) => {
-    output.push(`${v}`);
-  });
-
-  const formattedEdges = edges.map((edge) => ({
-    v1: Math.min(edge.v1, edge.v2),
-    v2: Math.max(edge.v1, edge.v2),
-  }));
-
-  formattedEdges.sort((a, b) => {
-    if (a.v1 !== b.v1) return a.v1 - b.v1;
-    return a.v2 - b.v2;
-  });
-
-  const uniqueEdges = [];
-  const edgeSet = new Set();
-
-  formattedEdges.forEach((edge) => {
-    const edgeKey = `${edge.v1},${edge.v2}`;
-    if (!edgeSet.has(edgeKey)) {
-      edgeSet.add(edgeKey);
-      uniqueEdges.push(edge);
-    }
-  });
-
-  uniqueEdges.forEach((edge) => {
-    output.push(`${edge.v1} ${edge.v2}`);
-  });
-
-  return output.join("\n");
-}
-
-/**
- * Generate a random graph and populate input fields (placeholder backend logic)
- */
-async function generateRandomGraph() {
+async function startGeneration() {
+  const k = parseInt(document.getElementById("degreeK").value);
+  const g = parseInt(document.getElementById("girthG").value);
   const generateBtn = document.getElementById("generateBtn");
-  const graphInput = document.getElementById("graphInput");
+  const stopBtn = document.getElementById("stopBtn");
+  const statusDisplay = document.getElementById("statusDisplay");
 
+  if (k < 2 || g < 3) {
+    alert("k must be >= 2 and g must be >= 3");
+    return;
+  }
+
+  // Disable generate button
   generateBtn.disabled = true;
   generateBtn.textContent = "Generating...";
+  stopBtn.disabled = false;
+  stopBtn.style.display = "block";
 
   try {
-    const settings = loadSettings();
-
-    // Map camelCase settings to snake_case expected by cage backend
-    const payload = {
-      min_nodes: settings.minNodes,
-      max_nodes: settings.maxNodes,
-      min_probability: settings.minProb,
-      max_probability: settings.maxProb,
-      allow_self_loops: settings.allowSelfLoops,
-    };
-
+    // Start generation on backend
     const response = await fetch(`${API_BASE_URL}/generate`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ k, g }),
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || "Failed to generate graph");
+      throw new Error(data.error || "Failed to start generation");
     }
 
-    // Format to match degree page ordering (isolated vertices first, sorted edges)
-    const formatted = formatGraphInput(data.graph);
-    graphInput.value = formatted;
+    currentSessionId = data.session_id;
 
-    if (window.interactiveGraph) {
-      window.interactiveGraph.loadFromEdgeList(formatted, null);
-    }
+    // Start polling for status
+    startPolling();
+
+    updateStatus(data.status);
   } catch (error) {
-    showError("Error generating graph: " + error.message);
-  } finally {
-    generateBtn.disabled = false;
-    generateBtn.textContent = "Generate";
+    showError("Error starting generation: " + error.message);
+    resetButtons();
   }
 }
 
 /**
- * Analyze if the current graph is a cage (placeholder always true backend)
+ * Stop generation
  */
-async function analyzeGraph() {
-  const graphInput = document.getElementById("graphInput");
-  const analyzeBtn = document.getElementById("analyzeBtn");
-
-  const formattedGraph = formatGraphInput(graphInput.value);
-  if (graphInput.value !== formattedGraph) {
-    graphInput.value = formattedGraph;
-  }
-
-  hideError();
-
-  showLoading();
-  analyzeBtn.disabled = true;
+async function stopGeneration() {
+  if (!currentSessionId) return;
 
   try {
-    const response = await fetch(`${API_BASE_URL}/analyze`, {
+    await fetch(`${API_BASE_URL}/stop/${currentSessionId}`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ edge_list: formattedGraph }),
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || "Failed to analyze graph");
-    }
-
-    // Placeholder result in data.is_cage; no UI output yet
-    console.log("Cage analysis:", data);
+    stopPolling();
+    resetButtons();
   } catch (error) {
-    showError("Error: " + error.message);
-  } finally {
-    hideLoading();
-    analyzeBtn.disabled = false;
+    console.error("Error stopping generation:", error);
   }
 }
 
 /**
- * Show/Hide error or loading (no-op visual, for parity)
+ * Start polling for status updates
+ */
+function startPolling() {
+  stopPolling(); // Clear any existing polling
+
+  pollingInterval = setInterval(async () => {
+    if (!currentSessionId) {
+      stopPolling();
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/status/${currentSessionId}`
+      );
+      const status = await response.json();
+
+      if (!response.ok) {
+        throw new Error(status.error || "Failed to get status");
+      }
+
+      updateStatus(status);
+
+      // Stop polling if generation is complete
+      if (status.is_complete) {
+        stopPolling();
+        resetButtons();
+
+        if (status.success) {
+          // Format time with appropriate unit
+          let timeStr;
+          if (status.elapsed_time < 1) {
+            timeStr = `${(status.elapsed_time * 1000).toFixed(0)}ms`;
+          } else if (status.elapsed_time < 60) {
+            timeStr = `${status.elapsed_time.toFixed(1)}s`;
+          } else {
+            const mins = Math.floor(status.elapsed_time / 60);
+            const secs = (status.elapsed_time % 60).toFixed(1);
+            timeStr = `${mins}m ${secs}s`;
+          }
+          
+          showSuccess(`Valid cage! (${timeStr})`);
+        } else {
+          showError(
+            `Generation completed but cage is not valid. Nodes: ${status.num_nodes}, Girth: ${status.girth || "∞"}`
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Polling error:", error);
+      stopPolling();
+      resetButtons();
+    }
+  }, 300); // Poll every 300ms
+}
+
+/**
+ * Stop polling
+ */
+function stopPolling() {
+  if (pollingInterval) {
+    clearInterval(pollingInterval);
+    pollingInterval = null;
+  }
+}
+
+/**
+ * Update status display and graph visualization
+ */
+function updateStatus(status) {
+  const statusDisplay = document.getElementById("statusDisplay");
+
+  // Build status HTML
+  let html = `
+        <div style="margin-bottom: 8px;">
+            <strong>Target:</strong> (${status.k},${status.g})-cage
+        </div>
+        <div style="margin-bottom: 8px;">
+            <strong>Step:</strong> ${status.step_count}
+        </div>
+        <div style="margin-bottom: 8px;">
+            <strong>Nodes:</strong> ${status.num_nodes} / Moore bound: ${status.moore_bound}
+        </div>
+        <div style="margin-bottom: 8px;">
+            <strong>Edges:</strong> ${status.num_edges}
+        </div>
+        <div style="margin-bottom: 8px;">
+            <strong>k-regular:</strong> ${status.is_k_regular ? "✓" : "✗"}
+        </div>
+        <div style="margin-bottom: 8px;">
+            <strong>Girth:</strong> ${status.girth || "∞"} (target: ${status.g})
+        </div>
+    `;
+
+  if (!status.is_complete) {
+    html += `
+            <div style="margin-top: 12px; color: #888;">
+                ⏳ Generating... (${status.elapsed_time.toFixed(1)}s)
+            </div>
+        `;
+  }
+
+  statusDisplay.innerHTML = html;
+
+  // Update graph visualization
+  if (window.interactiveGraph && status.current_graph) {
+    window.interactiveGraph.loadFromEdgeList(status.current_graph, null);
+  }
+}
+
+/**
+ * Reset buttons to initial state
+ */
+function resetButtons() {
+  const generateBtn = document.getElementById("generateBtn");
+  const stopBtn = document.getElementById("stopBtn");
+
+  generateBtn.disabled = false;
+  generateBtn.textContent = "Generate Cage";
+  stopBtn.disabled = true;
+  stopBtn.style.display = "none";
+}
+
+/**
+ * Show error message
  */
 function showError(message) {
   console.error(message);
+  const statusDisplay = document.getElementById("statusDisplay");
+  statusDisplay.innerHTML = `
+        <div style="padding: 12px; background: #a52; border-radius: 4px; color: #fff;">
+            <strong>Error:</strong> ${message}
+        </div>
+    `;
 }
 
-function hideError() {}
-
-function showLoading() {}
-
-function hideLoading() {}
+/**
+ * Show success message
+ */
+function showSuccess(message) {
+  console.log(message);
+  const statusDisplay = document.getElementById("statusDisplay");
+  const currentHTML = statusDisplay.innerHTML;
+  statusDisplay.innerHTML =
+    currentHTML +
+    `
+        <div style="margin-top: 12px; padding: 12px; background: #2a5; border-radius: 4px; color: #fff;">
+            <strong>✓</strong> ${message}
+        </div>
+    `;
+}
 
 /**
  * Initialize event listeners
  */
 function initializeEventListeners() {
-  document.getElementById("graphInput").addEventListener("input", function (e) {
-    if (window.interactiveGraph) {
-      window.interactiveGraph.loadFromEdgeList(e.target.value, null);
-    }
-  });
-}
-
-/**
- * Settings Management (aligned with degree)
- */
-const DEFAULT_SETTINGS = {
-  minNodes: 5,
-  maxNodes: 12,
-  minProb: 0.15,
-  maxProb: 0.6,
-  allowSelfLoops: true,
-};
-
-function loadSettings() {
-  const saved = localStorage.getItem("graphSettings");
-  return saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
-}
-
-function saveSettingsToStorage(settings) {
-  localStorage.setItem("graphSettings", JSON.stringify(settings));
-}
-
-function openSettings() {
-  const modal = document.getElementById("settingsModal");
-  const settings = loadSettings();
-
-  document.getElementById("minNodes").value = settings.minNodes;
-  document.getElementById("maxNodes").value = settings.maxNodes;
-  document.getElementById("minProb").value = Math.round(settings.minProb * 100);
-  document.getElementById("maxProb").value = Math.round(settings.maxProb * 100);
-  document.getElementById("allowSelfLoops").checked = settings.allowSelfLoops;
-
-  updateNodeRangeDisplay();
-  updateProbRangeDisplay();
-
-  modal.classList.add("show");
-}
-
-function closeSettings() {
-  const modal = document.getElementById("settingsModal");
-  modal.classList.remove("show");
-}
-
-function saveSettings() {
-  const minNodes = parseInt(document.getElementById("minNodes").value);
-  const maxNodes = parseInt(document.getElementById("maxNodes").value);
-  const minProb = parseInt(document.getElementById("minProb").value) / 100;
-  const maxProb = parseInt(document.getElementById("maxProb").value) / 100;
-  const allowSelfLoops = document.getElementById("allowSelfLoops").checked;
-
-  if (minNodes > maxNodes) {
-    alert("Minimum nodes cannot be greater than maximum nodes");
-    return;
-  }
-
-  if (minProb > maxProb) {
-    alert("Minimum probability cannot be greater than maximum probability");
-    return;
-  }
-
-  const settings = {
-    minNodes,
-    maxNodes,
-    minProb,
-    maxProb,
-    allowSelfLoops,
-  };
-
-  saveSettingsToStorage(settings);
-  closeSettings();
-}
-
-function updateNodeRangeDisplay() {
-  const minSlider = document.getElementById("minNodes");
-  const maxSlider = document.getElementById("maxNodes");
-
-  if (parseInt(minSlider.value) > parseInt(maxSlider.value)) {
-    minSlider.value = maxSlider.value;
-  }
-
-  document.getElementById("nodeRangeDisplay").textContent = `${minSlider.value} - ${maxSlider.value}`;
-  updateRangeHighlight("minNodes", "maxNodes", "nodeRangeHighlight");
-}
-
-function updateNodeRangeDisplayMax() {
-  const minSlider = document.getElementById("minNodes");
-  const maxSlider = document.getElementById("maxNodes");
-
-  if (parseInt(maxSlider.value) < parseInt(minSlider.value)) {
-    maxSlider.value = minSlider.value;
-  }
-
-  document.getElementById("nodeRangeDisplay").textContent = `${minSlider.value} - ${maxSlider.value}`;
-  updateRangeHighlight("minNodes", "maxNodes", "nodeRangeHighlight");
-}
-
-function updateProbRangeDisplay() {
-  const minSlider = document.getElementById("minProb");
-  const maxSlider = document.getElementById("maxProb");
-
-  if (parseInt(minSlider.value) > parseInt(maxSlider.value)) {
-    minSlider.value = maxSlider.value;
-  }
-
-  document.getElementById("probRangeDisplay").textContent = `${(minSlider.value / 100).toFixed(2)} - ${(maxSlider.value / 100).toFixed(2)}`;
-  updateRangeHighlight("minProb", "maxProb", "probRangeHighlight");
-}
-
-function updateProbRangeDisplayMax() {
-  const minSlider = document.getElementById("minProb");
-  const maxSlider = document.getElementById("maxProb");
-
-  if (parseInt(maxSlider.value) < parseInt(minSlider.value)) {
-    maxSlider.value = minSlider.value;
-  }
-
-  document.getElementById("probRangeDisplay").textContent = `${(minSlider.value / 100).toFixed(2)} - ${(maxSlider.value / 100).toFixed(2)}`;
-  updateRangeHighlight("minProb", "maxProb", "probRangeHighlight");
-}
-
-function updateRangeHighlight(minId, maxId, highlightId) {
-  const minSlider = document.getElementById(minId);
-  const maxSlider = document.getElementById(maxId);
-  const highlight = document.getElementById(highlightId);
-
-  if (!highlight) return;
-
-  const min = parseFloat(minSlider.min);
-  const max = parseFloat(minSlider.max);
-  const minVal = parseFloat(minSlider.value);
-  const maxVal = parseFloat(maxSlider.value);
-
-  const minPercent = ((minVal - min) / (max - min)) * 100;
-  const maxPercent = ((maxVal - min) / (max - min)) * 100;
-
-  highlight.style.left = minPercent + "%";
-  highlight.style.width = maxPercent - minPercent + "%";
-}
-
-function initializeSettings() {
-  document.getElementById("minNodes").addEventListener("input", updateNodeRangeDisplay);
-  document.getElementById("maxNodes").addEventListener("input", updateNodeRangeDisplayMax);
-  document.getElementById("minProb").addEventListener("input", updateProbRangeDisplay);
-  document.getElementById("maxProb").addEventListener("input", updateProbRangeDisplayMax);
-
-  document.getElementById("settingsModal").addEventListener("click", function (e) {
-    if (e.target === this) {
-      closeSettings();
-    }
+  // Stop polling when page is closed
+  window.addEventListener("beforeunload", () => {
+    stopPolling();
   });
 }
 
 // Initialize when DOM is loaded
 document.addEventListener("DOMContentLoaded", initializeEventListeners);
-document.addEventListener("DOMContentLoaded", initializeSettings);
