@@ -57,10 +57,8 @@ async function startGeneration() {
 
     currentSessionId = data.session_id;
 
-    // Start polling for status
+    // Start polling for status (will update display on first poll)
     startPolling();
-
-    updateStatus(data.status);
   } catch (error) {
     showError("Error starting generation: " + error.message);
     resetButtons();
@@ -74,12 +72,44 @@ async function stopGeneration() {
   if (!currentSessionId) return;
 
   try {
+    // Fetch current status before stopping
+    const statusResponse = await fetch(`${API_BASE_URL}/status/${currentSessionId}`);
+    const status = await statusResponse.json();
+    
+    // Stop the session
     await fetch(`${API_BASE_URL}/stop/${currentSessionId}`, {
       method: "POST",
     });
 
     stopPolling();
     resetButtons();
+    
+    // Update status display with "stopped" message
+    const statusDisplay = document.getElementById("statusDisplay");
+    let html = `
+        <div style="margin-bottom: 8px;">
+            <strong>Target:</strong> (${status.k},${status.g})-cage
+        </div>
+        <div style="margin-bottom: 8px;">
+            <strong>Step:</strong> ${status.step_count}
+        </div>
+        <div style="margin-bottom: 8px;">
+            <strong>Nodes:</strong> ${status.num_nodes} / Moore bound: ${status.moore_bound}
+        </div>
+        <div style="margin-bottom: 8px;">
+            <strong>Edges:</strong> ${status.num_edges}
+        </div>
+        <div style="margin-bottom: 8px;">
+            <strong>k-regular:</strong> ${status.is_k_regular ? "✓" : "✗"}
+        </div>
+        <div style="margin-bottom: 8px;">
+            <strong>Girth:</strong> ${status.girth || "∞"} (target: ${status.g})
+        </div>
+        <div style="margin-top: 12px; color: #888;">
+            ⏹ Stopped by user (${status.elapsed_time.toFixed(1)}s)
+        </div>
+    `;
+    statusDisplay.innerHTML = html;
   } catch (error) {
     console.error("Error stopping generation:", error);
   }
