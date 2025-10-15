@@ -15,7 +15,6 @@ class InteractiveGraph {
 
     // Interaction state
     this.selectedNode = null; // Currently selected node (single click)
-    this.targetNode = null; // Target node for analysis (double click)
     this.draggingNode = null;
     this.edgeStart = null; // For drawing edges with right-click
     this.panningCanvas = false; // For panning the canvas
@@ -33,9 +32,6 @@ class InteractiveGraph {
     this.nodeRadius = 20;
     this.nodeColor = "#666666";
     this.selectedNodeColor = "#999999";
-    this.targetNodeColor = "#666666";
-    this.targetNodeBorderColor = "#1e90ff"; // Neon dark blue
-    this.targetNodeBorderWidth = 3; // Border width
     this.edgeColor = "#555555";
     this.textColor = "#ffffff";
     this.backgroundColor = "#1a1a1a";
@@ -232,7 +228,6 @@ class InteractiveGraph {
       this.addNode(pos.x, pos.y);
       this.render();
     }
-    // Double-clicking a node does nothing now
   }
 
   findNodeAt(x, y) {
@@ -300,12 +295,6 @@ class InteractiveGraph {
       this.selectedNode = null;
     } else if (this.selectedNode > nodeIndex) {
       this.selectedNode--;
-    }
-
-    if (this.targetNode === nodeIndex) {
-      this.targetNode = null;
-    } else if (this.targetNode > nodeIndex) {
-      this.targetNode--;
     }
 
     this.updateGraphInput();
@@ -515,12 +504,11 @@ class InteractiveGraph {
   }
 
   // Load graph from edge list
-  loadFromEdgeList(edgeListText, targetVertex = null) {
+  loadFromEdgeList(edgeListText) {
     this.nodes = [];
     this.edges = [];
     this.nextNodeId = 0;
     this.selectedNode = null;
-    this.targetNode = null;
     this.nodePredictions.clear();
 
     if (!edgeListText || edgeListText.trim() === "") {
@@ -590,14 +578,6 @@ class InteractiveGraph {
       }
     });
 
-    // Set target vertex
-    if (targetVertex !== null) {
-      const targetIndex = idToIndex.get(targetVertex);
-      if (targetIndex !== undefined) {
-        this.targetNode = targetIndex;
-      }
-    }
-
     this.render();
   }
 
@@ -606,7 +586,6 @@ class InteractiveGraph {
     this.edges = [];
     this.nextNodeId = 0;
     this.selectedNode = null;
-    this.targetNode = null;
     this.edgeStart = null;
     this.nodePredictions.clear();
     this.updateGraphInput();
