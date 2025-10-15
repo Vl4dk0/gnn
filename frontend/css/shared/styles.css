@@ -226,11 +226,18 @@ button:disabled {
 /* Responsive */
 @media (max-width: 1200px) {
     body {
-        grid-template-columns: 250px 1fr 250px;
+        grid-template-columns: 250px 1fr;
     }
     
-    .input-column, .results-column {
+    .input-column {
         padding: 30px 20px;
+    }
+    
+    .graph-column {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
     }
 }
 
@@ -240,8 +247,16 @@ button:disabled {
         grid-template-rows: auto 1fr auto;
     }
     
+    .input-column {
+        padding: 30px 20px;
+    }
+    
     .graph-column {
         min-height: 500px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
     }
 }
 
