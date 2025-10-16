@@ -18,6 +18,7 @@ from typing import Set, Tuple, Optional
 from utils.graph_utils import (
     compute_girth,
     moore_bound,
+    moore_hoffman_upper_bound,
     is_k_regular,
     can_add_edge_preserving_girth,
     score_graph_quality
@@ -52,6 +53,7 @@ class AStarGenerator:
         self.k = k
         self.g = g
         self.mb = moore_bound(k, g)
+        self.upper_bound = moore_hoffman_upper_bound(k, g)
         
         # Start with Moore bound vertices and no edges
         initial_graph = nx.Graph()
@@ -113,6 +115,11 @@ class AStarGenerator:
         # Update current graph for visualization
         self.graph = current_graph.copy()
         self.explored_states += 1
+        
+        # Check if we've exceeded the upper bound
+        if current_graph.number_of_nodes() > self.upper_bound:
+            # Skip this path - it can't lead to a valid cage
+            return
         
         # Check if this is a valid cage (goal state)
         if is_k_regular(current_graph, self.k):

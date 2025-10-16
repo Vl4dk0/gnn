@@ -18,6 +18,7 @@ from typing import List, Tuple, Optional
 from utils.graph_utils import (
     compute_girth,
     moore_bound,
+    moore_hoffman_upper_bound,
     is_k_regular,
     can_add_edge_preserving_girth,
     score_graph_quality
@@ -31,6 +32,7 @@ class BruteforceGenerator:
         self.k = k
         self.g = g
         self.mb = moore_bound(k, g)
+        self.upper_bound = moore_hoffman_upper_bound(k, g)
         
         # Start with empty graph
         self.graph = nx.Graph()
@@ -57,6 +59,18 @@ class BruteforceGenerator:
     def step(self):
         """Execute one search step - try next action or backtrack."""
         self.step_count += 1
+        
+        # Check if we've exceeded the upper bound
+        if self.graph.number_of_nodes() > self.upper_bound:  # type: ignore
+            # This path is invalid - backtrack
+            if self.search_stack:
+                self.search_stack.pop()
+                if self.search_stack:
+                    self.graph = self.search_stack[-1][0].copy()
+            else:
+                self.is_complete = True
+                self.success = False
+            return
         
         # Check if current graph is a valid cage
         if is_k_regular(self.graph, self.k):
