@@ -15,17 +15,37 @@ from utils.graph_utils import graph_to_edge_list, is_valid_cage, compute_girth, 
 cage_bp = Blueprint('cage', __name__, url_prefix='/api/cage')
 
 # Global state for active generation sessions
+# Structure: {session_id: {'generator': generator, 'last_poll': timestamp, 'thread': thread}}
 generation_sessions = {}
 session_lock = threading.Lock()
+
+# Timeout in seconds - stop generation if not polled for this long
+POLL_TIMEOUT = 5
 
 
 def run_generation(session_id, generator):
     """
     Background thread function that runs generation continuously.
-    Frontend just observes the current state.
+    Stops if session hasn't been polled recently (abandoned by frontend).
     """
     try:
         while not generator.is_complete:
+            # Check if session has been abandoned (no polling)
+            with session_lock:
+                if session_id not in generation_sessions:
+                    print(f"Generation thread {session_id} - session removed, stopping")
+                    break
+                
+                session = generation_sessions[session_id]
+                last_poll = session.get('last_poll', time.time())
+                
+                # Stop if no polling for POLL_TIMEOUT seconds
+                if time.time() - last_poll > POLL_TIMEOUT:
+                    print(f"Generation thread {session_id} - no polling for {POLL_TIMEOUT}s, stopping")
+                    # Mark as stopped but keep in sessions for one final status check
+                    session['stopped'] = True
+                    break
+            
             generator.step()
             # Small sleep to prevent CPU spinning, but still fast
             time.sleep(0.001)  # 1ms between steps
@@ -73,9 +93,6 @@ def generate():
     else:  # 'randomwalk' or default
         generator = RandomWalkGenerator(k, g)
     
-    with session_lock:
-        generation_sessions[session_id] = generator
-    
     # Start background thread to run generation
     thread = threading.Thread(
         target=run_generation,
@@ -83,6 +100,15 @@ def generate():
         daemon=True,
         name=f"cage-gen-{session_id[:8]}"
     )
+    
+    with session_lock:
+        generation_sessions[session_id] = {
+            'generator': generator,
+            'last_poll': time.time(),
+            'thread': thread,
+            'stopped': False
+        }
+    
     thread.start()
     
     return jsonify({
@@ -99,10 +125,15 @@ def generate():
 def get_status(session_id):
     """Get current status of generation session (read-only, just observes)."""
     with session_lock:
-        generator = generation_sessions.get(session_id)
-    
-    if not generator:
-        return jsonify({'error': 'Session not found'}), 404
+        session = generation_sessions.get(session_id)
+        
+        if not session:
+            return jsonify({'error': 'Session not found'}), 404
+        
+        # Update last poll time to keep session alive
+        session['last_poll'] = time.time()
+        generator = session['generator']
+        stopped = session.get('stopped', False)
     
     # Just read current state - don't execute steps (background thread handles that)
     # Compute girth and convert infinity to null for JSON
@@ -120,6 +151,7 @@ def get_status(session_id):
         'is_k_regular': generator.is_regular(),
         'is_complete': generator.is_complete,
         'success': generator.success,
+        'stopped': stopped,  # Indicate if stopped due to no polling
         'current_graph': graph_to_edge_list(generator.graph),  # type: ignore
         'moore_bound': moore_bound(generator.k, generator.g),
         'elapsed_time': generator.elapsed_time()
@@ -175,3 +207,35 @@ def analyze():
         'moore_bound': mb,
         'is_optimal': is_cage and num_nodes == mb
     })
+
+
+def cleanup_old_sessions():
+    """
+    Cleanup task that runs periodically to remove stopped sessions.
+    This runs in a background thread.
+    """
+    while True:
+        time.sleep(10)  # Check every 10 seconds
+        
+        with session_lock:
+            # Find sessions that are stopped and haven't been polled recently
+            to_remove = []
+            for session_id, session in generation_sessions.items():
+                if session.get('stopped', False):
+                    # Remove stopped sessions after 30 seconds
+                    if time.time() - session['last_poll'] > 30:
+                        to_remove.append(session_id)
+            
+            # Remove them
+            for session_id in to_remove:
+                print(f"Cleaning up stopped session: {session_id}")
+                del generation_sessions[session_id]
+
+
+# Start cleanup thread when module loads
+cleanup_thread = threading.Thread(
+    target=cleanup_old_sessions,
+    daemon=True,
+    name="session-cleanup"
+)
+cleanup_thread.start()

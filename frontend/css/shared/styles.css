@@ -361,6 +361,20 @@ button:disabled {
     fill: #cccccc;
 }
 
+/* Settings icon (alternative name for gear-icon) */
+.settings-icon {
+    width: 40px;
+    height: 40px;
+    stroke: #cccccc;
+    display: block;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+    transition: all 0.3s ease;
+}
+
+.settings-btn:hover .settings-icon {
+    stroke: #ffffff;
+}
+
 /* Trash Button */
 .trash-btn {
     position: absolute;
@@ -459,7 +473,8 @@ button:disabled {
 }
 
 .setting-group label {
-    display: block;
+    display: flex;
+    align-items: center;
     color: #cccccc;
     margin-bottom: 10px;
     font-size: 0.95em;
@@ -470,12 +485,14 @@ button:disabled {
     cursor: pointer;
     width: 18px;
     height: 18px;
+    flex-shrink: 0; /* Prevent checkbox from shrinking */
 }
 
 /* Select Dropdown in Settings */
 .setting-select {
     width: 100%;
     padding: 10px 12px;
+    padding-right: 35px; /* More space for dropdown arrow */
     background: #1a1a1a;
     border: 2px solid #555555;
     border-radius: 6px;
@@ -599,46 +616,47 @@ button:disabled {
 /* Single Range Slider (standalone, not in dual-slider container) */
 .single-slider {
     width: 100%;
-    height: 6px;
+    height: 4px;
     -webkit-appearance: none;
     appearance: none;
     background: #3a3a3a;
     outline: none;
-    border-radius: 3px;
+    border-radius: 2px;
     cursor: pointer;
-    margin: 10px 0;
+    margin: 15px 0;
+    position: relative;
 }
 
 .single-slider::-webkit-slider-track {
     width: 100%;
-    height: 6px;
+    height: 4px;
     background: #3a3a3a;
-    border-radius: 3px;
+    border-radius: 2px;
 }
 
 .single-slider::-moz-range-track {
     width: 100%;
-    height: 6px;
+    height: 4px;
     background: #3a3a3a;
-    border-radius: 3px;
+    border-radius: 2px;
 }
 
 .single-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
     background: #999999;
     border: 2px solid #cccccc;
     border-radius: 50%;
     cursor: pointer;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
-    margin-top: -6px;
+    margin-top: 0; /* No margin needed - track height matches */
 }
 
 .single-slider::-moz-range-thumb {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
     background: #999999;
     border: 2px solid #cccccc;
     border-radius: 50%;

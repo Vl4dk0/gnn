@@ -36,7 +36,7 @@
                 <strong>Drag node:</strong> Move it around
             </div>
             <div class="control-item">
-                <strong>Right-click + drag empty space:</strong> Pan canvas
+                <strong>Drag empty space:</strong> Pan canvas
             </div>
             <div class="control-item">
                 <strong>Right-click node:</strong> Start edge
@@ -50,6 +50,9 @@
             <div class="control-item">
                 <strong>Backspace:</strong> Delete selected node
             </div>
+            <div class="control-item">
+                <strong>Mouse wheel:</strong> Zoom in/out
+            </div>
         </div>
 
     <!-- Back Link (left menu) -->
@@ -62,7 +65,7 @@
             <h2>Graph Generation Settings</h2>
             
             <div class="setting-group">
-                <label>Number of Nodes: <span id="nodeRangeDisplay">5 - 12</span></label>
+                <label>Number of Nodes:&nbsp;<span id="nodeRangeDisplay">5 - 12</span></label>
                 <div class="range-slider-container">
                     <div class="range-track-highlight" id="nodeRangeHighlight"></div>
                     <input type="range" id="minNodes" min="3" max="20" value="5" class="range-slider">
@@ -71,7 +74,7 @@
             </div>
             
             <div class="setting-group">
-                <label>Edge Probability: <span id="probRangeDisplay">0.15 - 0.60</span></label>
+                <label>Edge Probability:&nbsp;<span id="probRangeDisplay">0.15 - 0.60</span></label>
                 <div class="range-slider-container">
                     <div class="range-track-highlight" id="probRangeHighlight"></div>
                     <input type="range" id="minProb" min="0" max="100" value="15" class="range-slider">
@@ -83,6 +86,13 @@
                 <label>
                     <input type="checkbox" id="allowSelfLoops" checked>
                     Allow Self-Loops
+                </label>
+            </div>
+            
+            <div class="setting-group">
+                <label>
+                    <input type="checkbox" id="enablePhysics">
+                    Enable Spring Physics
                 </label>
             </div>
             
@@ -124,7 +134,10 @@
     </div>
 
     <script src="../js/shared/config.js"></script>
-    <script src="../js/shared/interactive-graph.js"></script>
+    <script src="../js/editor/GraphNode.js"></script>
+    <script src="../js/editor/Graph.js"></script>
+    <script src="../js/editor/PhysicsEngine.js"></script>
+    <script src="../js/editor/InteractiveGraphEditor.js"></script>
     <script src="../js/degree/app.js"></script>
 </body>
 </html>
