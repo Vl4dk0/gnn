@@ -8,7 +8,7 @@ import time
 
 from flask import Blueprint, jsonify, request
 
-from ai.cage import ConstructiveGenerator, RandomWalkGenerator, MCTSGenerator
+from ai.cage import ConstructiveGenerator, RandomWalkGenerator
 from utils.graph_utils import graph_to_edge_list, is_valid_cage, compute_girth, is_k_regular, moore_bound
 
 # Create blueprint with /api/cage prefix
@@ -68,8 +68,6 @@ def generate():
     
     if generator_type == 'random_walk':
         generator = RandomWalkGenerator(k, g)
-    elif generator_type == 'mcts':
-        generator = MCTSGenerator(k, g)
     else:  # 'constructive' or default
         generator = ConstructiveGenerator(k, g)
     
