@@ -147,6 +147,14 @@ function startPolling() {
 
       updateStatus(status);
 
+      // Check if generation was stopped due to no polling (abandoned)
+      if (status.stopped) {
+        stopPolling();
+        resetButtons();
+        showError("Generation stopped - page was navigated away");
+        return;
+      }
+
       // Stop polling if generation is complete
       if (status.is_complete) {
         stopPolling();
@@ -290,6 +298,16 @@ function initializeEventListeners() {
   if (pollingSlider) {
     pollingSlider.addEventListener("input", updatePollingDisplay);
   }
+  
+  // Load and apply physics settings
+  const settings = loadSettings();
+  if (window.interactiveGraph) {
+    if (settings.enablePhysics) {
+      window.interactiveGraph.enablePhysics();
+    } else {
+      window.interactiveGraph.disablePhysics();
+    }
+  }
 }
 
 /**
@@ -298,7 +316,8 @@ function initializeEventListeners() {
 function loadSettings() {
   const defaultSettings = {
     generatorType: 'randomwalk',
-    pollingInterval: 300
+    pollingInterval: 300,
+    enablePhysics: false
   };
   
   const saved = localStorage.getItem('cageGeneratorSettings');
@@ -316,6 +335,7 @@ function openSettings() {
   // Populate current values
   document.getElementById("generatorType").value = settings.generatorType;
   document.getElementById("pollingInterval").value = settings.pollingInterval;
+  document.getElementById("enablePhysics").checked = settings.enablePhysics;
   
   updatePollingDisplay();
   modal.classList.add("show");
@@ -329,13 +349,25 @@ function closeSettings() {
 function saveSettings() {
   const generatorType = document.getElementById("generatorType").value;
   const pollingInterval = parseInt(document.getElementById("pollingInterval").value);
+  const enablePhysics = document.getElementById("enablePhysics").checked;
 
   const settings = {
     generatorType,
-    pollingInterval
+    pollingInterval,
+    enablePhysics
   };
 
   saveSettingsToStorage(settings);
+  
+  // Apply physics setting immediately
+  if (window.interactiveGraph) {
+    if (enablePhysics) {
+      window.interactiveGraph.enablePhysics();
+    } else {
+      window.interactiveGraph.disablePhysics();
+    }
+  }
+  
   closeSettings();
 }
 

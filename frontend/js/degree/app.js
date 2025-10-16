@@ -259,6 +259,7 @@ const DEFAULT_SETTINGS = {
   minProb: 0.15,
   maxProb: 0.6,
   allowSelfLoops: true,
+  enablePhysics: false,
 };
 
 function loadSettings() {
@@ -280,6 +281,7 @@ function openSettings() {
   document.getElementById("minProb").value = Math.round(settings.minProb * 100);
   document.getElementById("maxProb").value = Math.round(settings.maxProb * 100);
   document.getElementById("allowSelfLoops").checked = settings.allowSelfLoops;
+  document.getElementById("enablePhysics").checked = settings.enablePhysics || false;
 
   // Update displays and highlights
   updateNodeRangeDisplay();
@@ -299,6 +301,7 @@ function saveSettings() {
   const minProb = parseInt(document.getElementById("minProb").value) / 100;
   const maxProb = parseInt(document.getElementById("maxProb").value) / 100;
   const allowSelfLoops = document.getElementById("allowSelfLoops").checked;
+  const enablePhysics = document.getElementById("enablePhysics").checked;
 
   // Validate
   if (minNodes > maxNodes) {
@@ -317,9 +320,20 @@ function saveSettings() {
     minProb,
     maxProb,
     allowSelfLoops,
+    enablePhysics,
   };
 
   saveSettingsToStorage(settings);
+  
+  // Apply physics setting immediately
+  if (window.interactiveGraph) {
+    if (enablePhysics) {
+      window.interactiveGraph.enablePhysics();
+    } else {
+      window.interactiveGraph.disablePhysics();
+    }
+  }
+  
   closeSettings();
 }
 
@@ -423,6 +437,16 @@ function initializeSettings() {
         closeSettings();
       }
     });
+  
+  // Apply saved physics setting on load
+  const settings = loadSettings();
+  if (window.interactiveGraph) {
+    if (settings.enablePhysics) {
+      window.interactiveGraph.enablePhysics();
+    } else {
+      window.interactiveGraph.disablePhysics();
+    }
+  }
 }
 
 // Initialize when DOM is loaded
