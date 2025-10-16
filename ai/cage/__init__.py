@@ -2,6 +2,7 @@
 
 from .random_walk import RandomWalkGenerator
 from .monte_carlo_search_tree import MCTSGenerator
+from .constructive import ConstructiveGenerator
 # from .greedy import GreedyGenerator  # To be implemented
 # from .beam_search import BeamSearchGenerator  # Future
 # from .backtracking import BacktrackingGenerator  # Future
@@ -9,4 +10,4 @@ from .monte_carlo_search_tree import MCTSGenerator
 # Backwards compatibility: CageGenerator is RandomWalkGenerator (current default)
 CageGenerator = RandomWalkGenerator
 
-__all__ = ['CageGenerator', 'RandomWalkGenerator', 'MCTSGenerator']
+__all__ = ['CageGenerator', 'RandomWalkGenerator', 'MCTSGenerator', 'ConstructiveGenerator']

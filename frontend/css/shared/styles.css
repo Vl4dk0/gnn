@@ -472,6 +472,34 @@ button:disabled {
     height: 18px;
 }
 
+/* Select Dropdown in Settings */
+.setting-select {
+    width: 100%;
+    padding: 10px 12px;
+    background: #1a1a1a;
+    border: 2px solid #555555;
+    border-radius: 6px;
+    color: #cccccc;
+    font-size: 0.95em;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.setting-select:hover {
+    border-color: #666666;
+}
+
+.setting-select:focus {
+    border-color: #888888;
+}
+
+.setting-select option {
+    background: #1a1a1a;
+    color: #cccccc;
+    padding: 8px;
+}
+
 /* Range Slider Container */
 .range-slider-container {
     position: relative;
@@ -566,6 +594,78 @@ button:disabled {
 
 .range-slider:hover::-moz-range-thumb {
     background: #aaaaaa;
+}
+
+/* Single Range Slider (standalone, not in dual-slider container) */
+.single-slider {
+    width: 100%;
+    height: 6px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: #3a3a3a;
+    outline: none;
+    border-radius: 3px;
+    cursor: pointer;
+    margin: 10px 0;
+}
+
+.single-slider::-webkit-slider-track {
+    width: 100%;
+    height: 6px;
+    background: #3a3a3a;
+    border-radius: 3px;
+}
+
+.single-slider::-moz-range-track {
+    width: 100%;
+    height: 6px;
+    background: #3a3a3a;
+    border-radius: 3px;
+}
+
+.single-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    background: #999999;
+    border: 2px solid #cccccc;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+    margin-top: -6px;
+}
+
+.single-slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    background: #999999;
+    border: 2px solid #cccccc;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.single-slider:hover::-webkit-slider-thumb {
+    background: #aaaaaa;
+    border-color: #dddddd;
+}
+
+.single-slider:hover::-moz-range-thumb {
+    background: #aaaaaa;
+    border-color: #dddddd;
+}
+
+.single-slider:focus {
+    outline: none;
+}
+
+.single-slider:focus::-webkit-slider-thumb {
+    box-shadow: 0 0 0 3px rgba(153, 153, 153, 0.3);
+}
+
+.single-slider:focus::-moz-range-thumb {
+    box-shadow: 0 0 0 3px rgba(153, 153, 153, 0.3);
 }
 
 /* Buttons in Modal */
