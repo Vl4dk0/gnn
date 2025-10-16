@@ -1,8 +1,11 @@
 """
-Random Walk for cage graph generation (Baseline 1).
+Random Walk for cage graph generation.
 
-Pure random exploration with probabilistic operation selection.
-No intelligence, no learning, no tree search - just random walk with deletion for backtracking.
+Smart probabilistic construction starting from Moore bound structure:
+- Initialize with Moore bound nodes
+- Analyze graph state (degree distribution, edge deficit)
+- Probabilistically select actions based on current state
+- Adaptively adjust probabilities to escape local optima
 """
 
 import random
@@ -10,210 +13,178 @@ import time
 import networkx as nx
 
 from utils.graph_utils import (
-    compute_girth, 
-    moore_bound, 
+    compute_girth,
+    moore_bound,
     is_valid_cage,
-    can_add_edge_preserving_girth
+    can_add_edge_preserving_girth,
+    is_k_regular
 )
 
 
 class RandomWalkGenerator:
-    """Random walk generator for cage graphs."""
+    """Random walk cage generator starting from Moore bound structure."""
     
-    def __init__(self, k, g, max_steps=500):
+    def __init__(self, k, g):
         self.k = k
         self.g = g
-        self.max_steps = max_steps
-        self.graph = nx.Graph()
+        self.mb = moore_bound(k, g)
+        
+        # Initialize graph with Moore bound nodes
+        self.graph = nx.Graph()  # type: ignore
+        for i in range(self.mb):
+            self.graph.add_node(i)  # type: ignore
+        
         self.step_count = 0
         self.is_complete = False
         self.success = False
         self.start_time = time.time()
         
-        # Efficient regularity tracking
-        # Count how many nodes have degree == k
-        self.nodes_with_correct_degree = 0
+        # Track expected edges for k-regularity
+        self.target_edges = (self.graph.number_of_nodes() * k) // 2  # type: ignore
     
     def elapsed_time(self):
         """Get elapsed time since start."""
         return time.time() - self.start_time
-        
-    def add_vertex(self):
-        """Add a new isolated vertex to the graph."""
-        new_id = max(self.graph.nodes(), default=-1) + 1  # type: ignore
-        self.graph.add_node(new_id)  # type: ignore
-        # New node has degree 0, not k, so doesn't contribute to regularity
-        return new_id
-    
-    def can_add_edge(self, u, v):
-        """
-        Check if edge (u,v) can be added without violating constraints.
-        
-        Rules:
-        1. Edge doesn't already exist
-        2. Neither u nor v would exceed degree k
-        3. Adding edge wouldn't create cycle < g
-        """
-        # Check if edge exists
-        if self.graph.has_edge(u, v):  # type: ignore
-            return False
-        
-        # Check degree constraints
-        if self.graph.degree(u) >= self.k or self.graph.degree(v) >= self.k:  # type: ignore
-            return False
-        
-        # Check girth constraint using smart incremental validation
-        if not can_add_edge_preserving_girth(self.graph, u, v, self.g):
-            return False
-        
-        return True
-    
-    def add_edge(self, u, v):
-        """Add edge (u,v) to graph and update regularity count."""
-        old_deg_u = self.graph.degree(u)  # type: ignore
-        old_deg_v = self.graph.degree(v)  # type: ignore
-        
-        # Update regularity count (remove old contributions)
-        if old_deg_u == self.k:
-            self.nodes_with_correct_degree -= 1
-        if old_deg_v == self.k and u != v:
-            self.nodes_with_correct_degree -= 1
-        
-        # Add edge
-        self.graph.add_edge(u, v)  # type: ignore
-        
-        # Update regularity count (add new contributions)
-        new_deg_u = self.graph.degree(u)  # type: ignore
-        new_deg_v = self.graph.degree(v)  # type: ignore
-        
-        if new_deg_u == self.k:
-            self.nodes_with_correct_degree += 1
-        if new_deg_v == self.k and u != v:
-            self.nodes_with_correct_degree += 1
-    
-    def remove_edge(self, u, v):
-        """Remove edge (u,v) and update regularity count."""
-        if not self.graph.has_edge(u, v):  # type: ignore
-            return
-        
-        old_deg_u = self.graph.degree(u)  # type: ignore
-        old_deg_v = self.graph.degree(v)  # type: ignore
-        
-        # Update regularity count (remove old contributions)
-        if old_deg_u == self.k:
-            self.nodes_with_correct_degree -= 1
-        if old_deg_v == self.k and u != v:
-            self.nodes_with_correct_degree -= 1
-        
-        # Remove edge
-        self.graph.remove_edge(u, v)  # type: ignore
-        
-        # Update regularity count (add new contributions)
-        new_deg_u = self.graph.degree(u)  # type: ignore
-        new_deg_v = self.graph.degree(v)  # type: ignore
-        
-        if new_deg_u == self.k:
-            self.nodes_with_correct_degree += 1
-        if new_deg_v == self.k and u != v:
-            self.nodes_with_correct_degree += 1
-    
-    def remove_vertex(self, node):
-        """Remove vertex and all its edges, update regularity count."""
-        if node not in self.graph.nodes():  # type: ignore
-            return
-        
-        # Get neighbors before removal
-        neighbors = list(self.graph.neighbors(node))  # type: ignore
-        deg_node = self.graph.degree(node)  # type: ignore
-        
-        # Update regularity count for node being removed
-        if deg_node == self.k:
-            self.nodes_with_correct_degree -= 1
-        
-        # Update regularity count for neighbors (they'll lose an edge)
-        for neighbor in neighbors:
-            old_deg = self.graph.degree(neighbor)  # type: ignore
-            if old_deg == self.k:
-                self.nodes_with_correct_degree -= 1
-            if int(old_deg) - 1 == self.k:  # Will become regular after edge removal  # type: ignore
-                self.nodes_with_correct_degree += 1
-        
-        # Remove node
-        self.graph.remove_node(node)  # type: ignore
     
     def is_regular(self):
-        """Check if all nodes have degree k."""
-        num_nodes = len(self.graph.nodes())  # type: ignore
-        return num_nodes > 0 and self.nodes_with_correct_degree == num_nodes
+        """Check if graph is k-regular."""
+        return is_k_regular(self.graph, self.k)
     
     def step(self):
-        """
-        Execute one Monte Carlo step for graph generation.
-        
-        Operations (with probabilities):
-        1. ADD_VERTEX - higher probability if below Moore bound
-        2. ADD_EDGE - main construction operation
-        3. REMOVE_EDGE - small probability for exploration
-        4. REMOVE_VERTEX - very small probability for major restructuring
-        """
+        """Execute one construction step."""
         self.step_count += 1
         
-        num_nodes = len(self.graph.nodes())  # type: ignore
-        mb = moore_bound(self.k, self.g)
-        
-        # Define operation probabilities based on current state
-        if num_nodes < mb:
-            # Need more vertices
-            probs = {'add_vertex': 0.6, 'add_edge': 0.35, 'remove_edge': 0.04, 'remove_vertex': 0.01}
-        elif num_nodes == mb:
-            # At target size, focus on edges
-            probs = {'add_vertex': 0.1, 'add_edge': 0.7, 'remove_edge': 0.15, 'remove_vertex': 0.05}
-        else:
-            # Too many vertices, consider removing
-            probs = {'add_vertex': 0.05, 'add_edge': 0.5, 'remove_edge': 0.2, 'remove_vertex': 0.25}
-        
-        # Choose operation
-        operation = random.choices(
-            list(probs.keys()),
-            weights=list(probs.values()),
-            k=1
-        )[0]
-        
-        # Execute operation
-        if operation == 'add_vertex':
-            self.add_vertex()
-            
-        elif operation == 'add_edge':
-            # Try to add a random valid edge
-            nodes = list(self.graph.nodes())  # type: ignore
-            if len(nodes) < 2:
-                # Not enough nodes, add one instead
-                self.add_vertex()
-            else:
-                # Try random edges until we find a valid one (max attempts)
-                max_attempts = 20
-                for _ in range(max_attempts):
-                    u, v = random.sample(nodes, 2)
-                    if self.can_add_edge(u, v):
-                        self.add_edge(u, v)
-                        break
-                        
-        elif operation == 'remove_edge':
-            edges = list(self.graph.edges())  # type: ignore
-            if edges:
-                u, v = random.choice(edges)
-                self.remove_edge(u, v)
-                
-        elif operation == 'remove_vertex':
-            nodes = list(self.graph.nodes())  # type: ignore
-            if nodes:
-                node = random.choice(nodes)
-                self.remove_vertex(node)
-        
-        # Check if we should terminate
-        # Only complete if we found a valid cage (regular + correct girth)
-        if self.is_regular() and num_nodes >= mb:
-            girth = compute_girth(self.graph)  # type: ignore
-            if girth == self.g:  # Must be exactly g, not just >= g
+        # Check if we've found a valid cage
+        if is_k_regular(self.graph, self.k):
+            girth = compute_girth(self.graph)
+            if girth == self.g:
                 self.is_complete = True
                 self.success = True
+                return
+        
+        # Get current state
+        num_nodes = self.graph.number_of_nodes()  # type: ignore
+        num_edges = self.graph.number_of_edges()  # type: ignore
+        self.target_edges = (num_nodes * self.k) // 2
+        
+        # Calculate degree distribution
+        nodes = list(self.graph.nodes())  # type: ignore
+        low_degree_nodes = [n for n in nodes if self.graph.degree(n) < self.k]  # type: ignore
+        high_degree_nodes = [n for n in nodes if self.graph.degree(n) > self.k]  # type: ignore
+        correct_degree_nodes = [n for n in nodes if self.graph.degree(n) == self.k]  # type: ignore
+        
+        # Decision probabilities based on current state
+        edge_deficit = self.target_edges - num_edges
+        
+        # Calculate action probabilities based on state
+        # More flexibility to restructure when stuck
+        
+        if len(high_degree_nodes) > 0:
+            # If we have nodes with degree > k, strongly prefer removing edges
+            action_probs = {'remove_edge_high': 0.8, 'remove_edge': 0.15, 'remove_vertex': 0.05}
+        
+        elif edge_deficit > 0 and len(low_degree_nodes) >= 2:
+            # Need more edges - but still allow restructuring
+            action_probs = {
+                'add_edge': 0.75,
+                'remove_edge': 0.10,
+                'add_vertex': 0.10 if num_nodes < self.mb else 0.0,
+                'remove_vertex': 0.05 if num_nodes > self.mb else 0.0
+            }
+        
+        elif edge_deficit < 0:
+            # Too many edges - remove or restructure
+            action_probs = {
+                'remove_edge': 0.7,
+                'remove_vertex': 0.2 if num_nodes > self.mb else 0.0,
+                'add_vertex': 0.1 if num_nodes < self.mb else 0.0
+            }
+        
+        elif len(low_degree_nodes) == 1:
+            # Odd node out - need to restructure
+            action_probs = {
+                'remove_edge': 0.5,
+                'remove_vertex': 0.25,
+                'add_vertex': 0.15 if num_nodes < self.mb else 0.0,
+                'add_edge': 0.1
+            }
+        
+        else:
+            # General case or stuck - balanced exploration
+            action_probs = {
+                'remove_edge': 0.4,
+                'add_edge': 0.25,
+                'remove_vertex': 0.2 if num_nodes > self.mb else 0.1,
+                'add_vertex': 0.15 if num_nodes < self.mb else 0.05
+            }
+        
+        # Normalize probabilities
+        total = sum(action_probs.values())
+        if total > 0:
+            action_probs = {k: v/total for k, v in action_probs.items()}
+        
+        # Choose action based on probabilities
+        actions = list(action_probs.keys())
+        probs = list(action_probs.values())
+        action = random.choices(actions, weights=probs, k=1)[0]
+        
+        # Execute chosen action
+        if action == 'add_edge':
+            self._add_edge_between_low_degree(low_degree_nodes)
+        elif action == 'remove_edge_high':
+            self._remove_edge_from_high_degree(high_degree_nodes)
+        elif action == 'remove_edge':
+            self._remove_random_edge()
+        elif action == 'add_vertex':
+            self._add_vertex()
+        elif action == 'remove_vertex':
+            self._remove_vertex()
+    
+    def _add_edge_between_low_degree(self, low_degree_nodes):
+        """Try to add an edge between two low-degree nodes."""
+        # Try multiple pairs to find valid edge
+        attempts = min(50, len(low_degree_nodes) * len(low_degree_nodes))
+        
+        for _ in range(attempts):
+            u, v = random.sample(low_degree_nodes, 2)
+            
+            if not self.graph.has_edge(u, v):  # type: ignore
+                # Check girth constraint
+                if can_add_edge_preserving_girth(self.graph, u, v, self.g):
+                    self.graph.add_edge(u, v)  # type: ignore
+                    return
+    
+    def _remove_edge_from_high_degree(self, high_degree_nodes):
+        """Remove an edge from a high-degree node."""
+        node = random.choice(high_degree_nodes)
+        neighbors = list(self.graph.neighbors(node))  # type: ignore
+        
+        if neighbors:
+            neighbor = random.choice(neighbors)
+            self.graph.remove_edge(node, neighbor)  # type: ignore
+    
+    def _remove_random_edge(self):
+        """Remove a random edge."""
+        edges = list(self.graph.edges())  # type: ignore
+        if edges:
+            u, v = random.choice(edges)
+            self.graph.remove_edge(u, v)  # type: ignore
+    
+    def _add_vertex(self):
+        """Add a new vertex."""
+        new_id = max(self.graph.nodes(), default=-1) + 1  # type: ignore
+        self.graph.add_node(new_id)  # type: ignore
+        self.target_edges = (self.graph.number_of_nodes() * self.k) // 2  # type: ignore
+    
+    def _remove_vertex(self):
+        """Remove a random vertex (preferably low degree)."""
+        nodes = list(self.graph.nodes())  # type: ignore
+        if nodes:
+            # Prefer removing nodes with degree 0 or 1
+            low_deg = [n for n in nodes if self.graph.degree(n) <= 1]  # type: ignore
+            if low_deg:
+                node = random.choice(low_deg)
+            else:
+                node = random.choice(nodes)
+            self.graph.remove_node(node)  # type: ignore
+            self.target_edges = (self.graph.number_of_nodes() * self.k) // 2  # type: ignore
