@@ -1,13 +1,11 @@
 """Cage graph generation package."""
 
 from .random_walk import RandomWalkGenerator
+from .bruteforce import BruteforceGenerator
+from .astar import AStarGenerator
 from .monte_carlo_search_tree import MCTSGenerator
-from .constructive import ConstructiveGenerator
-# from .greedy import GreedyGenerator  # To be implemented
-# from .beam_search import BeamSearchGenerator  # Future
-# from .backtracking import BacktrackingGenerator  # Future
 
-# Backwards compatibility: CageGenerator is RandomWalkGenerator (current default)
+# Backwards compatibility: CageGenerator is RandomWalkGenerator
 CageGenerator = RandomWalkGenerator
 
-__all__ = ['CageGenerator', 'RandomWalkGenerator', 'MCTSGenerator', 'ConstructiveGenerator']
+__all__ = ['CageGenerator', 'RandomWalkGenerator', 'BruteforceGenerator', 'AStarGenerator', 'MCTSGenerator']

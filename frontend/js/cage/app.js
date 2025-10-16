@@ -35,7 +35,7 @@ async function startGeneration() {
 
   // Load settings to get selected generator
   const settings = loadSettings();
-  const generator = settings.generatorType || 'constructive';
+  const generator = settings.generatorType || 'randomwalk';
 
   // Disable generate button
   generateBtn.disabled = true;
@@ -297,7 +297,7 @@ function initializeEventListeners() {
  */
 function loadSettings() {
   const defaultSettings = {
-    generatorType: 'constructive',
+    generatorType: 'randomwalk',
     pollingInterval: 300
   };
   

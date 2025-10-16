@@ -8,7 +8,7 @@ import time
 
 from flask import Blueprint, jsonify, request
 
-from ai.cage import ConstructiveGenerator, RandomWalkGenerator
+from ai.cage import RandomWalkGenerator, BruteforceGenerator, AStarGenerator
 from utils.graph_utils import graph_to_edge_list, is_valid_cage, compute_girth, is_k_regular, moore_bound
 
 # Create blueprint with /api/cage prefix
@@ -55,7 +55,7 @@ def generate():
     
     k = int(data['k'])
     g = int(data['g'])
-    generator_type = data.get('generator', 'constructive')  # Default to constructive
+    generator_type = data.get('generator', 'randomwalk')  # Default to randomwalk
     
     # Validation
     if k < 2:
@@ -66,10 +66,12 @@ def generate():
     # Create generator based on type
     session_id = str(uuid.uuid4())
     
-    if generator_type == 'random_walk':
+    if generator_type == 'bruteforce':
+        generator = BruteforceGenerator(k, g)
+    elif generator_type == 'astar':
+        generator = AStarGenerator(k, g)
+    else:  # 'randomwalk' or default
         generator = RandomWalkGenerator(k, g)
-    else:  # 'constructive' or default
-        generator = ConstructiveGenerator(k, g)
     
     with session_lock:
         generation_sessions[session_id] = generator
