@@ -33,6 +33,10 @@ async function startGeneration() {
     return;
   }
 
+  // Load settings to get selected generator
+  const settings = loadSettings();
+  const generator = settings.generatorType || 'constructive';
+
   // Disable generate button
   generateBtn.disabled = true;
   generateBtn.textContent = "Generating...";
@@ -40,13 +44,13 @@ async function startGeneration() {
   stopBtn.style.display = "block";
 
   try {
-    // Start generation on backend
+    // Start generation on backend with selected generator
     const response = await fetch(`${API_BASE_URL}/generate`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ k, g }),
+      body: JSON.stringify({ k, g, generator }),
     });
 
     const data = await response.json();
@@ -121,6 +125,10 @@ async function stopGeneration() {
 function startPolling() {
   stopPolling(); // Clear any existing polling
 
+  // Load settings to get polling interval
+  const settings = loadSettings();
+  const interval = settings.pollingInterval || 300;
+
   pollingInterval = setInterval(async () => {
     if (!currentSessionId) {
       stopPolling();
@@ -169,7 +177,7 @@ function startPolling() {
       stopPolling();
       resetButtons();
     }
-  }, 300); // Poll every 300ms
+  }, interval); // Use configurable interval
 }
 
 /**
@@ -276,6 +284,67 @@ function initializeEventListeners() {
   window.addEventListener("beforeunload", () => {
     stopPolling();
   });
+  
+  // Update polling interval display when slider moves
+  const pollingSlider = document.getElementById("pollingInterval");
+  if (pollingSlider) {
+    pollingSlider.addEventListener("input", updatePollingDisplay);
+  }
+}
+
+/**
+ * Settings Management
+ */
+function loadSettings() {
+  const defaultSettings = {
+    generatorType: 'constructive',
+    pollingInterval: 300
+  };
+  
+  const saved = localStorage.getItem('cageGeneratorSettings');
+  return saved ? { ...defaultSettings, ...JSON.parse(saved) } : defaultSettings;
+}
+
+function saveSettingsToStorage(settings) {
+  localStorage.setItem('cageGeneratorSettings', JSON.stringify(settings));
+}
+
+function openSettings() {
+  const modal = document.getElementById("settingsModal");
+  const settings = loadSettings();
+
+  // Populate current values
+  document.getElementById("generatorType").value = settings.generatorType;
+  document.getElementById("pollingInterval").value = settings.pollingInterval;
+  
+  updatePollingDisplay();
+  modal.classList.add("show");
+}
+
+function closeSettings() {
+  const modal = document.getElementById("settingsModal");
+  modal.classList.remove("show");
+}
+
+function saveSettings() {
+  const generatorType = document.getElementById("generatorType").value;
+  const pollingInterval = parseInt(document.getElementById("pollingInterval").value);
+
+  const settings = {
+    generatorType,
+    pollingInterval
+  };
+
+  saveSettingsToStorage(settings);
+  closeSettings();
+}
+
+function updatePollingDisplay() {
+  const slider = document.getElementById("pollingInterval");
+  const display = document.getElementById("pollingDisplay");
+  if (slider && display) {
+    display.textContent = `${slider.value}ms`;
+  }
 }
 
 // Initialize when DOM is loaded

@@ -4,10 +4,11 @@ Blueprint for Cage Graph Generator API endpoints.
 
 import uuid
 import threading
+import time
 
 from flask import Blueprint, jsonify, request
 
-from ai.cage import MCTSGenerator
+from ai.cage import ConstructiveGenerator, RandomWalkGenerator, MCTSGenerator
 from utils.graph_utils import graph_to_edge_list, is_valid_cage, compute_girth, is_k_regular, moore_bound
 
 # Create blueprint with /api/cage prefix
@@ -16,6 +17,22 @@ cage_bp = Blueprint('cage', __name__, url_prefix='/api/cage')
 # Global state for active generation sessions
 generation_sessions = {}
 session_lock = threading.Lock()
+
+
+def run_generation(session_id, generator):
+    """
+    Background thread function that runs generation continuously.
+    Frontend just observes the current state.
+    """
+    try:
+        while not generator.is_complete:
+            generator.step()
+            # Small sleep to prevent CPU spinning, but still fast
+            time.sleep(0.001)  # 1ms between steps
+    except Exception as e:
+        print(f"Error in generation thread {session_id}: {e}")
+    finally:
+        print(f"Generation thread {session_id} completed. Success: {generator.success}")
 
 
 @cage_bp.route('/status', methods=['GET'])
@@ -30,7 +47,7 @@ def status():
 
 @cage_bp.route('/generate', methods=['POST'])
 def generate():
-    """Start a new cage graph generation session."""
+    """Start a new cage graph generation session in a background thread."""
     data = request.get_json()
     
     if not data or 'k' not in data or 'g' not in data:
@@ -38,6 +55,7 @@ def generate():
     
     k = int(data['k'])
     g = int(data['g'])
+    generator_type = data.get('generator', 'constructive')  # Default to constructive
     
     # Validation
     if k < 2:
@@ -45,12 +63,27 @@ def generate():
     if g < 3:
         return jsonify({'error': 'g must be >= 3'}), 400
     
-    # Create new session with MCTS generator
+    # Create generator based on type
     session_id = str(uuid.uuid4())
-    generator = MCTSGenerator(k, g)
+    
+    if generator_type == 'random_walk':
+        generator = RandomWalkGenerator(k, g)
+    elif generator_type == 'mcts':
+        generator = MCTSGenerator(k, g)
+    else:  # 'constructive' or default
+        generator = ConstructiveGenerator(k, g)
     
     with session_lock:
         generation_sessions[session_id] = generator
+    
+    # Start background thread to run generation
+    thread = threading.Thread(
+        target=run_generation,
+        args=(session_id, generator),
+        daemon=True,
+        name=f"cage-gen-{session_id[:8]}"
+    )
+    thread.start()
     
     return jsonify({
         'session_id': session_id,
@@ -63,17 +96,14 @@ def generate():
 
 @cage_bp.route('/status/<session_id>', methods=['GET'])
 def get_status(session_id):
-    """Get current status of generation session and execute one step."""
+    """Get current status of generation session (read-only, just observes)."""
     with session_lock:
         generator = generation_sessions.get(session_id)
     
     if not generator:
         return jsonify({'error': 'Session not found'}), 404
     
-    # Execute one step
-    if not generator.is_complete:
-        generator.step()
-    
+    # Just read current state - don't execute steps (background thread handles that)
     # Compute girth and convert infinity to null for JSON
     girth_val = compute_girth(generator.graph) if len(generator.graph.edges()) > 0 else float('inf')  # type: ignore
     girth_json = None if girth_val == float('inf') else girth_val
