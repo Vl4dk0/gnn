@@ -172,6 +172,34 @@ def moore_bound(k, g):
         return 2 * sum_term
 
 
+def moore_hoffman_upper_bound(k, g):
+    """
+    Compute the Moore-Hoffman upper bound for the maximum number of vertices
+    in a (k,g)-cage graph.
+    
+    This is a theoretical upper limit - no (k,g)-cage can have more vertices
+    than this bound.
+    
+    Formula:
+        N(k,g) ≤ 2(k-1)^(g-2)    if g is odd
+        N(k,g) ≤ 4(k-1)^(g-3)    if g is even
+    
+    Args:
+        k: Degree (must be >= 2)
+        g: Girth (must be >= 3)
+    
+    Returns:
+        Maximum number of vertices (Moore-Hoffman upper bound)
+    """
+    if k < 2 or g < 3:
+        raise ValueError("k must be >= 2 and g must be >= 3")
+    
+    if g % 2 == 1:  # Odd girth
+        return 2 * (k - 1) ** (g - 2)
+    else:  # Even girth
+        return 4 * (k - 1) ** (g - 3)
+
+
 def is_valid_cage(G, k, g):
     """
     Check if graph G is a valid (k,g)-cage.

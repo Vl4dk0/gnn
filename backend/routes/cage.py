@@ -9,7 +9,7 @@ import time
 from flask import Blueprint, jsonify, request
 
 from ai.cage import RandomWalkGenerator, BruteforceGenerator, AStarGenerator
-from utils.graph_utils import graph_to_edge_list, is_valid_cage, compute_girth, is_k_regular, moore_bound
+from utils.graph_utils import graph_to_edge_list, is_valid_cage, compute_girth, is_k_regular, moore_bound, moore_hoffman_upper_bound
 
 # Create blueprint with /api/cage prefix
 cage_bp = Blueprint('cage', __name__, url_prefix='/api/cage')
@@ -90,7 +90,8 @@ def generate():
         'status': 'started',
         'k': k,
         'g': g,
-        'moore_bound': moore_bound(k, g)
+        'moore_bound': moore_bound(k, g),
+        'upper_bound': moore_hoffman_upper_bound(k, g)
     })
 
 

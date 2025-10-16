@@ -15,7 +15,7 @@ import networkx as nx
 from utils.graph_utils import (
     compute_girth,
     moore_bound,
-    is_valid_cage,
+    moore_hoffman_upper_bound,
     can_add_edge_preserving_girth,
     is_k_regular
 )
@@ -28,6 +28,7 @@ class RandomWalkGenerator:
         self.k = k
         self.g = g
         self.mb = moore_bound(k, g)
+        self.upper_bound = moore_hoffman_upper_bound(k, g)
         
         # Initialize graph with Moore bound nodes
         self.graph = nx.Graph()  # type: ignore
@@ -53,6 +54,12 @@ class RandomWalkGenerator:
     def step(self):
         """Execute one construction step."""
         self.step_count += 1
+        
+        # Check if we've exceeded the upper bound
+        if self.graph.number_of_nodes() > self.upper_bound:  # type: ignore
+            self.is_complete = True
+            self.success = False
+            return
         
         # Check if we've found a valid cage
         if is_k_regular(self.graph, self.k):
