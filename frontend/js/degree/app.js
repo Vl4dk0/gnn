@@ -1,19 +1,9 @@
-/**
- * Main application logic for GNN Vertex Degree Predictor
- */
-
-/**
- * Clear the canvas
- */
 function clearCanvas() {
   if (window.interactiveGraph) {
     window.interactiveGraph.clear();
   }
 }
 
-/**
- * Generate a random graph and populate input fields
- */
 async function generateRandomGraph() {
   const generateBtn = document.getElementById("generateBtn");
   const graphInput = document.getElementById("graphInput");
@@ -26,7 +16,7 @@ async function generateRandomGraph() {
     // Load settings from localStorage
     const settings = loadSettings();
 
-    const response = await fetch(`${API_BASE_URL}/generate`, {
+    const response = await fetch(`${API_DEGREE_URL}/generate`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -51,17 +41,13 @@ async function generateRandomGraph() {
     // Automatically analyze the generated graph
     await analyzeGraph();
   } catch (error) {
-    showError("Error generating graph: " + error.message);
+    console.error("Error generating graph: " + error.message);
   } finally {
     generateBtn.disabled = false;
     generateBtn.textContent = "Random Graph";
   }
 }
 
-/**
- * Format and clean the graph input
- * Removes isolated vertices that have edges, sorts properly
- */
 function formatGraphInput(graphStr) {
   if (!graphStr || graphStr.trim() === "") return "";
 
@@ -131,9 +117,6 @@ function formatGraphInput(graphStr) {
   return output.join("\n");
 }
 
-/**
- * Analyze the graph and display results
- */
 async function analyzeGraph() {
   const graphInput = document.getElementById("graphInput");
   const analyzeBtn = document.getElementById("analyzeBtn");
@@ -146,9 +129,6 @@ async function analyzeGraph() {
     graphInput.value = formattedGraph; // setting value programmatically does not fire 'input'
   }
 
-  // Reset UI
-  hideError();
-
   // Check if we already have predictions (graph hasn't changed)
   if (
     window.interactiveGraph &&
@@ -158,31 +138,25 @@ async function analyzeGraph() {
     return;
   }
 
-  // Show loading
-  showLoading();
   analyzeBtn.disabled = true;
 
   try {
     // Analyze all nodes to get predictions
     await analyzeAllNodes(formattedGraph);
   } catch (error) {
-    showError("Error: " + error.message);
+    console.error("Error: " + error.message);
   } finally {
-    hideLoading();
     analyzeBtn.disabled = false;
   }
 }
 
-/**
- * Analyze all nodes in the graph and update predictions
- */
 async function analyzeAllNodes(formattedGraph) {
   if (!window.interactiveGraph || window.interactiveGraph.nodes.length === 0) {
     return;
   }
 
   try {
-    const response = await fetch(`${API_BASE_URL}/analyze`, {
+    const response = await fetch(`${API_DEGREE_URL}/analyze`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -198,8 +172,8 @@ async function analyzeAllNodes(formattedGraph) {
       // Transform the predictions to match the expected format
       const predictions = data.predictions.map((pred) => ({
         nodeId: pred.node_id,
-        predicted: pred.predicted_degree,
-        actual: pred.true_degree,
+        predicted: pred.predicted,
+        actual: pred.true,
       }));
 
       // Update the interactive graph with predictions
@@ -210,37 +184,6 @@ async function analyzeAllNodes(formattedGraph) {
   }
 }
 
-/**
- * Show error message (just log to console)
- */
-function showError(message) {
-  console.error(message);
-}
-
-/**
- * Hide error message (no-op since we don't show errors)
- */
-function hideError() {
-  // No-op
-}
-
-/**
- * Show loading spinner (no-op)
- */
-function showLoading() {
-  // No loading UI
-}
-
-/**
- * Hide loading spinner (no-op)
- */
-function hideLoading() {
-  // No loading UI
-}
-
-/**
- * Initialize event listeners
- */
 function initializeEventListeners() {
   // Sync graph input with canvas when manually edited
   document.getElementById("graphInput").addEventListener("input", function (e) {
@@ -250,9 +193,6 @@ function initializeEventListeners() {
   });
 }
 
-/**
- * Settings Management
- */
 const DEFAULT_SETTINGS = {
   minNodes: 5,
   maxNodes: 12,
@@ -281,7 +221,8 @@ function openSettings() {
   document.getElementById("minProb").value = Math.round(settings.minProb * 100);
   document.getElementById("maxProb").value = Math.round(settings.maxProb * 100);
   document.getElementById("allowSelfLoops").checked = settings.allowSelfLoops;
-  document.getElementById("enablePhysics").checked = settings.enablePhysics || false;
+  document.getElementById("enablePhysics").checked =
+    settings.enablePhysics || false;
 
   // Update displays and highlights
   updateNodeRangeDisplay();
@@ -324,7 +265,7 @@ function saveSettings() {
   };
 
   saveSettingsToStorage(settings);
-  
+
   // Apply physics setting immediately
   if (window.interactiveGraph) {
     if (enablePhysics) {
@@ -333,7 +274,7 @@ function saveSettings() {
       window.interactiveGraph.disablePhysics();
     }
   }
-  
+
   closeSettings();
 }
 
@@ -437,7 +378,7 @@ function initializeSettings() {
         closeSettings();
       }
     });
-  
+
   // Apply saved physics setting on load
   const settings = loadSettings();
   if (window.interactiveGraph) {

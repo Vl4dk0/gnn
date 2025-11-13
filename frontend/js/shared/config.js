@@ -3,7 +3,9 @@
  * Loads API configuration from the backend
  */
 
-let API_BASE_URL = "http://localhost:5555/api/degree"; // Default for degree prediction
+let API_DEGREE_URL = "http://localhost:5555/api/degree";
+let API_CAGE_URL = "http://localhost:5555/api/cage";
+let API_MINCYCLE_URL = "http://localhost:5555/api/min_cycle";
 
 /**
  * Load configuration from the backend
@@ -23,7 +25,6 @@ async function loadConfig() {
 }
 
 // Load config immediately when this script is loaded
-// This ensures API_BASE_URL is set before other scripts run
 (async () => {
   await loadConfig();
 })();
