@@ -1,0 +1,1 @@
+- [ ] on each start generate, we should find all other running generating jobs, and stop them
