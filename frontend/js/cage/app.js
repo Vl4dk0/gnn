@@ -1,32 +1,17 @@
-/**
- * Main application logic for GNN Cage Generator (MCTS + GNN)
- */
-
-// Override API_BASE_URL for cage endpoints
-API_BASE_URL = "http://localhost:5555/api/cage";
-
-// Global state
 let currentSessionId = null;
 let pollingInterval = null;
 
-/**
- * Clear the canvas
- */
 function clearCanvas() {
   if (window.interactiveGraph) {
     window.interactiveGraph.clear();
   }
 }
 
-/**
- * Start MCTS-based cage generation
- */
 async function startGeneration() {
   const k = parseInt(document.getElementById("degreeK").value);
   const g = parseInt(document.getElementById("girthG").value);
   const generateBtn = document.getElementById("generateBtn");
   const stopBtn = document.getElementById("stopBtn");
-  const statusDisplay = document.getElementById("statusDisplay");
 
   if (k < 2 || g < 3) {
     alert("k must be >= 2 and g must be >= 3");
@@ -35,7 +20,7 @@ async function startGeneration() {
 
   // Load settings to get selected generator
   const settings = loadSettings();
-  const generator = settings.generatorType || 'randomwalk';
+  const generator = settings.generatorType || "randomwalk";
 
   // Disable generate button
   generateBtn.disabled = true;
@@ -45,7 +30,7 @@ async function startGeneration() {
 
   try {
     // Start generation on backend with selected generator
-    const response = await fetch(`${API_BASE_URL}/generate`, {
+    const response = await fetch(`${API_CAGE_URL}/generate`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -69,25 +54,24 @@ async function startGeneration() {
   }
 }
 
-/**
- * Stop generation
- */
 async function stopGeneration() {
   if (!currentSessionId) return;
 
   try {
     // Fetch current status before stopping
-    const statusResponse = await fetch(`${API_BASE_URL}/status/${currentSessionId}`);
+    const statusResponse = await fetch(
+      `${API_CAGE_URL}/status/${currentSessionId}`,
+    );
     const status = await statusResponse.json();
-    
+
     // Stop the session
-    await fetch(`${API_BASE_URL}/stop/${currentSessionId}`, {
+    await fetch(`${API_CAGE_URL}/stop/${currentSessionId}`, {
       method: "POST",
     });
 
     stopPolling();
     resetButtons();
-    
+
     // Update status display with "stopped" message
     const statusDisplay = document.getElementById("statusDisplay");
     let html = `
@@ -119,11 +103,8 @@ async function stopGeneration() {
   }
 }
 
-/**
- * Start polling for status updates
- */
 function startPolling() {
-  stopPolling(); // Clear any existing polling
+  stopPolling();
 
   // Load settings to get polling interval
   const settings = loadSettings();
@@ -137,7 +118,7 @@ function startPolling() {
 
     try {
       const response = await fetch(
-        `${API_BASE_URL}/status/${currentSessionId}`
+        `${API_CAGE_URL}/status/${currentSessionId}`,
       );
       const status = await response.json();
 
@@ -172,11 +153,11 @@ function startPolling() {
             const secs = (status.elapsed_time % 60).toFixed(1);
             timeStr = `${mins}m ${secs}s`;
           }
-          
+
           showSuccess(`Valid cage! (${timeStr})`);
         } else {
           showError(
-            `Generation completed but cage is not valid. Nodes: ${status.num_nodes}, Girth: ${status.girth || "∞"}`
+            `Generation completed but cage is not valid. Nodes: ${status.num_nodes}, Girth: ${status.girth || "∞"}`,
           );
         }
       }
@@ -185,12 +166,9 @@ function startPolling() {
       stopPolling();
       resetButtons();
     }
-  }, interval); // Use configurable interval
+  }, interval);
 }
 
-/**
- * Stop polling
- */
 function stopPolling() {
   if (pollingInterval) {
     clearInterval(pollingInterval);
@@ -198,9 +176,6 @@ function stopPolling() {
   }
 }
 
-/**
- * Update status display and graph visualization
- */
 function updateStatus(status) {
   const statusDisplay = document.getElementById("statusDisplay");
 
@@ -242,9 +217,6 @@ function updateStatus(status) {
   }
 }
 
-/**
- * Reset buttons to initial state
- */
 function resetButtons() {
   const generateBtn = document.getElementById("generateBtn");
   const stopBtn = document.getElementById("stopBtn");
@@ -255,9 +227,6 @@ function resetButtons() {
   stopBtn.style.display = "none";
 }
 
-/**
- * Show error message
- */
 function showError(message) {
   console.error(message);
   const statusDisplay = document.getElementById("statusDisplay");
@@ -268,9 +237,6 @@ function showError(message) {
     `;
 }
 
-/**
- * Show success message
- */
 function showSuccess(message) {
   console.log(message);
   const statusDisplay = document.getElementById("statusDisplay");
@@ -284,21 +250,18 @@ function showSuccess(message) {
     `;
 }
 
-/**
- * Initialize event listeners
- */
 function initializeEventListeners() {
   // Stop polling when page is closed
   window.addEventListener("beforeunload", () => {
     stopPolling();
   });
-  
+
   // Update polling interval display when slider moves
   const pollingSlider = document.getElementById("pollingInterval");
   if (pollingSlider) {
     pollingSlider.addEventListener("input", updatePollingDisplay);
   }
-  
+
   // Load and apply physics settings
   const settings = loadSettings();
   if (window.interactiveGraph) {
@@ -310,22 +273,19 @@ function initializeEventListeners() {
   }
 }
 
-/**
- * Settings Management
- */
 function loadSettings() {
   const defaultSettings = {
-    generatorType: 'randomwalk',
+    generatorType: "randomwalk",
     pollingInterval: 300,
-    enablePhysics: false
+    enablePhysics: false,
   };
-  
-  const saved = localStorage.getItem('cageGeneratorSettings');
+
+  const saved = localStorage.getItem("cageGeneratorSettings");
   return saved ? { ...defaultSettings, ...JSON.parse(saved) } : defaultSettings;
 }
 
 function saveSettingsToStorage(settings) {
-  localStorage.setItem('cageGeneratorSettings', JSON.stringify(settings));
+  localStorage.setItem("cageGeneratorSettings", JSON.stringify(settings));
 }
 
 function openSettings() {
@@ -336,7 +296,7 @@ function openSettings() {
   document.getElementById("generatorType").value = settings.generatorType;
   document.getElementById("pollingInterval").value = settings.pollingInterval;
   document.getElementById("enablePhysics").checked = settings.enablePhysics;
-  
+
   updatePollingDisplay();
   modal.classList.add("show");
 }
@@ -348,17 +308,19 @@ function closeSettings() {
 
 function saveSettings() {
   const generatorType = document.getElementById("generatorType").value;
-  const pollingInterval = parseInt(document.getElementById("pollingInterval").value);
+  const pollingInterval = parseInt(
+    document.getElementById("pollingInterval").value,
+  );
   const enablePhysics = document.getElementById("enablePhysics").checked;
 
   const settings = {
     generatorType,
     pollingInterval,
-    enablePhysics
+    enablePhysics,
   };
 
   saveSettingsToStorage(settings);
-  
+
   // Apply physics setting immediately
   if (window.interactiveGraph) {
     if (enablePhysics) {
@@ -367,7 +329,7 @@ function saveSettings() {
       window.interactiveGraph.disablePhysics();
     }
   }
-  
+
   closeSettings();
 }
 
