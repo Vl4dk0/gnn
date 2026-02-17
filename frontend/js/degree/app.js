@@ -156,14 +156,18 @@ async function analyzeAllNodes(formattedGraph) {
   }
 
   try {
+    const settings = loadSettings();
+    const body = { graph: formattedGraph };
+    if (settings.modelId) {
+      body.model_id = settings.modelId;
+    }
+
     const response = await fetch(`${API_DEGREE_URL}/analyze`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        graph: formattedGraph,
-      }),
+      body: JSON.stringify(body),
     });
 
     const data = await response.json();
@@ -200,6 +204,7 @@ const DEFAULT_SETTINGS = {
   maxProb: 0.6,
   allowSelfLoops: true,
   enablePhysics: false,
+  modelId: null, // null means use default model
 };
 
 function loadSettings() {
@@ -223,6 +228,12 @@ function openSettings() {
   document.getElementById("allowSelfLoops").checked = settings.allowSelfLoops;
   document.getElementById("enablePhysics").checked =
     settings.enablePhysics || false;
+  
+  // Set model selector value
+  const modelSelect = document.getElementById("modelSelect");
+  if (modelSelect.options.length > 1) {
+    modelSelect.value = settings.modelId || "";
+  }
 
   // Update displays and highlights
   updateNodeRangeDisplay();
@@ -243,6 +254,7 @@ function saveSettings() {
   const maxProb = parseInt(document.getElementById("maxProb").value) / 100;
   const allowSelfLoops = document.getElementById("allowSelfLoops").checked;
   const enablePhysics = document.getElementById("enablePhysics").checked;
+  const modelId = document.getElementById("modelSelect").value || null;
 
   // Validate
   if (minNodes > maxNodes) {
@@ -262,6 +274,7 @@ function saveSettings() {
     maxProb,
     allowSelfLoops,
     enablePhysics,
+    modelId,
   };
 
   saveSettingsToStorage(settings);
@@ -273,6 +286,12 @@ function saveSettings() {
     } else {
       window.interactiveGraph.disablePhysics();
     }
+  }
+
+  // Clear predictions so next analyze uses new model
+  if (window.interactiveGraph) {
+    window.interactiveGraph.nodePredictions.clear();
+    window.interactiveGraph.render();
   }
 
   closeSettings();
@@ -387,6 +406,39 @@ function initializeSettings() {
     } else {
       window.interactiveGraph.disablePhysics();
     }
+  }
+
+  // Fetch available models
+  fetchModels();
+}
+
+async function fetchModels() {
+  const modelSelect = document.getElementById("modelSelect");
+  const settings = loadSettings();
+
+  try {
+    const response = await fetch(`${API_DEGREE_URL}/models`);
+    const data = await response.json();
+
+    if (response.ok && data.models) {
+      const defaultLabel = data.default ? `Auto (${data.default})` : "Auto";
+      modelSelect.innerHTML = `<option value="">${defaultLabel}</option>`;
+      
+      data.models.forEach((model) => {
+        const option = document.createElement("option");
+        option.value = model.model_id;
+        option.textContent = `${model.model_id} (${model.model_type})`;
+        modelSelect.appendChild(option);
+      });
+
+      // Restore saved selection
+      if (settings.modelId) {
+        modelSelect.value = settings.modelId;
+      }
+    }
+  } catch (error) {
+    console.error("Error fetching models:", error);
+    modelSelect.innerHTML = '<option value="">Auto</option>';
   }
 }
 

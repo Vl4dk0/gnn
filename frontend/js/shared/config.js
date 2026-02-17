@@ -1,30 +1,8 @@
 /**
- * Configuration management for the frontend
- * Loads API configuration from the backend
+ * Configuration for the frontend
+ * API endpoint URLs
  */
 
-let API_DEGREE_URL = "http://localhost:5555/api/degree";
-let API_CAGE_URL = "http://localhost:5555/api/cage";
-let API_MINCYCLE_URL = "http://localhost:5555/api/min_cycle";
-
-/**
- * Load configuration from the backend
- */
-async function loadConfig() {
-  try {
-    // Try to fetch config from the server (shared endpoint)
-    const response = await fetch(`http://localhost:5555/api/config`);
-    if (response.ok) {
-      const config = await response.json();
-      // Config loaded successfully
-    }
-  } catch (error) {
-    console.warn("Could not load config from server, using defaults:", error);
-    // Keep the default value
-  }
-}
-
-// Load config immediately when this script is loaded
-(async () => {
-  await loadConfig();
-})();
+const API_DEGREE_URL = "http://localhost:5555/api/degree";
+const API_CAGE_URL = "http://localhost:5555/api/cage";
+const API_MINCYCLE_URL = "http://localhost:5555/api/min_cycle";

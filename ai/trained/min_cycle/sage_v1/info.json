@@ -1,0 +1,22 @@
+{
+  "model_type": "sage",
+  "model_id": "sage_v1",
+  "task": "min_cycle",
+  "training": {
+    "input_dim": 4,
+    "hidden_dim": 64,
+    "output_dim": 1,
+    "num_layers": 4,
+    "dropout": 0.2,
+    "epochs": 5000,
+    "best_epoch": 50,
+    "learning_rate": 0.001,
+    "graphs_per_epoch": 50
+  },
+  "metrics": {
+    "mse": 8.3479,
+    "mae": 2.8893,
+    "accuracy": 23.67
+  },
+  "created_at": "2025-12-04T18:38:21.390595"
+}

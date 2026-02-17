@@ -1,11 +1,13 @@
-"""Cage graph generation package."""
+from .functions.random_walk import RandomWalkGenerator
+from .functions.bruteforce import BruteforceGenerator
+from .functions.astar import AStarGenerator
+from .functions.monte_carlo_search_tree import MCTSGenerator
+from .functions.rl_agent import RLGenerator
 
-from .random_walk import RandomWalkGenerator
-from .bruteforce import BruteforceGenerator
-from .astar import AStarGenerator
-from .monte_carlo_search_tree import MCTSGenerator
-
-# Backwards compatibility: CageGenerator is RandomWalkGenerator
-CageGenerator = RandomWalkGenerator
-
-__all__ = ['CageGenerator', 'RandomWalkGenerator', 'BruteforceGenerator', 'AStarGenerator', 'MCTSGenerator']
+__all__ = [
+    "RandomWalkGenerator",
+    "BruteforceGenerator",
+    "AStarGenerator",
+    "MCTSGenerator",
+    "RLGenerator",
+]
