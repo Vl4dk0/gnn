@@ -1,14 +1,14 @@
 import os
-from typing import Any
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify
+from flask import Flask, Response, jsonify, request
 from flask import send_from_directory
 from flask_cors import CORS
 
 from backend.routes.degree import degree_bp
 from backend.routes.cage import cage_bp
 from backend.routes.min_cycle import min_cycle_bp
+from ai.registry import list_trained_models
 
 _ = load_dotenv()
 
@@ -27,20 +27,41 @@ def create_app():
     app.register_blueprint(cage_bp)
     app.register_blueprint(min_cycle_bp)
 
-    # Shared config endpoint (not project-specific)
+    def resolve_api_base_url() -> str:
+        configured = os.getenv("API_BASE_URL", "").strip().rstrip("/")
+        if configured:
+            return configured
+        return request.host_url.rstrip("/")
+
+    # Shared config endpoint
     @app.route("/api/config")
     def get_config():  # pyright: ignore[reportUnusedFunction]
-        """Get model configuration information."""
-        import json
-
+        """Expose runtime frontend configuration and feature availability."""
         try:
-            with open("ai/degree/model_info.json", "r") as f:
-                model_info: dict[str, Any] = json.load(f)  # pyright: ignore[reportAny, reportExplicitAny]
-            return jsonify(model_info)
-        except FileNotFoundError:
-            return jsonify({"error": "Model info not found"}), 404
+            return jsonify(
+                {
+                    "apiBaseUrl": resolve_api_base_url(),
+                    "features": {
+                        "degree": {
+                            "active": len(list_trained_models("degree")) > 0,
+                        },
+                        "min_cycle": {
+                            "active": len(list_trained_models("min_cycle")) > 0,
+                        },
+                        "cage": {
+                            "active": True,
+                        },
+                    },
+                }
+            )
         except Exception as e:
             return jsonify({"error": str(e)}), 500
+
+    @app.route("/config.js")
+    def config_js():  # pyright: ignore[reportUnusedFunction]
+        """Runtime-injected frontend config script."""
+        js = f'window.__APP_CONFIG__ = {{"apiBaseUrl": "{resolve_api_base_url()}"}};'
+        return Response(js, mimetype="application/javascript")
 
     @app.route("/")
     def index():  # pyright: ignore[reportUnusedFunction]

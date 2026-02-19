@@ -41,6 +41,15 @@ async function startGeneration() {
     const data = await response.json();
 
     if (!response.ok) {
+      if (
+        response.status === 429 &&
+        data.active_sessions !== undefined &&
+        data.max_parallel_generations !== undefined
+      ) {
+        throw new Error(
+          `${data.error} (${data.active_sessions}/${data.max_parallel_generations} running)`,
+        );
+      }
       throw new Error(data.error || "Failed to start generation");
     }
 

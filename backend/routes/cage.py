@@ -35,6 +35,17 @@ session_lock = threading.Lock()
 
 # Timeout in seconds - stop generation if not polled for this long
 POLL_TIMEOUT = 5
+MAX_PARALLEL_GENERATIONS = 3
+
+
+def _count_active_generations_locked() -> int:
+    """Count currently running generation threads (lock must be held)."""
+    active = 0
+    for session in generation_sessions.values():
+        thread = session.get("thread")
+        if isinstance(thread, threading.Thread) and thread.is_alive():
+            active += 1
+    return active
 
 
 def run_generation(
@@ -77,11 +88,14 @@ def run_generation(
 @cage_bp.route("/status", methods=["GET"])
 def status() -> Response:
     """Health check endpoint."""
+    with session_lock:
+        active = _count_active_generations_locked()
     return jsonify(
         {
             "status": "ready",
             "message": "Cage graph generator API is ready",
-            "active_sessions": len(generation_sessions),
+            "active_sessions": active,
+            "max_parallel_generations": MAX_PARALLEL_GENERATIONS,
         }
     )
 
@@ -128,6 +142,22 @@ def generate() -> Response | tuple[Response, int]:
     )
 
     with session_lock:
+        active = _count_active_generations_locked()
+        if active >= MAX_PARALLEL_GENERATIONS:
+            return (
+                jsonify(
+                    {
+                        "error": (
+                            "Generating queue is full. "
+                            "Please wait until a running generation finishes."
+                        ),
+                        "active_sessions": active,
+                        "max_parallel_generations": MAX_PARALLEL_GENERATIONS,
+                    }
+                ),
+                429,
+            )
+
         generation_sessions[session_id] = {
             "generator": generator,
             "last_poll": time.time(),
