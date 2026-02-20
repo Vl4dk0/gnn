@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GNN Project Notes - Architecture</title>
+    <link rel="stylesheet" href="/css/docs.css" />
+  </head>
+  <body>
+    <main class="page">
+      <nav class="nav">
+        <a href="/docs/index.html">Overview</a>
+        <a class="active" href="/docs/architecture.html">Architecture</a>
+        <a href="/docs/training.html">Training Notes</a>
+      </nav>
+
+      <section class="hero">
+        <h1>Architecture</h1>
+        <p>
+          The codebase is organized by responsibility: API routes, reusable
+          model definitions, task-specific train/inference code, and static UI.
+        </p>
+      </section>
+
+      <section class="card section">
+        <h2>Directory Layout</h2>
+        <pre><code>ai/
+  models/        # GCN, SAGE, GIN, Loopy implementations
+  registry.py    # model discovery/load/save
+  degree/        # training + prediction for degree task
+  min_cycle/     # training + prediction for cycle task
+  cage/          # search + RL generator logic
+  trained/       # saved info.json + weights.pt artifacts
+
+backend/
+  app.py         # Flask app and static serving
+  routes/        # /api/degree, /api/min_cycle, /api/cage
+  utils/         # graph parsing and generation helpers
+
+frontend/
+  index.html     # landing
+  degree/        # degree UI
+  min_cycle/     # min-cycle UI
+  cage/          # cage generator UI</code></pre>
+      </section>
+
+      <section class="grid section">
+        <article class="card">
+          <h3>Model Registry Contract</h3>
+          <p>
+            Every trained model directory must include both
+            <code>info.json</code> and <code>weights.pt</code>. Registry
+            functions rely on this contract for listing and loading.
+          </p>
+        </article>
+        <article class="card">
+          <h3>Cage Session Model</h3>
+          <p>
+            Cage generation uses session IDs and background threads, with
+            abandonment timeout and queue limit enforcement.
+          </p>
+        </article>
+      </section>
+
+      <section class="card section">
+        <h2>Cage Queue Protection</h2>
+        <pre><code>MAX_PARALLEL_GENERATIONS = 3
+
+if active &gt;= MAX_PARALLEL_GENERATIONS:
+    return jsonify({
+        "error": "Generating queue is full.",
+        "active_sessions": active,
+        "max_parallel_generations": MAX_PARALLEL_GENERATIONS
+    }), 429</code></pre>
+      </section>
+
+      <section class="note">
+        Deployment note: frontend can be static-hosted, but backend requires a
+        persistent Python runtime because of PyTorch and session threads.
+      </section>
+
+      <div class="page-links">
+        <a href="/docs/index.html">← Back to Overview</a>
+        <a href="/docs/training.html">Continue to Training details →</a>
+      </div>
+    </main>
+  </body>
+</html>

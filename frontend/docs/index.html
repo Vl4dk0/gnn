@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GNN Project Notes - Overview</title>
+    <link rel="stylesheet" href="/css/docs.css" />
+  </head>
+  <body>
+    <main class="page">
+      <nav class="nav">
+        <a class="active" href="/docs/index.html">Overview</a>
+        <a href="/docs/architecture.html">Architecture</a>
+        <a href="/docs/training.html">Training Notes</a>
+      </nav>
+
+      <section class="hero">
+        <h1>GNN Experimentation Platform</h1>
+        <p>
+          This project is an interactive environment for experimenting with
+          graph neural networks and combinatorial graph problems. It combines a
+          static frontend editor with a Flask backend and model registry.
+        </p>
+      </section>
+
+      <section class="grid modules-grid section">
+        <a class="card-link" href="/docs/module-degree.html">
+          <article class="card module-card">
+            <span class="chip module-chip">Module 01</span>
+            <h2>Degree Prediction</h2>
+            <p>
+              Predict node degree from structure. Includes training setup,
+              complete model metrics, and interpretation of why some models hit
+              exact matches while others drift.
+            </p>
+          </article>
+        </a>
+
+        <a class="card-link" href="/docs/module-min-cycle.html">
+          <article class="card module-card">
+            <span class="chip module-chip">Module 02</span>
+            <h2>Minimum-Cycle Prediction</h2>
+            <p>
+              Predict shortest cycle length through each node. Includes training
+              details and analysis of why cycle-sensitive models separate from
+              baseline message-passing models.
+            </p>
+          </article>
+        </a>
+
+        <a class="card-link" href="/docs/module-cage.html">
+          <article class="card module-card module-card--wide">
+            <span class="chip module-chip">Module 03</span>
+            <h2>Cage Generator</h2>
+            <p>
+              Generate candidate cage graphs with search and RL. Includes queue
+              constraints, checkpoint coverage, and discussion of practical
+              interpretation when RL metadata is limited.
+            </p>
+          </article>
+        </a>
+      </section>
+
+      <section class="card section">
+        <h2>Why This Work Matters Overall</h2>
+        <p>
+          Graph-structured tasks appear in chemistry, planning, recommendation,
+          and network analysis. Having one environment where multiple graph
+          objectives are implemented side by side lets you compare what is easy
+          for standard message passing and what needs stronger structural bias.
+          This helps turn model selection into an evidence-based decision rather
+          than trial-and-error.
+        </p>
+        <p>
+          The degree task acts as a low-level sanity check, min-cycle tests
+          whether the model can capture cycle structure, and cage generation
+          stresses constructive search under constraints. Together they form a
+          progression from node regression to structure-aware reasoning and
+          controlled generation.
+        </p>
+      </section>
+
+      <section class="card section">
+        <h2>Why Model Performance Differs</h2>
+        <p>
+          Not all tasks reward the same inductive bias. Degree prediction can be
+          solved well by architectures that aggregate local neighbor statistics,
+          so some models saturate quickly. Minimum-cycle prediction requires
+          stronger cycle-sensitive representations, where models with explicit
+          cycle-related structure (such as Loopy variants) can gain a large
+          advantage.
+        </p>
+        <p>
+          Training dynamics also matter: best epoch can differ dramatically
+          across models, indicating each architecture has a different stability
+          region. Comparing MAE, MSE, and exact-match accuracy together is
+          important because each metric highlights a different failure mode.
+        </p>
+      </section>
+
+      <div class="page-links">
+        <a href="/">← Back to Apps</a>
+        <a href="/docs/architecture.html">Continue to Architecture details →</a>
+      </div>
+    </main>
+  </body>
+</html>

@@ -4,6 +4,12 @@
     box-sizing: border-box;
 }
 
+html,
+body {
+    width: 100%;
+    overflow-x: hidden;
+}
+
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background: #1a1a1a;
@@ -16,9 +22,9 @@ body {
 
 .projects-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 400px));
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 30px;
-    max-width: 1200px;
+    width: min(100%, 1200px);
 }
 
 .project-card {
@@ -82,4 +88,72 @@ body {
 .status-coming-soon {
     background: #555555;
     color: #cccccc;
+}
+
+@media (max-width: 768px) {
+    body {
+        align-items: flex-start;
+        justify-content: flex-start;
+        padding: 10px;
+    }
+
+    .projects-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+        width: 100%;
+    }
+
+    .project-card {
+        width: 100%;
+        padding: 18px 16px;
+        border-width: 1px;
+        border-radius: 10px;
+    }
+
+    .project-title {
+        font-size: 1.6rem;
+        line-height: 1.15;
+        margin-bottom: 10px;
+    }
+
+    .project-description {
+        font-size: 1.02rem;
+        line-height: 1.45;
+        margin-bottom: 12px;
+    }
+
+    .project-status {
+        font-size: 0.74rem;
+        padding: 5px 10px;
+        letter-spacing: 0.35px;
+    }
+}
+
+@media (max-width: 430px) {
+    body {
+        padding: 8px;
+    }
+
+    .projects-grid {
+        gap: 10px;
+    }
+
+    .project-card {
+        padding: 14px 12px;
+    }
+
+    .project-title {
+        font-size: 1.45rem;
+    }
+
+    .project-description {
+        font-size: 0.97rem;
+        line-height: 1.4;
+        margin-bottom: 10px;
+    }
+
+    .project-status {
+        font-size: 0.72rem;
+        padding: 4px 9px;
+    }
 }

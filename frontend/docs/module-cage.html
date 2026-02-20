@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Module 03 - Cage Generation</title>
+    <link rel="stylesheet" href="/css/docs.css" />
+  </head>
+  <body>
+    <main class="page">
+      <nav class="nav">
+        <a
+          class="active"
+          href="#"
+          onclick="if (window.history.length > 1) { window.history.back(); } else { window.location.href = '/docs/index.html'; } return false;"
+          >Back</a
+        >
+      </nav>
+
+      <section class="hero">
+        <h1>Module 03: Cage Generator</h1>
+        <p>
+          Goal: search for candidate (k,g)-cages using multiple generators and
+          expose live progress via session polling.
+        </p>
+      </section>
+
+      <section class="card section">
+        <h2>Why This Module Is Important</h2>
+        <p>
+          This module shifts from prediction to constrained construction. Instead
+          of estimating a property on a fixed graph, the system must iteratively
+          build a graph that satisfies regularity and girth constraints. That
+          makes it an end-to-end reasoning and search benchmark, not only a
+          regression benchmark.
+        </p>
+        <p>
+          It also gives direct user-facing feedback about algorithm behavior:
+          speed, quality of partial states, and convergence or failure modes are
+          visible live through session polling.
+        </p>
+      </section>
+
+      <section class="card section">
+        <h2>Available Generation Methods</h2>
+        <ul>
+          <li>Random Walk (fast stochastic search)</li>
+          <li>Bruteforce (systematic/backtracking search)</li>
+          <li>A* Search (best-first heuristic search)</li>
+          <li>RL Agent (policy-guided action selection)</li>
+        </ul>
+      </section>
+
+      <section class="card section">
+        <h2>Runtime Behavior Stats</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Parameter</th>
+                <th>Current Value</th>
+                <th>Meaning</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>MAX_PARALLEL_GENERATIONS</td>
+                <td>3</td>
+                <td>At most 3 active generation threads at once.</td>
+              </tr>
+              <tr>
+                <td>POLL_TIMEOUT</td>
+                <td>5 seconds</td>
+                <td>Session is marked stopped if client stops polling.</td>
+              </tr>
+              <tr>
+                <td>Queue-full response</td>
+                <td>HTTP 429</td>
+                <td>Returned when generation limit is reached.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card section">
+        <h2>RL Checkpoints Present</h2>
+        <p>Source: <code>ai/trained/cage_rl/</code>.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Checkpoint</th>
+                <th>Size</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>ppo_generalist_gin_final.pt</td>
+                <td>474 KB</td>
+                <td>Generalist PPO checkpoint.</td>
+              </tr>
+              <tr>
+                <td>ppo_k3_g5_gin_final.pt</td>
+                <td>128 KB</td>
+                <td>Specialized checkpoint (target inferred from filename).</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card section">
+        <h2>Why Methods Behave Differently Here</h2>
+        <p>
+          Random walk and bruteforce trade speed for completeness in opposite
+          ways, while A* depends strongly on heuristic quality. The RL generator
+          can be faster on some trajectories if policy priors align with the
+          target structure, but can also stall when generalization is weak.
+        </p>
+        <p>
+          In the current repository, RL checkpoints are available but not
+          accompanied by standardized metrics metadata. That means the most
+          reliable comparison is still behavioral: success rate, time to valid
+          cage, and stability under concurrent sessions.
+        </p>
+      </section>
+
+      <section class="note">
+        Interpretation: unlike degree/min-cycle, these RL checkpoints currently
+        do not have companion metrics metadata in <code>info.json</code>, so
+        quality comparison is operational (generation behavior/speed/success)
+        rather than a single offline score table.
+      </section>
+
+    </main>
+  </body>
+</html>

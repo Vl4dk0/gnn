@@ -16,6 +16,14 @@ body {
     overflow: hidden;              /* prevent page scroll; columns manage their own */
 }
 
+.mobile-toggle-btn {
+    display: none;
+}
+
+.input-details {
+    display: contents;
+}
+
 /* Left Column - Inputs */
 .input-column {
     background: #2a2a2a;
@@ -243,16 +251,90 @@ button:disabled {
 
 @media (max-width: 900px) {
     body {
+        height: auto;
+        min-height: 100vh;
+        overflow-y: auto;
+        overflow-x: hidden;
         grid-template-columns: 1fr;
-        grid-template-rows: auto 1fr auto;
+        grid-template-rows: auto minmax(58vh, 1fr);
     }
     
     .input-column {
-        padding: 30px 20px;
+        padding: 16px 12px;
+        gap: 12px;
+        border-right: none;
+        border-bottom: 1px solid #444444;
+    }
+
+    .mobile-toggle-btn {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        padding: 10px 14px;
+        font-size: 13px;
+        letter-spacing: 0.6px;
+        text-transform: uppercase;
+        border-radius: 6px;
+    }
+
+    .mobile-toggle-btn .toggle-label {
+        font-weight: 700;
+    }
+
+    .mobile-toggle-btn .toggle-arrow {
+        display: inline-block;
+        font-size: 16px;
+        line-height: 1;
+        transition: transform 0.25s ease;
+        transform-origin: 50% 50%;
+    }
+
+    .input-details {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        max-height: 46vh;
+        overflow-y: auto;
+        padding-right: 2px;
+    }
+
+    .input-column.collapsed .input-details {
+        display: none;
+    }
+
+    .input-column.collapsed #generateBtn,
+    .input-column.collapsed #analyzeBtn,
+    .input-column.collapsed .back-btn {
+        display: none;
+    }
+
+    .input-column.collapsed .mobile-toggle-btn {
+        background: #4f4f4f;
+    }
+
+    .input-column.collapsed .mobile-toggle-btn .toggle-arrow {
+        transform: rotate(-90deg);
+    }
+
+    .controls-section {
+        margin-top: 0;
+        max-height: none;
+        overflow-y: visible;
+        flex: 0 0 auto;
+    }
+
+    textarea {
+        height: 170px;
+    }
+
+    .back-btn {
+        margin-top: 4px;
     }
     
     .graph-column {
-        min-height: 500px;
+        min-height: 62vh;
+        padding: 10px;
         display: flex;
         align-items: center;
         justify-content: center;

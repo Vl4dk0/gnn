@@ -25,6 +25,7 @@ Available pages:
 - `/degree` - Degree prediction
 - `/min_cycle` - Min cycle prediction
 - `/cage` - Cage graph generator
+- `/docs/index.html` - Project notes (static multi-page write-up)
 
 ## Training Models
 
@@ -85,5 +86,3 @@ All models extend `BaseGNN` and support the same interface:
 - `POST /api/cage/stop/<id>` - Stop generation session
 
 **Note:** Cage generation threads auto-terminate after 5 seconds of no polling.
-
-

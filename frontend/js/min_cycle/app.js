@@ -197,6 +197,54 @@ function initializeEventListeners() {
   });
 }
 
+function initializeMobileInputToggle() {
+  const inputColumn = document.querySelector(".input-column");
+  const toggleBtn = document.getElementById("toggleInputBtn");
+  if (!inputColumn || !toggleBtn) return;
+
+  const storageKey = "minCycleInputPanelCollapsed";
+  const mediaQuery = window.matchMedia("(max-width: 900px)");
+
+  const setCollapsed = (collapsed) => {
+    inputColumn.classList.toggle("collapsed", collapsed);
+    toggleBtn.classList.toggle("is-collapsed", collapsed);
+    toggleBtn.setAttribute("aria-expanded", String(!collapsed));
+  };
+
+  const readStoredState = () => {
+    const value = localStorage.getItem(storageKey);
+    if (value === "1") return true;
+    if (value === "0") return false;
+    return null;
+  };
+
+  const initialStored = readStoredState();
+  const initialCollapsed =
+    initialStored !== null ? initialStored : mediaQuery.matches;
+  setCollapsed(mediaQuery.matches ? initialCollapsed : false);
+
+  toggleBtn.addEventListener("click", () => {
+    const nextCollapsed = !inputColumn.classList.contains("collapsed");
+    setCollapsed(nextCollapsed);
+    localStorage.setItem(storageKey, nextCollapsed ? "1" : "0");
+  });
+
+  const handleViewportChange = (event) => {
+    if (event.matches) {
+      const stored = readStoredState();
+      setCollapsed(stored !== null ? stored : true);
+      return;
+    }
+    setCollapsed(false);
+  };
+
+  if (typeof mediaQuery.addEventListener === "function") {
+    mediaQuery.addEventListener("change", handleViewportChange);
+  } else {
+    mediaQuery.addListener(handleViewportChange);
+  }
+}
+
 const DEFAULT_SETTINGS = {
   minNodes: 5,
   maxNodes: 12,
@@ -445,3 +493,4 @@ async function fetchModels() {
 // Initialize when DOM is loaded
 document.addEventListener("DOMContentLoaded", initializeEventListeners);
 document.addEventListener("DOMContentLoaded", initializeSettings);
+document.addEventListener("DOMContentLoaded", initializeMobileInputToggle);
