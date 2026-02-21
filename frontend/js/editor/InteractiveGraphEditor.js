@@ -39,6 +39,24 @@ class InteractiveGraphEditor {
     this.mouseX = 0;
     this.mouseY = 0;
 
+    // Touch gesture settings
+    this.longPressDelayMs = 450;
+    this.touchMoveThresholdPx = 8;
+    this.doubleTapWindowMs = 280;
+    this.doubleTapTolerancePx = 24;
+
+    // Touch gesture state
+    this.touchPointers = new Map();
+    this.touchPrimaryPointerId = null;
+    this.touchLongPressTimer = null;
+    this.touchPinchState = null;
+    this.lastTapTime = 0;
+    this.lastTapX = 0;
+    this.lastTapY = 0;
+    this.lastTapNodeId = null;
+    this.lastTouchInteractionTime = 0;
+    this.resizeObserver = null;
+
     // Animation
     this.animationFrameId = null;
     this.lastFrameTime = 0;
@@ -51,12 +69,26 @@ class InteractiveGraphEditor {
   initCanvas() {
     this.resizeCanvas();
     window.addEventListener("resize", () => this.resizeCanvas());
+
+    const container = this.canvas.parentElement;
+    if (typeof ResizeObserver === "function" && container) {
+      this.resizeObserver = new ResizeObserver(() => this.resizeCanvas());
+      this.resizeObserver.observe(container);
+    }
   }
 
   resizeCanvas() {
     const container = this.canvas.parentElement;
-    this.canvas.width = container.clientWidth;
-    this.canvas.height = container.clientHeight;
+    if (!container) return;
+
+    const width = Math.max(1, Math.round(container.clientWidth));
+    const height = Math.max(1, Math.round(container.clientHeight));
+    if (this.canvas.width === width && this.canvas.height === height) {
+      return;
+    }
+
+    this.canvas.width = width;
+    this.canvas.height = height;
   }
 
   setupEventListeners() {
@@ -84,7 +116,16 @@ class InteractiveGraphEditor {
 
     this.canvas.addEventListener("dblclick", (e) => this.handleDoubleClick(e));
 
-    this.canvas.addEventListener("wheel", (e) => this.handleWheel(e));
+    this.canvas.addEventListener("wheel", (e) => this.handleWheel(e), {
+      passive: false,
+    });
+
+    this.canvas.addEventListener("pointerdown", (e) => this.handlePointerDown(e));
+    this.canvas.addEventListener("pointermove", (e) => this.handlePointerMove(e));
+    this.canvas.addEventListener("pointerup", (e) => this.handlePointerUp(e));
+    this.canvas.addEventListener("pointercancel", (e) =>
+      this.handlePointerCancel(e),
+    );
 
     document.addEventListener("keydown", (e) => {
       if (e.key === "Backspace" && this.selectedNode !== null) {
@@ -95,18 +136,407 @@ class InteractiveGraphEditor {
   }
 
   getMousePos(e) {
+    return this.getWorldPosFromClient(e.clientX, e.clientY);
+  }
+
+  getWorldPosFromClient(clientX, clientY) {
     const rect = this.canvas.getBoundingClientRect();
-    // Convert screen coordinates to world coordinates (accounting for pan and zoom)
+    const scaleX = rect.width > 0 ? this.canvas.width / rect.width : 1;
+    const scaleY = rect.height > 0 ? this.canvas.height / rect.height : 1;
+    const canvasX = (clientX - rect.left) * scaleX;
+    const canvasY = (clientY - rect.top) * scaleY;
     return {
-      x: (e.clientX - rect.left - this.offsetX) / this.scale,
-      y: (e.clientY - rect.top - this.offsetY) / this.scale,
+      x: (canvasX - this.offsetX) / this.scale,
+      y: (canvasY - this.offsetY) / this.scale,
     };
   }
 
-  handleMouseMove(e) {
+  getCanvasPosFromClient(clientX, clientY) {
     const rect = this.canvas.getBoundingClientRect();
-    const rawX = e.clientX - rect.left;
-    const rawY = e.clientY - rect.top;
+    const scaleX = rect.width > 0 ? this.canvas.width / rect.width : 1;
+    const scaleY = rect.height > 0 ? this.canvas.height / rect.height : 1;
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
+    };
+  }
+
+  distanceBetweenPoints(x1, y1, x2, y2) {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  updateTouchScrollLock() {
+    const hasTouchPointers = this.touchPointers.size > 0;
+    document.body.classList.toggle("touch-graph-lock", hasTouchPointers);
+  }
+
+  cancelTouchLongPress() {
+    if (this.touchLongPressTimer) {
+      clearTimeout(this.touchLongPressTimer);
+      this.touchLongPressTimer = null;
+    }
+  }
+
+  resetTouchDragAndPan() {
+    this.panningCanvas = false;
+    if (this.draggingNode) {
+      this.draggingNode.fixed = false;
+      this.draggingNode = null;
+    }
+  }
+
+  beginTouchLongPress(pointer) {
+    if (!pointer.startNode || pointer.suppressTap) return;
+
+    this.cancelTouchLongPress();
+    this.touchLongPressTimer = setTimeout(() => {
+      const stillActive = this.touchPointers.get(pointer.pointerId);
+      if (!stillActive || stillActive.suppressTap || this.touchPinchState) return;
+
+      if (this.selectedNode === stillActive.startNode) {
+        if (this.edgeStart === stillActive.startNode) {
+          this.edgeStart = null;
+        }
+        this.deleteNode(stillActive.startNode);
+      } else {
+        this.selectedNode = stillActive.startNode;
+      }
+
+      stillActive.longPressTriggered = true;
+      stillActive.suppressTap = true;
+      this.touchLongPressTimer = null;
+    }, this.longPressDelayMs);
+  }
+
+  setupSingleTouchState(pointer, reuseStartState = false) {
+    this.touchPrimaryPointerId = pointer.pointerId;
+    pointer.lastClientX = pointer.clientX;
+    pointer.lastClientY = pointer.clientY;
+    pointer.lastCanvasX = pointer.canvasX;
+    pointer.lastCanvasY = pointer.canvasY;
+    pointer.moved = false;
+    pointer.longPressTriggered = false;
+
+    if (!reuseStartState) {
+      pointer.startClientX = pointer.clientX;
+      pointer.startClientY = pointer.clientY;
+      pointer.startCanvasX = pointer.canvasX;
+      pointer.startCanvasY = pointer.canvasY;
+      pointer.startNode = this.graph.findNodeAt(pointer.worldX, pointer.worldY);
+      pointer.suppressTap = false;
+    }
+
+    this.beginTouchLongPress(pointer);
+  }
+
+  initializeTouchPinch() {
+    this.cancelTouchLongPress();
+    this.resetTouchDragAndPan();
+
+    const pointers = Array.from(this.touchPointers.values());
+    if (pointers.length < 2) return;
+
+    pointers.forEach((pointer) => {
+      pointer.suppressTap = true;
+    });
+
+    const p1 = pointers[0];
+    const p2 = pointers[1];
+    const distance = this.distanceBetweenPoints(
+      p1.clientX,
+      p1.clientY,
+      p2.clientX,
+      p2.clientY,
+    );
+    if (distance < 1) return;
+
+    const midX = (p1.clientX + p2.clientX) / 2;
+    const midY = (p1.clientY + p2.clientY) / 2;
+    const midpointWorld = this.getWorldPosFromClient(midX, midY);
+
+    this.touchPinchState = {
+      startDistance: distance,
+      startScale: this.scale,
+      midpointWorldX: midpointWorld.x,
+      midpointWorldY: midpointWorld.y,
+    };
+  }
+
+  updateTouchPinch() {
+    if (!this.touchPinchState || this.touchPointers.size < 2) return;
+
+    const pointers = Array.from(this.touchPointers.values());
+    const p1 = pointers[0];
+    const p2 = pointers[1];
+    const distance = this.distanceBetweenPoints(
+      p1.clientX,
+      p1.clientY,
+      p2.clientX,
+      p2.clientY,
+    );
+    if (distance < 1) return;
+
+    const midpointX = (p1.clientX + p2.clientX) / 2;
+    const midpointY = (p1.clientY + p2.clientY) / 2;
+    const canvasMidpoint = this.getCanvasPosFromClient(midpointX, midpointY);
+
+    const zoomFactor = distance / this.touchPinchState.startDistance;
+    const unclampedScale = this.touchPinchState.startScale * zoomFactor;
+    const newScale = Math.max(this.minScale, Math.min(this.maxScale, unclampedScale));
+
+    this.scale = newScale;
+    this.offsetX =
+      canvasMidpoint.x - this.touchPinchState.midpointWorldX * this.scale;
+    this.offsetY =
+      canvasMidpoint.y - this.touchPinchState.midpointWorldY * this.scale;
+
+    this.mouseX = this.touchPinchState.midpointWorldX;
+    this.mouseY = this.touchPinchState.midpointWorldY;
+  }
+
+  handleTouchTap(pointer) {
+    const node = this.graph.findNodeAt(pointer.worldX, pointer.worldY);
+    const now = Date.now();
+    const withinWindow = now - this.lastTapTime <= this.doubleTapWindowMs;
+    const withinDistance =
+      this.distanceBetweenPoints(
+        pointer.clientX,
+        pointer.clientY,
+        this.lastTapX,
+        this.lastTapY,
+      ) <= this.doubleTapTolerancePx;
+    const isDoubleTap = withinWindow && withinDistance;
+
+    if (isDoubleTap) {
+      if (node && this.lastTapNodeId === node.id) {
+        this.lastTapTime = 0;
+        this.lastTapNodeId = null;
+        this.selectedNode = node;
+        this.edgeStart = node;
+        return;
+      }
+
+      if (!node && this.lastTapNodeId === null) {
+        this.lastTapTime = 0;
+        this.lastTapNodeId = null;
+        this.addNode(pointer.worldX, pointer.worldY);
+        return;
+      }
+    }
+
+    this.lastTapTime = now;
+    this.lastTapX = pointer.clientX;
+    this.lastTapY = pointer.clientY;
+    this.lastTapNodeId = node ? node.id : null;
+
+    if (node) {
+      if (this.edgeStart !== null) {
+        this.addEdge(this.edgeStart, node);
+        this.edgeStart = null;
+      } else {
+        this.selectedNode = node;
+      }
+      return;
+    }
+
+    if (this.edgeStart !== null) {
+      this.edgeStart = null;
+    } else {
+      this.selectedNode = null;
+    }
+  }
+
+  handlePointerDown(e) {
+    if (e.pointerType === "mouse") return;
+
+    this.lastTouchInteractionTime = Date.now();
+    e.preventDefault();
+    try {
+      this.canvas.setPointerCapture(e.pointerId);
+    } catch (_err) {
+      // No-op: capture can fail on some browsers, interaction still works.
+    }
+
+    const world = this.getWorldPosFromClient(e.clientX, e.clientY);
+    const canvasPos = this.getCanvasPosFromClient(e.clientX, e.clientY);
+    const pointer = {
+      pointerId: e.pointerId,
+      clientX: e.clientX,
+      clientY: e.clientY,
+      canvasX: canvasPos.x,
+      canvasY: canvasPos.y,
+      worldX: world.x,
+      worldY: world.y,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      startCanvasX: canvasPos.x,
+      startCanvasY: canvasPos.y,
+      lastClientX: e.clientX,
+      lastClientY: e.clientY,
+      lastCanvasX: canvasPos.x,
+      lastCanvasY: canvasPos.y,
+      startNode: null,
+      moved: false,
+      suppressTap: false,
+      longPressTriggered: false,
+    };
+
+    this.touchPointers.set(e.pointerId, pointer);
+    this.updateTouchScrollLock();
+
+    if (this.touchPointers.size === 1) {
+      this.touchPinchState = null;
+      this.setupSingleTouchState(pointer);
+      return;
+    }
+
+    this.initializeTouchPinch();
+  }
+
+  handlePointerMove(e) {
+    if (e.pointerType === "mouse") return;
+
+    const pointer = this.touchPointers.get(e.pointerId);
+    if (!pointer) return;
+
+    this.lastTouchInteractionTime = Date.now();
+    e.preventDefault();
+
+    pointer.clientX = e.clientX;
+    pointer.clientY = e.clientY;
+    const canvasPos = this.getCanvasPosFromClient(e.clientX, e.clientY);
+    pointer.canvasX = canvasPos.x;
+    pointer.canvasY = canvasPos.y;
+    const world = this.getWorldPosFromClient(e.clientX, e.clientY);
+    pointer.worldX = world.x;
+    pointer.worldY = world.y;
+    this.mouseX = world.x;
+    this.mouseY = world.y;
+
+    if (this.touchPointers.size >= 2) {
+      if (!this.touchPinchState) {
+        this.initializeTouchPinch();
+      }
+      this.updateTouchPinch();
+      return;
+    }
+
+    if (this.touchPrimaryPointerId !== e.pointerId) {
+      this.setupSingleTouchState(pointer, true);
+    }
+
+    const movedDistance = this.distanceBetweenPoints(
+      pointer.startClientX,
+      pointer.startClientY,
+      pointer.clientX,
+      pointer.clientY,
+    );
+
+    if (
+      !pointer.moved &&
+      !pointer.longPressTriggered &&
+      movedDistance > this.touchMoveThresholdPx
+    ) {
+      pointer.moved = true;
+      pointer.suppressTap = true;
+      this.cancelTouchLongPress();
+
+      if (pointer.startNode) {
+        this.selectedNode = pointer.startNode;
+        this.draggingNode = pointer.startNode;
+        this.draggingNode.fixed = true;
+      } else {
+        this.panningCanvas = true;
+      }
+    }
+
+    if (this.draggingNode) {
+      this.draggingNode.x = pointer.worldX;
+      this.draggingNode.y = pointer.worldY;
+      this.draggingNode.vx = 0;
+      this.draggingNode.vy = 0;
+    } else if (this.panningCanvas) {
+      this.offsetX += pointer.canvasX - pointer.lastCanvasX;
+      this.offsetY += pointer.canvasY - pointer.lastCanvasY;
+    }
+
+    pointer.lastClientX = pointer.clientX;
+    pointer.lastClientY = pointer.clientY;
+    pointer.lastCanvasX = pointer.canvasX;
+    pointer.lastCanvasY = pointer.canvasY;
+  }
+
+  finalizePointer(e, allowTap) {
+    const pointer = this.touchPointers.get(e.pointerId);
+    if (!pointer) return;
+
+    this.lastTouchInteractionTime = Date.now();
+    e.preventDefault();
+    this.touchPointers.delete(e.pointerId);
+    this.cancelTouchLongPress();
+
+    const canTap =
+      allowTap &&
+      !pointer.suppressTap &&
+      !pointer.longPressTriggered &&
+      !this.touchPinchState;
+
+    if (canTap) {
+      this.handleTouchTap(pointer);
+    }
+
+    if (this.touchPointers.size === 0) {
+      this.touchPrimaryPointerId = null;
+      this.touchPinchState = null;
+      this.resetTouchDragAndPan();
+      this.updateTouchScrollLock();
+      return;
+    }
+
+    this.resetTouchDragAndPan();
+
+    if (this.touchPointers.size >= 2) {
+      this.initializeTouchPinch();
+    } else {
+      this.touchPinchState = null;
+      const remainingPointer = Array.from(this.touchPointers.values())[0];
+      remainingPointer.startClientX = remainingPointer.clientX;
+      remainingPointer.startClientY = remainingPointer.clientY;
+      remainingPointer.startCanvasX = remainingPointer.canvasX;
+      remainingPointer.startCanvasY = remainingPointer.canvasY;
+      remainingPointer.lastClientX = remainingPointer.clientX;
+      remainingPointer.lastClientY = remainingPointer.clientY;
+      remainingPointer.lastCanvasX = remainingPointer.canvasX;
+      remainingPointer.lastCanvasY = remainingPointer.canvasY;
+      remainingPointer.moved = false;
+      remainingPointer.suppressTap = true;
+      this.setupSingleTouchState(remainingPointer, true);
+    }
+
+    this.updateTouchScrollLock();
+  }
+
+  handlePointerUp(e) {
+    if (e.pointerType === "mouse") return;
+    this.finalizePointer(e, true);
+    try {
+      this.canvas.releasePointerCapture(e.pointerId);
+    } catch (_err) {
+      // Pointer might already be released by browser.
+    }
+  }
+
+  handlePointerCancel(e) {
+    if (e.pointerType === "mouse") return;
+    this.finalizePointer(e, false);
+  }
+
+  handleMouseMove(e) {
+    const canvasPos = this.getCanvasPosFromClient(e.clientX, e.clientY);
+    const rawX = canvasPos.x;
+    const rawY = canvasPos.y;
 
     // Handle canvas panning
     if (this.panningCanvas) {
@@ -162,10 +592,10 @@ class InteractiveGraphEditor {
       }
 
       // Start panning canvas on empty space
-      const rect = this.canvas.getBoundingClientRect();
+      const canvasPos = this.getCanvasPosFromClient(e.clientX, e.clientY);
       this.panningCanvas = true;
-      this.panStartX = e.clientX - rect.left;
-      this.panStartY = e.clientY - rect.top;
+      this.panStartX = canvasPos.x;
+      this.panStartY = canvasPos.y;
 
       // Deselect
       this.selectedNode = null;
@@ -212,21 +642,27 @@ class InteractiveGraphEditor {
   }
 
   handleDoubleClick(e) {
+    if (Date.now() - this.lastTouchInteractionTime < 500) return;
+
     const pos = this.getMousePos(e);
     const node = this.graph.findNodeAt(pos.x, pos.y);
 
-    if (!node) {
-      // Add node on double-click empty space
-      this.addNode(pos.x, pos.y);
+    if (node) {
+      // Start edge on double-click node
+      this.selectedNode = node;
+      this.edgeStart = node;
+      return;
     }
+
+    // Add node on double-click empty space
+    this.addNode(pos.x, pos.y);
   }
 
   handleWheel(e) {
     e.preventDefault();
-
-    const rect = this.canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
+    const canvasPos = this.getCanvasPosFromClient(e.clientX, e.clientY);
+    const mouseX = canvasPos.x;
+    const mouseY = canvasPos.y;
 
     // Calculate zoom direction
     const delta = -Math.sign(e.deltaY);

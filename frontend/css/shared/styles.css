@@ -16,6 +16,11 @@ body {
     overflow: hidden;              /* prevent page scroll; columns manage their own */
 }
 
+body.touch-graph-lock {
+    overflow: hidden !important;
+    overscroll-behavior: none;
+}
+
 .mobile-toggle-btn {
     display: none;
 }
@@ -178,6 +183,7 @@ button:disabled {
     height: 100%;
     border-radius: 10px;
     cursor: crosshair;
+    touch-action: none;
 }
 
 .placeholder {
@@ -319,8 +325,9 @@ button:disabled {
 
     .controls-section {
         margin-top: 0;
-        max-height: none;
-        overflow-y: visible;
+        max-height: min(30vh, 260px);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
         flex: 0 0 auto;
     }
 
