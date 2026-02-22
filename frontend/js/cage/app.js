@@ -333,8 +333,8 @@ function initializeMobileInputToggle() {
 function loadSettings() {
   const defaultSettings = {
     generatorType: "randomwalk",
-    pollingInterval: 300,
-    enablePhysics: false,
+    pollingInterval: 500,
+    enablePhysics: true,
   };
 
   const saved = localStorage.getItem("cageGeneratorSettings");
