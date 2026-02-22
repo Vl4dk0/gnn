@@ -43,6 +43,7 @@ class CageConstructionEnv:
     num_nodes: int
     graph: nx.Graph
     current_step: int
+    episode_score: float
 
     def __init__(
         self,
@@ -70,6 +71,7 @@ class CageConstructionEnv:
         self.num_nodes = 0
         self.graph = nx.Graph()
         self.current_step = 0
+        self.episode_score = 0.0
 
     def _update_bounds(
         self, n_min: int | None = None, n_max: int | None = None
@@ -122,6 +124,7 @@ class CageConstructionEnv:
             self.num_nodes = num_nodes
 
         self.current_step = 0
+        self.episode_score = 0.0
         self.graph = nx.Graph()
         self.graph.add_nodes_from(range(self.num_nodes))
 
@@ -169,7 +172,13 @@ class CageConstructionEnv:
         return Data(x=x, edge_index=edge_index, num_nodes=self.num_nodes)
 
     def get_valid_action_mask(self) -> torch.Tensor:
-        """Compute mask of valid edges to add."""
+        """
+        Compute valid actions over all vertex pairs.
+
+        Action semantics per pair (u, v):
+        - If edge exists: action means REMOVE edge (always valid).
+        - Else: action means ADD edge (valid only if constraints hold).
+        """
         mask = []
         nodes = range(self.num_nodes)
         degrees = [self.graph.degree(i) for i in nodes]
@@ -184,10 +193,13 @@ class CageConstructionEnv:
 
         for u in range(self.num_nodes):
             for v in range(u + 1, self.num_nodes):
-                if degrees[u] >= self.k or degrees[v] >= self.k:
-                    mask.append(False)
-                    continue
+                # Existing edge can always be removed.
                 if self.graph.has_edge(u, v):
+                    mask.append(True)
+                    continue
+
+                # Otherwise action means ADD edge; validate constraints.
+                if degrees[u] >= self.k or degrees[v] >= self.k:
                     mask.append(False)
                     continue
                 if not check_girth(u, v):
@@ -213,18 +225,52 @@ class CageConstructionEnv:
         self.current_step += 1
 
         u, v = self.idx_to_edge(action_idx)
+        info: dict[str, Any] = {
+            "k": self.k,
+            "g": self.g,
+            "num_nodes": self.num_nodes,
+            "step": self.current_step,
+            "action_idx": action_idx,
+            "edge": [u, v],
+            "action_type": "unknown",
+        }
 
-        if (
-            self.graph.has_edge(u, v)
-            or self.graph.degree(u) >= self.k
-            or self.graph.degree(v) >= self.k
-        ):
-            return self._get_obs(), -1.0, True, {"error": "Invalid action"}
+        # Existing edge => REMOVE action.
+        if self.graph.has_edge(u, v):
+            self.graph.remove_edge(u, v)
+            reward = -0.2
+            done = False
+            info["action_type"] = "remove"
+            info["success"] = False
+        else:
+            # Otherwise this is an ADD action and must satisfy constraints.
+            if self.graph.degree(u) >= self.k or self.graph.degree(v) >= self.k:
+                reward = -1.0
+                done = False
+                info["action_type"] = "add"
+                info["error"] = "Invalid action: degree limit"
+                info["success"] = False
+                info["done_reason"] = "invalid_action"
+            else:
+                try:
+                    path_len = nx.shortest_path_length(self.graph, u, v)
+                    add_ok = (path_len + 1) >= self.g
+                except nx.NetworkXNoPath:
+                    add_ok = True
 
-        self.graph.add_edge(u, v)
-
-        # Reward Engineering
-        reward = 0.1
+                if not add_ok:
+                    reward = -1.0
+                    done = False
+                    info["action_type"] = "add"
+                    info["error"] = "Invalid action: girth violation"
+                    info["success"] = False
+                    info["done_reason"] = "invalid_action"
+                else:
+                    self.graph.add_edge(u, v)
+                    reward = 0.1
+                    done = False
+                    info["action_type"] = "add"
+                    info["success"] = False
 
         is_k_reg = all(self.graph.degree(n) == self.k for n in self.graph.nodes())
 
@@ -232,14 +278,31 @@ class CageConstructionEnv:
             # Huge reward for success
             reward = 10.0 + (self.g * 0.5)  # Bonus for harder girths
             done = True
-            info = {"success": True}
-        else:
-            done = False
-            info = {}
+            info["success"] = True
+            info["done_reason"] = "success"
 
-        if self.current_step >= self.max_steps:
+        # Dead-end: no valid add/remove actions left.
+        valid_mask = self.get_valid_action_mask()
+        if (not done) and (not bool(valid_mask.any())):
+            reward = -2.0
+            done = True
+            info["success"] = False
+            info["done_reason"] = "dead_end"
+
+        if (not done) and self.current_step >= self.max_steps:
             done = True
             reward = -1.0
-            info = {"success": False}
+            info["success"] = False
+            info["done_reason"] = "max_steps"
+
+        self.episode_score += reward
+        if (not done) and self.episode_score <= -10.0:
+            done = True
+            info["success"] = False
+            info["done_reason"] = "score_floor"
+
+        info["num_edges"] = self.graph.number_of_edges()
+        info["is_k_regular"] = is_k_reg
+        info["episode_score"] = self.episode_score
 
         return self._get_obs(), reward, done, info
