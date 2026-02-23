@@ -62,16 +62,12 @@ def train_ppo(
     dropout: float,
     lr: float,
     update_interval: int,
-    print_every: int,  # Kept for CLI compatibility.
     force: bool = False,
     device: str = "cpu",
     randomize: bool = True,
     live_log_every: int = 1,
-    max_logged_actions: int = 30,
 ) -> None:
     """Train Generalist PPO agent for cage generation."""
-    del print_every
-    del max_logged_actions
     if Console is not None and Table is not None and Live is not None:
         console: Any = Console()
         table_cls: Any = Table
@@ -478,7 +474,7 @@ if __name__ == "__main__":
         "--model",
         "-m",
         type=str,
-        required=True,
+        default="gin",
         choices=list(MODEL_CLASSES.keys()),
         help="Model type",
     )
@@ -486,8 +482,8 @@ if __name__ == "__main__":
         "--name",
         "-n",
         type=str,
-        required=True,
-        help="Model run name (model_id becomes <model>_<name>)",
+        default=None,
+        help="Optional run name (default: ppo, resulting model_id: <model>_ppo)",
     )
 
     parser.add_argument("--steps", type=int, default=100000, help="Total training steps")
@@ -501,13 +497,6 @@ if __name__ == "__main__":
         default=2048,
         help="PPO update interval",
     )
-    parser.add_argument(
-        "--print-every",
-        type=int,
-        default=10,
-        help="Unused in RL script but kept for compatibility",
-    )
-
     parser.add_argument(
         "--no-random",
         action="store_true",
@@ -533,27 +522,20 @@ if __name__ == "__main__":
         default=1,
         help="Print live per-episode step logs every N environment steps (0 disables).",
     )
-    parser.add_argument(
-        "--max-logged-actions",
-        type=int,
-        default=30,
-        help="Deprecated: retained for CLI compatibility.",
-    )
     args = parser.parse_args()
+    run_name = args.name or "ppo"
 
     train_ppo(
         model_type=args.model,
-        model_name=args.name,
+        model_name=run_name,
         total_timesteps=args.steps,
         hidden_dim=args.hidden_dim,
         num_layers=args.num_layers,
         dropout=args.dropout,
         lr=args.lr,
         update_interval=args.update_interval,
-        print_every=args.print_every,
         force=args.force,
         device=args.device,
         randomize=not args.no_random,
         live_log_every=args.live_log_every,
-        max_logged_actions=args.max_logged_actions,
     )
