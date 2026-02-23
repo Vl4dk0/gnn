@@ -7,13 +7,16 @@
     <link rel="stylesheet" href="../css/shared/styles.css" />
   </head>
   <body>
+    <!-- Mobile navigation overlay -->
+    <div class="mobile-overlay"></div>
+    
+    <!-- Floating hamburger menu -->
+    <div class="mobile-nav-toggle">
+      <span class="nav-arrow"></span>
+    </div>
+
     <!-- Left Column: Inputs -->
     <div class="input-column">
-      <button id="toggleInputBtn" class="mobile-toggle-btn" type="button">
-        <span class="toggle-label">Input &amp; Controls</span>
-        <span class="toggle-arrow">▾</span>
-      </button>
-
       <div class="input-details">
         <div class="input-section">
           <label for="graphInput">Graph Input</label>
@@ -253,6 +256,7 @@
     <script src="../js/editor/Graph.js"></script>
     <script src="../js/editor/PhysicsEngine.js"></script>
     <script src="../js/editor/InteractiveGraphEditor.js"></script>
+    <script src="../js/shared/sidebar.js"></script>
     <script src="../js/min_cycle/app.js"></script>
   </body>
 </html>

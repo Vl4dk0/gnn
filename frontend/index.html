@@ -3,52 +3,187 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GNN Projects</title>
+    <title>Bachelor Thesis - GNN Projects</title>
+    <link rel="stylesheet" href="css/shared/styles.css" />
     <link rel="stylesheet" href="css/landing.css" />
+    <!-- Re-use docs.css for the content pane to render docs correctly -->
+    <link rel="stylesheet" href="css/docs.css" />
   </head>
   <body>
-    <div class="projects-grid">
-      <a href="/degree/index.html" class="project-card" data-project="degree">
-        <h2 class="project-title">Degree Predictor</h2>
-        <p class="project-description">
-          GNN-powered degree prediction using SAGEConv.
-        </p>
-        <span class="project-status status-coming-soon">Checking...</span>
-      </a>
+    <!-- Mobile navigation overlay -->
+    <div class="mobile-overlay"></div>
+    
+    <!-- Floating hamburger menu -->
+    <div class="mobile-nav-toggle">
+      <span class="nav-arrow"></span>
+    </div>
 
-      <a
-        href="/min_cycle/index.html"
-        class="project-card"
-        data-project="min_cycle"
-      >
-        <h2 class="project-title">Smallest Cycle Predictor</h2>
-        <p class="project-description">
-          GNN-powered Smallest Cycle Containing Vertex prediction using
-          SAGEConv.
-        </p>
-        <span class="project-status status-coming-soon">Checking...</span>
-      </a>
+    <!-- Left Column: Navigation Sidebar -->
+    <div class="input-column nav-column">
+      <div class="thesis-header">
+        <h1>Bachelor Thesis</h1>
+        <h2>GNNs for Algebraic Graph Theory</h2>
+      </div>
 
-      <a href="/cage/index.html" class="project-card" data-project="cage">
-        <h2 class="project-title">Cage Generator</h2>
-        <p class="project-description">
-          Generating Cage graphs using different approaches
-        </p>
-        <span class="project-status status-coming-soon">Checking...</span>
-      </a>
+      <div class="nav-links">
+        <a href="/degree/index.html" class="nav-project-link" data-project="degree">
+          <div class="nav-project-text">
+            <h3>Degree Predictor</h3>
+            <p>Predicting vertex degree</p>
+          </div>
+        </a>
 
-      <a href="/docs/index.html" class="project-card">
-        <h2 class="project-title">Project Notes</h2>
-        <p class="project-description">
-          Static write-up with architecture, implementation details, and
-          training notes.
-        </p>
-        <span class="project-status status-active">Active</span>
-      </a>
+        <a href="/min_cycle/index.html" class="nav-project-link" data-project="min_cycle">
+          <div class="nav-project-text">
+            <h3>Cycle Predictor</h3>
+            <p>Smallest cycle containing vertex</p>
+          </div>
+        </a>
+
+        <a href="/cage/index.html" class="nav-project-link" data-project="cage">
+          <div class="nav-project-text">
+            <h3>Cage Generator</h3>
+            <p>A* & PPO cage generation</p>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <!-- Center Column: Documentation (Full Width) -->
+    <div class="graph-column content-column" style="overflow-y: auto; display: block; background: #1a1a1a;">
+      <main class="page" style="margin: 0 auto;">
+        <section class="hero">
+          <h1>Graph neural networks for algebraic graph theory</h1>
+          <p>
+            In this thesis, I study whether graph neural networks can help
+            construct new <code>(k,g)</code>-graphs.
+          </p>
+        </section>
+
+        <section class="card section">
+          <h2>What do these terms mean?</h2>
+          <p>
+            A graph is <code>k</code>-regular when every vertex has exactly
+            <code>k</code> neighbors. If <code>k=3</code>, every vertex has degree
+            3. The <code>girth</code> of a graph is the length of its shortest
+            cycle.
+          </p>
+          <p>
+            A <code>(k,g)</code>-graph satisfies both conditions at once:
+            <code>k</code>-regularity and girth <code>g</code>. A
+            <code>(k,g)</code>-cage is the graph with the minimum possible number
+            of vertices among all <code>(k,g)</code>-graphs.
+          </p>
+        </section>
+
+        <section class="card section">
+          <img
+            src="/static/kg-graph-terms.svg"
+            alt="3-regular, girth-5, and 3-5 graph examples"
+            style="width: 100%; display: block; border-radius: 8px"
+          />
+        </section>
+
+        <section class="card section">
+          <h2>Why this is hard</h2>
+          <p>
+            For example, if I were to generate <code>k</code>-regular graph, I
+            would just create complete graph of <code>k+1</code> vertices. This is
+            generally simple for any <code>k</code>.
+          </p>
+          <p>
+            If I were to generate graphs with girth <code>g</code>, I would just
+            create a cycle of length <code>g</code>. This is also generally simple
+            for any <code>g</code>.
+          </p>
+          <p>
+            But combining both constraints at once already becomes a hard
+            combinatorial search problem in practice.
+          </p>
+          <p>
+            I used a clear trick for each single constraint. The open question is
+            whether there is an analogous trick for <code>(k,g)</code>-graphs.
+            This is exactly where learned guidance may help.
+          </p>
+        </section>
+
+        <section class="deck section">
+          <a class="story-link" href="/docs/gnns.html">
+            <article class="story-card">
+              <span class="story-label">1</span>
+              <h3>How GNNs work</h3>
+              <p>Message passing, layers, node and edge features, and readout.</p>
+            </article>
+          </a>
+
+          <a class="story-link" href="/docs/architecture.html">
+            <article class="story-card">
+              <span class="story-label">2</span>
+              <h3>Architectures</h3>
+              <p>
+                GCN, SAGE, GIN, and Loopy with what each one preserves or loses.
+              </p>
+            </article>
+          </a>
+
+          <a class="story-link" href="/docs/module-degree.html">
+            <article class="story-card">
+              <span class="story-label">3</span>
+              <h3>Degree prediction</h3>
+              <p>
+                Why degree was the first check, how the loop works, and exact
+                results.
+              </p>
+            </article>
+          </a>
+
+          <a class="story-link" href="/docs/module-min-cycle.html">
+            <article class="story-card">
+              <span class="story-label">4</span>
+              <h3>Cycle prediction</h3>
+              <p>
+                Node-level shortest-cycle labels, training behavior, and metrics.
+              </p>
+            </article>
+          </a>
+
+          <a class="story-link" href="/docs/module-assessment.html">
+            <article class="story-card">
+              <span class="story-label">5</span>
+              <h3>Assessment</h3>
+              <p>
+                Cross-task check of degree and min-cycle, with a dated snapshot.
+              </p>
+            </article>
+          </a>
+
+          <a class="story-link" href="/docs/module-cage.html">
+            <article class="story-card">
+              <span class="story-label">6</span>
+              <h3>Cage generation</h3>
+              <p>
+                Why I started with A*, what failed in data design, and why PPO.
+              </p>
+            </article>
+          </a>
+
+          <a class="story-link" href="/docs/training.html">
+            <article class="story-card">
+              <span class="story-label">7</span>
+              <h3>Try it yourself</h3>
+              <p>
+                Minimal local tutorial for degree prediction with one
+                architecture.
+              </p>
+            </article>
+          </a>
+        </section>
+      </main>
     </div>
 
     <script src="/config.js"></script>
     <script src="js/shared/config.js"></script>
     <script src="js/landing/status.js"></script>
+    <script src="js/shared/sidebar.js"></script>
   </body>
 </html>

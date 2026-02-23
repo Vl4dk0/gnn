@@ -4,13 +4,53 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Project Notes - Architectures</title>
+    <link rel="stylesheet" href="/css/shared/styles.css" />
+    <link rel="stylesheet" href="/css/landing.css" />
     <link rel="stylesheet" href="/css/docs.css" />
   </head>
   <body>
-    <main class="page">
-      <header class="topbar">
-        <a class="apps-link" href="/docs/index.html">Back</a>
-      </header>
+    <!-- Mobile navigation overlay -->
+    <div class="mobile-overlay"></div>
+    
+    <!-- Floating hamburger menu -->
+    <div class="mobile-nav-toggle">
+      <span class="nav-arrow"></span>
+    </div>
+
+    <!-- Left Column: Navigation Sidebar -->
+    <div class="input-column nav-column">
+      <div class="thesis-header">
+        <h1>Bachelor Thesis</h1>
+        <h2>GNNs for Algebraic Graph Theory</h2>
+      </div>
+
+      <div class="nav-links">
+        <a href="/degree/index.html" class="nav-project-link" data-project="degree">
+          <div class="nav-project-text">
+            <h3>Degree Predictor</h3>
+            <p>Predicting vertex degree</p>
+          </div>
+        </a>
+
+        <a href="/min_cycle/index.html" class="nav-project-link" data-project="min_cycle">
+          <div class="nav-project-text">
+            <h3>Cycle Predictor</h3>
+            <p>Smallest cycle containing vertex</p>
+          </div>
+        </a>
+
+        <a href="/cage/index.html" class="nav-project-link" data-project="cage">
+          <div class="nav-project-text">
+            <h3>Cage Generator</h3>
+            <p>A* & PPO cage generation</p>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <!-- Center Column: Documentation (Full Width) -->
+    <div class="graph-column content-column" style="overflow-y: auto; display: block; background: #1a1a1a;">
+      <main class="page">
 
       <section class="hero">
         <h1>Architectures used in this project</h1>
@@ -125,6 +165,15 @@
           >ai/utils/r_neighborhood.py</a
         >.
       </p>
+    
+      <div style="margin-top: 40px; border-top: 1px solid #444; padding-top: 20px;">
+        <a class="apps-link" href="/">← Back to Overview</a>
+      </div>
     </main>
+  </div>
+    <script src="/config.js"></script>
+    <script src="/js/shared/config.js"></script>
+    <script src="/js/landing/status.js"></script>
+    <script src="/js/shared/sidebar.js"></script>
   </body>
 </html>

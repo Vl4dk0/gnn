@@ -7,10 +7,10 @@
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background: #1a1a1a;
-    height: 100vh;                 /* lock layout to viewport height */
+    height: 100dvh;                 /* lock layout to dynamic viewport height */
     display: grid;
-    grid-template-columns: 300px 1fr;
-    grid-template-rows: 100vh;     /* single row equal to viewport height */
+    grid-template-columns: 350px 1fr;
+    grid-template-rows: 100dvh;     /* single row equal to dynamic viewport height */
     gap: 0;
     padding: 0;
     overflow: hidden;              /* prevent page scroll; columns manage their own */
@@ -19,6 +19,15 @@ body {
 body.touch-graph-lock {
     overflow: hidden !important;
     overscroll-behavior: none;
+}
+
+/* Hide mobile elements on desktop */
+.mobile-overlay {
+    display: none;
+}
+
+.mobile-nav-toggle {
+    display: none;
 }
 
 .mobile-toggle-btn {
@@ -39,6 +48,7 @@ body.touch-graph-lock {
     gap: 25px;
     /* Use flex to distribute sections; no column scroll by default */
     min-height: 0;
+    overflow-y: auto; /* Enable scrolling for small heights globally */
 }
 
 .input-section {
@@ -240,7 +250,7 @@ button:disabled {
 /* Responsive */
 @media (max-width: 1200px) {
     body {
-        grid-template-columns: 250px 1fr;
+        grid-template-columns: 300px 1fr;
     }
     
     .input-column {
@@ -257,95 +267,126 @@ button:disabled {
 
 @media (max-width: 900px) {
     body {
-        height: auto;
-        min-height: 100vh;
-        overflow-y: auto;
-        overflow-x: hidden;
-        grid-template-columns: 1fr;
-        grid-template-rows: auto minmax(58vh, 1fr);
+        height: 100dvh;
+        width: 100vw;
+        display: flex; /* Override grid with flex or block */
+        flex-direction: column;
+        overflow: hidden;
     }
     
     .input-column {
-        padding: 16px 12px;
-        gap: 12px;
-        border-right: none;
-        border-bottom: 1px solid #444444;
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 320px; /* Wider to fit content */
+        max-width: 85vw; /* Allow it to take up most of phone screen */
+        padding: 30px 20px;
+        gap: 16px;
+        border-right: 1px solid #444444;
+        border-bottom: none;
+        z-index: 1000;
+        transform: translateX(-100%);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow-y: auto;
+    }
+
+    .input-column.open {
+        transform: translateX(0);
+    }
+
+    /* Backdrop overlay */
+    .mobile-overlay {
+        display: block;
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0, 0, 0, 0.6);
+        z-index: 999;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+        backdrop-filter: blur(2px);
+    }
+
+    .mobile-overlay.show {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    /* Floating Menu Button - Refined Design */
+    .mobile-nav-toggle {
+        display: flex;
+        position: fixed;
+        top: 40px;       
+        left: 0;         
+        transform: translateY(0);
+        width: 32px;     
+        height: 64px;    
+        background: #2a2a2a;
+        border: 1px solid #555555;
+        border-left: none;
+        border-radius: 0 8px 8px 0;
+        z-index: 990;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: 2px 2px 8px rgba(0,0,0,0.3);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.2s ease;
+    }
+    
+    .mobile-nav-toggle:active {
+        background: #333333;
+    }
+    
+    .mobile-nav-toggle.hidden {
+        transform: translate(-100%, 0);
+    }
+
+    .nav-arrow {
+        display: block;
+        width: 8px;
+        height: 8px;
+        border-right: 2px solid #aaaaaa;
+        border-bottom: 2px solid #aaaaaa;
+        transform: rotate(-45deg) translateX(-2px);
     }
 
     .mobile-toggle-btn {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        width: 100%;
-        padding: 10px 14px;
-        font-size: 13px;
-        letter-spacing: 0.6px;
-        text-transform: uppercase;
-        border-radius: 6px;
-    }
-
-    .mobile-toggle-btn .toggle-label {
-        font-weight: 700;
-    }
-
-    .mobile-toggle-btn .toggle-arrow {
-        display: inline-block;
-        font-size: 16px;
-        line-height: 1;
-        transition: transform 0.25s ease;
-        transform-origin: 50% 50%;
+        display: none;
     }
 
     .input-details {
         display: flex;
         flex-direction: column;
         gap: 12px;
-        max-height: 46vh;
-        overflow-y: auto;
-        padding-right: 2px;
-    }
-
-    .input-column.collapsed .input-details {
-        display: none;
-    }
-
-    .input-column.collapsed #generateBtn,
-    .input-column.collapsed #analyzeBtn,
-    .input-column.collapsed .back-btn {
-        display: none;
-    }
-
-    .input-column.collapsed .mobile-toggle-btn {
-        background: #4f4f4f;
-    }
-
-    .input-column.collapsed .mobile-toggle-btn .toggle-arrow {
-        transform: rotate(-90deg);
+        max-height: none;
+        overflow-y: visible;
+        padding-right: 0;
     }
 
     .controls-section {
         margin-top: 0;
-        max-height: min(30vh, 260px);
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
+        max-height: none;
+        overflow-y: visible;
         flex: 0 0 auto;
     }
 
     textarea {
-        height: 170px;
+        height: 150px;
     }
 
     .back-btn {
-        margin-top: 4px;
+        margin-top: auto;
     }
     
-    .graph-column {
-        min-height: 62vh;
-        padding: 10px;
+    .graph-column, .content-column {
+        flex: 1;
+        height: 100dvh;
+        width: 100vw;
+        padding: 0;
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 100%;
     }
 }
 

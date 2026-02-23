@@ -18,9 +18,9 @@ body {
 }
 
 .page {
-    width: min(1100px, 100%);
+    width: min(1100px, calc(100vw - 24px));
     margin: 0 auto;
-    padding: 40px 40px 60px 40px;
+    padding: 20px 0 40px;
 }
 
 .topbar {
@@ -383,10 +383,8 @@ tr:last-child td {
 
 @media (max-width: 760px) {
     .page {
-        width: 100%;
+        width: calc(100vw - 12px);
         padding-top: 12px;
-        padding-left: 12px;
-        padding-right: 12px;
     }
 
     .topbar {
