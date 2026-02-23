@@ -268,12 +268,49 @@ tr:last-child td {
     border-bottom: none;
 }
 
+.table-scroll {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.table-scroll table {
+    margin-top: 0;
+}
+
+.wide-table {
+    min-width: 760px;
+}
+
 .note {
     border-left: 4px solid #888888;
 }
 
 .note p {
     color: #cccccc;
+}
+
+.metric-note {
+    margin-top: 12px;
+    padding: 14px 16px;
+}
+
+.metric-note p {
+    line-height: 1.5;
+}
+
+.metric-note p + p {
+    margin-top: 6px;
+}
+
+.metric-note summary {
+    cursor: pointer;
+    color: #f0f0f0;
+    margin-bottom: 6px;
+}
+
+.metric-note[open] summary {
+    margin-bottom: 10px;
 }
 
 .figure-grid {

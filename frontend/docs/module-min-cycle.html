@@ -59,46 +59,54 @@ optimizer.step()</code></pre>
 
       <section class="card section">
         <h2>How well did it work?</h2>
+        <div class="table-scroll">
+          <table class="wide-table">
+            <thead>
+              <tr>
+                <th>Model</th>
+                <th>Accuracy</th>
+                <th>MAE</th>
+                <th>MSE</th>
+                <th>Created at</th>
+              </tr>
+            </thead>
+            <tbody id="mincycle-metrics-body">
+              <tr>
+                <td colspan="5">Loading live metrics...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <details class="note metric-note">
+          <summary><strong>How to read these metrics</strong></summary>
+          <p>
+            <code>Accuracy</code>: exact match rate after rounding predictions
+            to integers.
+          </p>
+          <p>
+            <code>MAE</code>: average absolute prediction error (same unit as
+            the label).
+          </p>
+          <p>
+            <code>MSE</code>: average squared prediction error (penalizes large
+            mistakes more than MAE).
+          </p>
+          <p>
+            <code>Created at</code>: model snapshot creation date from metadata.
+          </p>
+        </details>
+      </section>
+
+      <section class="card section">
+        <h2>Timestamped assesments</h2>
         <p>
-          Loopy with <code>r=3</code> clearly outperformed the others in these
-          experiments, which is consistent with its cycle-aware design.
+          As of <code>2026-02-23</code>: <code>loopy_r3_v1</code> performed
+          clearly best on min-cycle prediction (85.14%), while
+          <code>gcn_v1</code>, <code>gin_v1</code>, and especially
+          <code>sage_v1</code> lagged behind. This indicates that, in the
+          current runs, explicit cycle-aware path/r-neighborhood information was
+          important for this target.
         </p>
-        <table>
-          <thead>
-            <tr>
-              <th>Model</th>
-              <th>Accuracy</th>
-              <th>MAE</th>
-              <th>MSE</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>loopy_r3_v1</td>
-              <td>85.14%</td>
-              <td>0.2258</td>
-              <td>0.0510</td>
-            </tr>
-            <tr>
-              <td>gcn_v1</td>
-              <td>43.35%</td>
-              <td>1.0887</td>
-              <td>1.1852</td>
-            </tr>
-            <tr>
-              <td>gin_v1</td>
-              <td>38.10%</td>
-              <td>1.4728</td>
-              <td>2.1691</td>
-            </tr>
-            <tr>
-              <td>sage_v1</td>
-              <td>23.67%</td>
-              <td>2.8893</td>
-              <td>8.3479</td>
-            </tr>
-          </tbody>
-        </table>
       </section>
 
       <p class="footer-mini">
@@ -115,5 +123,8 @@ optimizer.step()</code></pre>
         >.
       </p>
     </main>
+    <script src="/config.js"></script>
+    <script src="/js/shared/config.js"></script>
+    <script src="/js/docs/metrics.js"></script>
   </body>
 </html>

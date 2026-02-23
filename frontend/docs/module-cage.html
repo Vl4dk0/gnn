@@ -51,6 +51,8 @@ for succ_graph in successors:
           examples of partial states, especially states near the real decision
           boundary: not trivially good and not trivially hopeless.
         </p>
+      </section>
+      <section class="card section">
         <p>
           It is similar to fitting a separator between red and blue points: the
           most informative points are near the separating line. If those are
@@ -58,6 +60,16 @@ for succ_graph in successors:
           Building a reliable dataset of those hard boundary cases became a
           rabbit hole.
         </p>
+        <figure class="figure-card" style="margin-top: 12px">
+          <img
+            src="/static/boundary-examples.png"
+            alt="Blue and red point classes separated by a line, highlighting informative positive and negative examples near the boundary"
+          />
+          <figcaption>
+            Points close to the separator carry the strongest learning signal
+            for the guide model.
+          </figcaption>
+        </figure>
       </section>
 
       <section class="card section">
@@ -71,11 +83,10 @@ for succ_graph in successors:
         </p>
         <p>
           Current reward constants in code are:
-          <code>ADD_REWARD = +0.1</code>,
-          <code>REMOVE_PENALTY = -0.2</code>,
+          <code>ADD_REWARD = +0.1</code>, <code>REMOVE_PENALTY = -0.2</code>,
           <code>INVALID_PENALTY = -0.05</code>,
-          <code>SATISFY_BONUS = +0.1</code> when an action preserves or reaches a
-          target property, and <code>SUCCESS_REWARD = +20.0</code> when both
+          <code>SATISFY_BONUS = +0.1</code> when an action preserves or reaches
+          a target property, and <code>SUCCESS_REWARD = +20.0</code> when both
           regularity and girth targets are satisfied.
         </p>
         <pre><code># ai/cage/rl/env.py (constants)
@@ -93,7 +104,8 @@ SATISFY_BONUS = 0.1</code></pre>
       <p class="footer-mini">
         Code references:
         <a href="https://github.com/Vl4dk0/gnn/tree/main/ai/cage">ai/cage</a>,
-        <a href="https://github.com/Vl4dk0/gnn/blob/main/backend/utils/graph_utils.py"
+        <a
+          href="https://github.com/Vl4dk0/gnn/blob/main/backend/utils/graph_utils.py"
           >backend/utils/graph_utils.py</a
         >,
         <a href="https://github.com/Vl4dk0/gnn/blob/main/backend/routes/cage.py"

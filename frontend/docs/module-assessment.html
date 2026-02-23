@@ -21,20 +21,6 @@
       </section>
 
       <section class="card section">
-        <h2>Snapshot conclusion</h2>
-        <p>
-          As of <code>2026-02-23</code>, no single model in these experiments
-          performs best on both tasks at once. Degree prediction is strongest
-          with SAGE/GIN, while min-cycle prediction is strongest with
-          Loopy(<code>r=3</code>).
-        </p>
-        <p>
-          This statement is intentionally timestamped, because it can change
-          after larger models, longer training, or different data regimes.
-        </p>
-      </section>
-
-      <section class="card section">
         <h2>Results side by side</h2>
         <table>
           <thead>
@@ -44,13 +30,24 @@
               <th>Min-cycle Acc</th>
             </tr>
           </thead>
-          <tbody>
-            <tr><td>gcn_v1</td><td>23.76%</td><td>43.35%</td></tr>
-            <tr><td>sage_v1</td><td>100.00%</td><td>23.67%</td></tr>
-            <tr><td>gin_v1</td><td>100.00%</td><td>38.10%</td></tr>
-            <tr><td>loopy_r3_v1</td><td>25.89%</td><td>85.14%</td></tr>
+          <tbody id="assessment-metrics-body">
+            <tr>
+              <td colspan="3">Loading live metrics...</td>
+            </tr>
           </tbody>
         </table>
+      </section>
+
+      <section class="card section">
+        <h2>Timestamped assesments</h2>
+        <p>
+          As of <code>2026-02-23</code>: no single model performed best across
+          both tasks. Degree is led by <code>gin_v1</code>/<code>sage_v1</code>,
+          while min-cycle is led by <code>loopy_r3_v1</code>. This indicates
+          that the current architectures are specialized: models that are strong
+          for local counting are not automatically strong for cycle-sensitive
+          structural reasoning, and vice versa.
+        </p>
       </section>
 
       <p class="footer-mini">
@@ -63,5 +60,8 @@
         >.
       </p>
     </main>
+    <script src="/config.js"></script>
+    <script src="/js/shared/config.js"></script>
+    <script src="/js/docs/metrics.js"></script>
   </body>
 </html>

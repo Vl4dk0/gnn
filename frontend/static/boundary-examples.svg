@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="520" viewBox="0 0 1100 520" role="img" aria-labelledby="title desc">
+  <title id="title">Boundary examples for classifier training</title>
+  <desc id="desc">Blue and red points separated by a line, highlighting informative points close to the boundary.</desc>
+
+  <rect width="1100" height="520" fill="#16181d" />
+  <rect x="24" y="24" width="1052" height="472" rx="14" fill="#1e2128" stroke="#474b55" stroke-width="2"/>
+
+  <text x="52" y="72" fill="#f0f0f0" font-family="Segoe UI, Tahoma, sans-serif" font-size="34" font-weight="700">
+    Decision boundary intuition
+  </text>
+  <text x="52" y="104" fill="#c9c9c9" font-family="Segoe UI, Tahoma, sans-serif" font-size="20">
+    Most useful training points are close to the separating line.
+  </text>
+
+  <!-- Plot area -->
+  <g transform="translate(66,132)">
+    <rect x="0" y="0" width="968" height="336" rx="10" fill="#15171d" stroke="#3d424d" stroke-width="1.5"/>
+
+    <!-- separator line -->
+    <line x1="96" y1="310" x2="812" y2="30" stroke="#f6f6f6" stroke-width="3.5"/>
+    <text x="823" y="34" fill="#f0f0f0" font-family="Segoe UI, Tahoma, sans-serif" font-size="17">separator</text>
+
+    <!-- margin hint -->
+    <line x1="124" y1="304" x2="841" y2="23" stroke="#9ea4b1" stroke-width="1.5" stroke-dasharray="5 6" opacity="0.45"/>
+    <line x1="69" y1="317" x2="784" y2="38" stroke="#9ea4b1" stroke-width="1.5" stroke-dasharray="5 6" opacity="0.45"/>
+
+    <!-- blue class -->
+    <g fill="#4aa3ff" stroke="#cfe6ff" stroke-width="1.6">
+      <circle cx="126" cy="78" r="8"/>
+      <circle cx="165" cy="112" r="8"/>
+      <circle cx="238" cy="84" r="8"/>
+      <circle cx="292" cy="132" r="8"/>
+      <circle cx="340" cy="94" r="8"/>
+      <circle cx="402" cy="145" r="8"/>
+      <circle cx="454" cy="116" r="8"/>
+      <circle cx="516" cy="155" r="8"/>
+      <circle cx="575" cy="124" r="8"/>
+      <circle cx="642" cy="168" r="8"/>
+    </g>
+
+    <!-- red class -->
+    <g fill="#ff5a6c" stroke="#ffd2d8" stroke-width="1.6">
+      <circle cx="250" cy="298" r="8"/>
+      <circle cx="318" cy="272" r="8"/>
+      <circle cx="380" cy="309" r="8"/>
+      <circle cx="450" cy="280" r="8"/>
+      <circle cx="510" cy="320" r="8"/>
+      <circle cx="584" cy="289" r="8"/>
+      <circle cx="650" cy="325" r="8"/>
+      <circle cx="720" cy="296" r="8"/>
+      <circle cx="778" cy="330" r="8"/>
+      <circle cx="832" cy="304" r="8"/>
+    </g>
+
+    <!-- informative boundary points -->
+    <g>
+      <!-- good positive -->
+      <circle cx="527" cy="196" r="10" fill="#4aa3ff" stroke="#e8f3ff" stroke-width="2.6"/>
+      <circle cx="562" cy="182" r="10" fill="#4aa3ff" stroke="#e8f3ff" stroke-width="2.6"/>
+      <text x="585" y="184" fill="#cfe6ff" font-family="Segoe UI, Tahoma, sans-serif" font-size="17" font-weight="700">
+        good positive examples
+      </text>
+      <line x1="575" y1="178" x2="545" y2="187" stroke="#cfe6ff" stroke-width="1.4"/>
+
+      <!-- good negative -->
+      <circle cx="476" cy="220" r="10" fill="#ff5a6c" stroke="#ffe3e7" stroke-width="2.6"/>
+      <circle cx="508" cy="208" r="10" fill="#ff5a6c" stroke="#ffe3e7" stroke-width="2.6"/>
+      <text x="320" y="237" fill="#ffd2d8" font-family="Segoe UI, Tahoma, sans-serif" font-size="17" font-weight="700">
+        good negative examples
+      </text>
+      <line x1="468" y1="229" x2="440" y2="233" stroke="#ffd2d8" stroke-width="1.4"/>
+    </g>
+
+    <!-- low-value easy points -->
+    <text x="88" y="47" fill="#9aa1ad" font-family="Segoe UI, Tahoma, sans-serif" font-size="15">
+      far-away easy positives (less informative)
+    </text>
+    <text x="658" y="336" fill="#9aa1ad" font-family="Segoe UI, Tahoma, sans-serif" font-size="15">
+      far-away easy negatives (less informative)
+    </text>
+  </g>
+</svg>

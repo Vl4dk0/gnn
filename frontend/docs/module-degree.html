@@ -57,26 +57,54 @@ optimizer.step()</code></pre>
 
       <section class="card section">
         <h2>How well did the models solve it?</h2>
+        <div class="table-scroll">
+          <table class="wide-table">
+            <thead>
+              <tr>
+                <th>Model</th>
+                <th>Accuracy</th>
+                <th>MAE</th>
+                <th>MSE</th>
+                <th>Created at</th>
+              </tr>
+            </thead>
+            <tbody id="degree-metrics-body">
+              <tr>
+                <td colspan="5">Loading live metrics...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <details class="note metric-note">
+          <summary><strong>How to read these metrics</strong></summary>
+          <p>
+            <code>Accuracy</code>: exact match rate after rounding predictions
+            to integers.
+          </p>
+          <p>
+            <code>MAE</code>: average absolute prediction error (same unit as
+            the label).
+          </p>
+          <p>
+            <code>MSE</code>: average squared prediction error (penalizes large
+            mistakes more than MAE).
+          </p>
+          <p>
+            <code>Created at</code>: model snapshot creation date from metadata.
+          </p>
+        </details>
+      </section>
+
+      <section class="card section">
+        <h2>Timestamped assesments</h2>
         <p>
-          On this setup, SAGE and GIN reached perfect rounded-node accuracy,
-          while current GCN and Loopy checkpoints were much weaker.
+          As of <code>2026-02-23</code>: <code>gin_v1</code> and
+          <code>sage_v1</code> performed very well (100.00% exact-node
+          accuracy), while <code>gcn_v1</code> and <code>loopy_r3_v1</code>
+          were much weaker on this degree setup. This indicates that, in the
+          current experiments, degree prediction behaves like a strongly local
+          counting signal that sum-aggregation models captured best.
         </p>
-        <table>
-          <thead>
-            <tr>
-              <th>Model</th>
-              <th>Accuracy</th>
-              <th>MAE</th>
-              <th>MSE</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td>sage_v1</td><td>100.00%</td><td>0.0000</td><td>0.0000</td></tr>
-            <tr><td>gin_v1</td><td>100.00%</td><td>0.0000</td><td>0.0000</td></tr>
-            <tr><td>loopy_r3_v1</td><td>25.89%</td><td>6.7847</td><td>46.0323</td></tr>
-            <tr><td>gcn_v1</td><td>23.76%</td><td>1.8810</td><td>3.5382</td></tr>
-          </tbody>
-        </table>
       </section>
 
       <p class="footer-mini">
@@ -90,5 +118,8 @@ optimizer.step()</code></pre>
         >.
       </p>
     </main>
+    <script src="/config.js"></script>
+    <script src="/js/shared/config.js"></script>
+    <script src="/js/docs/metrics.js"></script>
   </body>
 </html>
