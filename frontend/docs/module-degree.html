@@ -15,23 +15,20 @@
       <section class="hero">
         <h1>Degree prediction: first trust check</h1>
         <p>
-          I started here because degree is the most local structural signal. If a
-          model cannot recover this reliably, there is no reason to trust it on
-          more complex graph properties.
+          I started here because degree is local and unambiguous. If a model
+          cannot recover degree reliably, there is no reason to trust it on
+          harder structural properties.
         </p>
       </section>
 
       <section class="card section">
         <h2>What exactly happens in the training loop?</h2>
         <p>
-          Each step samples a new random Erdős-Rényi graph, converts it to a PyG
-          object, computes node-degree labels directly from NetworkX, runs a
-          forward pass, minimizes MSE, clips gradients, and updates parameters
-          with Adam. This repeats across many randomly generated graphs.
-        </p>
-        <p>
-          PyG means PyTorch Geometric, the graph tensor format/library used by
-          my models and trainers in this project.
+          Each iteration samples a random Erdős-Rényi graph, converts it to PyG,
+          sets label <code>y_v = deg(v)</code>, runs a forward pass, computes MSE
+          loss, clips gradients to <code>1.0</code>, and updates with Adam.
+          During training, evaluation runs on 100 fresh random graphs; final
+          evaluation runs on 200 fresh random graphs.
         </p>
         <pre><code># ai/degree/train.py (simplified)
 G = generate_random_graph(...)
@@ -44,25 +41,25 @@ optimizer.step()</code></pre>
       </section>
 
       <section class="card section">
-        <h2>How are graphs and features generated?</h2>
+        <h2>How are training and test graphs generated?</h2>
         <p>
-          By default, training graphs use <code>n=5..12</code> nodes and edge
-          probability <code>p=0.15..0.6</code>. The generator can add self-loops
-          with probability <code>0.1</code>. Node features use four channels:
-          normalized node index, two random channels, and one random
-          clustering-like channel.
+          Training and testing use the same generator family. Default settings
+          are <code>n in [5,12]</code>, edge probability
+          <code>p in [0.15,0.6]</code>, and self-loop probability
+          <code>0.1</code>. So reported metrics are out-of-sample on new random
+          graphs from that same distribution.
         </p>
         <p>
-          Erdős-Rényi means each possible edge is sampled independently with
-          probability <code>p</code>.
+          Node features use four channels: normalized node index, two random
+          channels, and one random channel used as a clustering-like placeholder.
         </p>
       </section>
 
       <section class="card section">
         <h2>How well did the models solve it?</h2>
         <p>
-          In saved checkpoints, SAGE and GIN reached perfect rounded-node
-          accuracy, while current GCN and Loopy checkpoints were much weaker.
+          On this setup, SAGE and GIN reached perfect rounded-node accuracy,
+          while current GCN and Loopy checkpoints were much weaker.
         </p>
         <table>
           <thead>
@@ -83,8 +80,14 @@ optimizer.step()</code></pre>
       </section>
 
       <p class="footer-mini">
-        Project code reference:
-        <a href="https://github.com/Vl4dk0/gnn">github.com/Vl4dk0/gnn</a>.
+        Code references:
+        <a href="https://github.com/Vl4dk0/gnn/tree/main/ai/degree">ai/degree</a>,
+        <a href="https://github.com/Vl4dk0/gnn/blob/main/backend/utils/graph_utils.py"
+          >backend/utils/graph_utils.py</a
+        >,
+        <a href="https://github.com/Vl4dk0/gnn/tree/main/ai/trained/degree"
+          >ai/trained/degree</a
+        >.
       </p>
     </main>
   </body>

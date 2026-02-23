@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Project Notes - Assessment</title>
+    <link rel="stylesheet" href="/css/docs.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="topbar">
+        <a class="apps-link" href="/docs/index.html">Back</a>
+      </header>
+
+      <section class="hero">
+        <h1>Assessment across degree and min-cycle</h1>
+        <p>
+          This page compares both prediction tasks together, because success on
+          only one task is not enough to claim broad structural understanding.
+        </p>
+      </section>
+
+      <section class="card section">
+        <h2>Snapshot conclusion</h2>
+        <p>
+          As of <code>2026-02-23</code>, no single model in these experiments
+          performs best on both tasks at once. Degree prediction is strongest
+          with SAGE/GIN, while min-cycle prediction is strongest with
+          Loopy(<code>r=3</code>).
+        </p>
+        <p>
+          This statement is intentionally timestamped, because it can change
+          after larger models, longer training, or different data regimes.
+        </p>
+      </section>
+
+      <section class="card section">
+        <h2>Results side by side</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Model</th>
+              <th>Degree Acc</th>
+              <th>Min-cycle Acc</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>gcn_v1</td><td>23.76%</td><td>43.35%</td></tr>
+            <tr><td>sage_v1</td><td>100.00%</td><td>23.67%</td></tr>
+            <tr><td>gin_v1</td><td>100.00%</td><td>38.10%</td></tr>
+            <tr><td>loopy_r3_v1</td><td>25.89%</td><td>85.14%</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <p class="footer-mini">
+        Code references:
+        <a href="https://github.com/Vl4dk0/gnn/tree/main/ai/trained/degree"
+          >ai/trained/degree</a
+        >,
+        <a href="https://github.com/Vl4dk0/gnn/tree/main/ai/trained/min_cycle"
+          >ai/trained/min_cycle</a
+        >.
+      </p>
+    </main>
+  </body>
+</html>

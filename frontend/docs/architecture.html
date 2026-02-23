@@ -13,59 +13,79 @@
       </header>
 
       <section class="hero">
-        <h1>Architectures used in my project</h1>
+        <h1>Architectures used in this project</h1>
         <p>
-          These are not interchangeable names. Each model changes what structural
-          information is preserved and what gets blurred away.
+          Architecture choice matters because it changes the exact update rule:
+          how neighbor signals are aggregated, how self-information is mixed in,
+          and what structural distinctions survive through depth.
         </p>
       </section>
 
       <section class="card section">
         <h2>GCN</h2>
         <p>
-          GCN performs normalized neighborhood aggregation, which makes it stable
-          and simple. The downside is that normalization can suppress raw count
-          signals. For count-like tasks, that can become a limitation.
+          GCN uses degree-normalized aggregation. This usually gives stable
+          optimization and smooth representations, but normalization can dampen
+          raw counting signals. That is one reason GCN can struggle on tasks
+          where exact local counts are central.
         </p>
       </section>
 
       <section class="card section">
         <h2>GraphSAGE</h2>
         <p>
-          In this project, SAGE uses <code>aggr="add"</code>, which tends to
-          preserve count information better than mean aggregation. That aligns
-          with its strong degree performance in my saved runs.
+          GraphSAGE was designed as an inductive "sample-and-aggregate"
+          architecture: instead of learning one embedding per training node, it
+          learns an update function that can be applied to unseen nodes (and
+          even unseen graphs with compatible features). At each layer, it
+          aggregates neighbor information, combines it with the node's own
+          current state, and passes the result through a learnable transform.
         </p>
         <p>
-          <code>aggr="add"</code> means neighbor messages are summed, not
-          averaged.
+          Its main practical strength is scalability on large or evolving graphs
+          via neighborhood sampling, while still preserving local structure. In
+          this project, the <code>SAGEConv</code> layers use
+          <code>aggr="add"</code>, so neighbor messages are summed. That choice
+          helps retain count-like signals and aligned well with degree
+          prediction in the experiments.
         </p>
       </section>
 
       <section class="card section">
         <h2>GIN</h2>
         <p>
-          GIN combines sum aggregation with an MLP and learnable self-weight,
-          aiming at strong structural discrimination within the 1-WL family. It
-          is often a robust choice when structural distinctions matter.
+          GIN also uses sum aggregation, but then applies an MLP with a
+          learnable self-weight term. That extra nonlinearity makes it one of
+          the strongest 1-WL-style architectures for structural discrimination.
         </p>
         <p>
-          1-WL refers to the one-dimensional Weisfeiler-Lehman graph refinement
-          test, a standard notion of graph distinguishability.
+          1-WL refers to the one-dimensional Weisfeiler-Lehman refinement
+          procedure, a standard baseline for graph distinguishability.
         </p>
       </section>
 
       <section class="card section">
-        <h2>Loopy</h2>
+        <h2>Loopy (r-lMPNN style)</h2>
         <p>
-          Loopy injects r-neighborhood path information and is intentionally
-          biased toward cycle-sensitive structure. In my experiments, this is
-          exactly where it shines: minimum-cycle prediction.
+          Loopy adds a second structural channel on top of ordinary message
+          passing. Standard MPNNs aggregate from direct neighbors; Loopy also
+          looks at short paths/cycles around each center node, so it can model
+          how neighbors are connected to each other, not only to the center.
+          Intuitively, the node receives messages about local "loop shape," not
+          just local degree.
         </p>
         <p>
-          r-neighborhood here means paths/structures around a node up to radius
-          <code>r</code>, giving the model richer cycle context than plain
-          one-hop message passing.
+          Concretely, preprocessing builds r-neighborhood path sets, and each
+          layer processes those paths by length and pools them back to center
+          nodes. In this repository, those path tensors are
+          <code>loopyN*</code>/<code>loopyA*</code>; the Loopy layer runs a
+          path-wise convolution and then scatter-sums contributions back to node
+          states. This is the mechanism behind the cycle sensitivity.
+        </p>
+        <p>
+          Theoretical motivation from the r-loopy WL / r-loopy MPNN line is that
+          this family can count cycles up to length <code>r+2</code>, extending
+          what plain 1-WL-style message passing can capture.
         </p>
       </section>
 
@@ -74,22 +94,37 @@
         <ol>
           <li>
             Kipf and Welling, GCN:
-            <a href="https://arxiv.org/pdf/1609.02907">arXiv 1609.02907</a>
+            <a href="https://arxiv.org/abs/1609.02907">arXiv 1609.02907</a>
           </li>
           <li>
             Hamilton et al., GraphSAGE:
-            <a href="https://arxiv.org/pdf/1706.02216">arXiv 1706.02216</a>
+            <a href="https://arxiv.org/abs/1706.02216">arXiv 1706.02216</a>
           </li>
           <li>
             Xu et al., GIN:
-            <a href="https://openreview.net/pdf?id=ryGs6iA5Km">OpenReview PDF</a>
+            <a href="https://openreview.net/forum?id=ryGs6iA5Km"
+              >OpenReview ryGs6iA5Km</a
+            >
           </li>
           <li>
             Paolino et al., Weisfeiler and Leman Go Loopy:
-            <a href="https://arxiv.org/pdf/2302.07049">arXiv 2302.07049</a>
+            <a href="https://openreview.net/forum?id=9O2sVnEHor"
+              >OpenReview 9O2sVnEHor</a
+            >
           </li>
         </ol>
       </section>
+
+      <p class="footer-mini">
+        Code references:
+        <a href="https://github.com/Vl4dk0/gnn/tree/main/ai/models">ai/models</a>,
+        <a href="https://github.com/Vl4dk0/gnn/blob/main/ai/models/loopy.py"
+          >ai/models/loopy.py</a
+        >,
+        <a href="https://github.com/Vl4dk0/gnn/blob/main/ai/utils/r_neighborhood.py"
+          >ai/utils/r_neighborhood.py</a
+        >.
+      </p>
     </main>
   </body>
 </html>

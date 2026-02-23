@@ -15,90 +15,118 @@
       <section class="hero">
         <h1>How GNNs work in this project</h1>
         <p>
-          Here I explain the mechanism directly: how the model reads structure
-          through message passing and why that matters for degree prediction,
-          cycle prediction, and cage guidance.
+          This section explains the mechanics used by the models in this
+          repository: node and edge features, message passing, and readout.
         </p>
       </section>
 
       <section class="card section">
-        <h2>Message passing in plain technical language</h2>
+        <h2>What goes into a GNN layer?</h2>
         <p>
-          A node updates its embedding by combining its own current state with
-          aggregated information from neighbors. The aggregation is
-          permutation-invariant, which means node ordering does not matter. Stack
-          more layers, and each node can use a larger neighborhood.
+          Each node starts with a feature vector, often denoted
+          <code>x_v</code>. In this project, degree/min-cycle training uses four
+          node features per vertex: normalized node index, two random channels,
+          and one random clustering-like channel.
         </p>
         <p>
-          In MPNN (Message Passing Neural Network) form:
-        </p>
-        <p class="equation">
-          <math display="block" aria-label="h sub v superscript t plus 1 equals U sub t of h sub v superscript t and sum over neighbors of M sub t">
-            <msubsup>
-              <mi>h</mi>
-              <mi>v</mi>
-              <mrow>
-                <mo>(</mo><mi>t</mi><mo>+</mo><mn>1</mn><mo>)</mo>
-              </mrow>
-            </msubsup>
-            <mo>=</mo>
-            <msub><mi>U</mi><mi>t</mi></msub>
-            <mo>(</mo>
-            <msubsup>
-              <mi>h</mi>
-              <mi>v</mi>
-              <mi>t</mi>
-            </msubsup>
-            <mo>,</mo>
-            <munder>
-              <mo>&#x2211;</mo>
-              <mrow><mi>w</mi><mo>&isin;</mo><mi>N</mi><mo>(</mo><mi>v</mi><mo>)</mo></mrow>
-            </munder>
-            <msub><mi>M</mi><mi>t</mi></msub>
-            <mo>(</mo>
-            <msubsup><mi>h</mi><mi>v</mi><mi>t</mi></msubsup>
-            <mo>,</mo>
-            <msubsup><mi>h</mi><mi>w</mi><mi>t</mi></msubsup>
-            <mo>,</mo>
-            <msub><mi>e</mi><mrow><mi>v</mi><mi>w</mi></mrow></msub>
-            <mo>)</mo>
-            <mo>)</mo>
-          </math>
-        </p>
-        <p>
-          This abstraction is exactly what my models implement in different
-          architectural ways.
+          Edges define who can exchange messages. Some GNN formulations also use
+          explicit edge features <code>e_{vw}</code>; if edge features are not
+          provided, the model still uses the graph connectivity itself.
         </p>
       </section>
 
       <section class="card section">
-        <h2>Message passing in pictures</h2>
+        <h2>Two phases: message passing and readout</h2>
+        <p>
+          A forward pass has two conceptual phases. In message passing, each
+          node updates its hidden state by combining its current state with
+          aggregated neighbor information. In readout, the final node states are
+          mapped to outputs.
+        </p>
+        <p>
+          In this project, degree and min-cycle are node-level regression tasks,
+          so readout is per-node: each final node state is mapped to one scalar
+          prediction.
+        </p>
+        <p>
+          Yes, readout can be different. For graph-level tasks, node states are
+          pooled into one graph embedding (for example by sum/mean/max pooling)
+          and mapped to one graph prediction; for edge-level tasks, predictions
+          are produced per edge.
+        </p>
+      </section>
+
+      <section class="card section">
+        <h2>One message-passing update</h2>
+        <p>
+          Let <code>h_v^(t)</code> be the hidden state (embedding) of node
+          <code>v</code> at layer <code>t</code>. Let <code>N(v)</code> be the
+          neighbors of <code>v</code>. Then one common update is:
+        </p>
+        <pre><code>m_v^(t) = AGG_{w in N(v)} phi_t(h_v^(t), h_w^(t), e_vw)
+h_v^(t+1) = psi_t(h_v^(t), m_v^(t))</code></pre>
+        <p>
+          Here <code>phi_t</code> is the message function, <code>AGG</code> is a
+          permutation-invariant aggregator (for example sum, mean, or max), and
+          <code>psi_t</code> is the update function. The permutation invariance
+          is important: node ordering in memory should not change the result.
+        </p>
+      </section>
+
+      <section class="card section">
+        <h2>One layer, step by step</h2>
         <p>
           The sequence below shows one node-centered view for readability, but
           the same update is executed for all nodes in parallel in each layer.
         </p>
         <div class="figure-grid steps-grid steps-clean">
           <figure class="figure-card">
-            <img src="/static/mpnn-step-1.svg" alt="Step 1: graph with current node embeddings at layer t" />
-            <figcaption>1) Start with current node embeddings at layer <code>t</code>.</figcaption>
+            <img
+              src="/static/mpnn-step-1.svg"
+              alt="Step 1: graph with current node embeddings at layer t"
+            />
+            <figcaption>
+              1) Start with current node embeddings at layer <code>t</code>.
+            </figcaption>
           </figure>
           <figure class="figure-card">
-            <img src="/static/mpnn-step-2.svg" alt="Step 2: neighbors send messages to center node" />
-            <figcaption>2) Each neighbor sends a message through <code>M_t</code>.</figcaption>
+            <img
+              src="/static/mpnn-step-2.svg"
+              alt="Step 2: neighbors send messages to center node"
+            />
+            <figcaption>
+              2) Each neighbor sends a message through the message function.
+            </figcaption>
           </figure>
           <figure class="figure-card">
-            <img src="/static/mpnn-step-3.svg" alt="Step 3: messages are aggregated and center node is updated" />
-            <figcaption>3) Messages are aggregated, then the node updates through <code>U_t</code>.</figcaption>
+            <img
+              src="/static/mpnn-step-3.svg"
+              alt="Step 3: messages are aggregated and center node is updated"
+            />
+            <figcaption>
+              3) Messages are aggregated, then the node updates its state.
+            </figcaption>
           </figure>
           <figure class="figure-card">
-            <img src="/static/mpnn-step-4.svg" alt="Step 4: process repeats for all nodes and more layers" />
-            <figcaption>4) This repeats for every node; deeper layers expand the receptive field.</figcaption>
+            <img
+              src="/static/mpnn-step-4.svg"
+              alt="Step 4: process repeats for all nodes and more layers"
+            />
+            <figcaption>
+              4) This repeats in deeper layers; each node can access a wider
+              neighborhood.
+            </figcaption>
           </figure>
         </div>
+      </section>
+
+      <section class="card section">
+        <h2>Why aggregation choice matters</h2>
         <p>
-          In practice, one layer performs this update for all nodes at once.
-          Stacking layers repeats the process and lets each node collect
-          information from farther hops.
+          Aggregation is not fixed to mean. Different architectures choose
+          different aggregation and update operators, and this directly changes
+          what structural signals remain visible. For example, sum aggregation
+          can preserve count-like information better than mean in many settings.
         </p>
       </section>
 
@@ -106,12 +134,16 @@
         <h2>Citations</h2>
         <ol>
           <li>
-            Gilmer et al., Neural Message Passing for Quantum Chemistry (ICML 2017):
-            <a href="https://arxiv.org/pdf/1704.01212">arXiv 1704.01212</a>
+            Gilmer et al., Neural Message Passing for Quantum Chemistry (MPNN
+            framework):
+            <a href="https://arxiv.org/abs/1704.01212">arXiv 1704.01212</a>
           </li>
           <li>
-            Oono and Suzuki, expressive power decay / oversmoothing analysis:
-            <a href="https://openreview.net/pdf?id=S1ldO2EFPr">OpenReview PDF</a>
+            Oono and Suzuki, theoretical analysis of expressive-power decay in
+            deep GNNs:
+            <a href="https://openreview.net/forum?id=S1ldO2EFPr"
+              >OpenReview S1ldO2EFPr</a
+            >
           </li>
         </ol>
       </section>

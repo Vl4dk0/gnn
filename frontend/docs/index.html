@@ -15,9 +15,8 @@
       <section class="hero">
         <h1>Graph neural networks for algebraic graph theory</h1>
         <p>
-          The core thesis question is: can learning help us construct new
-          <code>(k,g)</code>-cage graphs? Before models and metrics, I need the
-          language to be precise.
+          In this thesis, I study whether graph neural networks can help
+          construct new <code>(k,g)</code>-graphs.
         </p>
       </section>
 
@@ -25,41 +24,46 @@
         <h2>What do these terms mean?</h2>
         <p>
           A graph is <code>k</code>-regular when every vertex has exactly
-          <code>k</code> neighbors. If <code>k=3</code>, every vertex must have
-          degree 3, no exceptions. The <code>girth</code> of a graph is the
-          length of its shortest cycle. So if the smallest loop has 5 edges,
-          girth is 5.
+          <code>k</code> neighbors. If <code>k=3</code>, every vertex has degree
+          3. The <code>girth</code> of a graph is the length of its shortest
+          cycle.
         </p>
         <p>
-          A <code>(k,g)</code>-graph is simply a graph that satisfies both
-          conditions at once: it is <code>k</code>-regular and has girth
-          <code>g</code>. A <code>(k,g)</code>-cage is the smallest possible
-          graph that satisfies those two constraints.
+          A <code>(k,g)</code>-graph satisfies both conditions at once:
+          <code>k</code>-regularity and girth <code>g</code>. A
+          <code>(k,g)</code>-cage is the graph with the minimum possible number
+          of vertices among all <code>(k,g)</code>-graphs.
         </p>
       </section>
 
       <section class="card section">
-        <img src="/static/kg-graph-terms.svg" alt="k-regular and girth examples" style="width:100%; display:block; border-radius:8px;" />
+        <img
+          src="/static/kg-graph-terms.svg"
+          alt="3-regular, girth-5, and 3-5 graph examples"
+          style="width: 100%; display: block; border-radius: 8px"
+        />
       </section>
 
       <section class="card section">
         <h2>Why this is hard</h2>
         <p>
-          For example, if I were to generate k-regular graph, I would just create
-          complete graph of k+1 vertices. This is generally simple for any k.
+          For example, if I were to generate <code>k</code>-regular graph, I
+          would just create complete graph of <code>k+1</code> vertices. This is
+          generally simple for any <code>k</code>.
         </p>
         <p>
-          If I were to generate graphs with girth g, I would just create a cycle
-          of length g. This is also generally simple for any g.
+          If I were to generate graphs with girth <code>g</code>, I would just
+          create a cycle of length <code>g</code>. This is also generally simple
+          for any <code>g</code>.
         </p>
         <p>
-          But combine those two with the minimum-size requirement, and the task
-          becomes a hard combinatorial search problem in practice. Exact cage
-          orders are still unknown for most <code>(k,g)</code> pairs. Notice
-          that I used a clear trick for each single constraint; maybe there is
-          an analogous trick for <code>(k,g)</code>-graphs, but I do not know
-          it yet. One hope is that GNN-guided search can help expose such
-          structure.
+          But combining both constraints at once already becomes a hard
+          combinatorial search problem in practice.
+        </p>
+        <p>
+          I used a clear trick for each single constraint. The open question is
+          whether there is an analogous trick for <code>(k,g)</code>-graphs.
+          This is exactly where learned guidance may help.
         </p>
       </section>
 
@@ -68,10 +72,7 @@
           <article class="story-card">
             <span class="story-label">1</span>
             <h3>How GNNs work</h3>
-            <p>
-              Message passing, locality, depth, and why expressive limits matter
-              for graph problems.
-            </p>
+            <p>Message passing, layers, node and edge features, and readout.</p>
           </article>
         </a>
 
@@ -80,8 +81,7 @@
             <span class="story-label">2</span>
             <h3>Architectures</h3>
             <p>
-              GCN, SAGE, GIN, and Loopy explained in plain language with strengths
-              and failure modes.
+              GCN, SAGE, GIN, and Loopy with what each one preserves or loses.
             </p>
           </article>
         </a>
@@ -91,8 +91,8 @@
             <span class="story-label">3</span>
             <h3>Degree prediction</h3>
             <p>
-              Why I started with local structure, how the loop works, and what
-              each model learned.
+              Why degree was the first check, how the loop works, and exact
+              results.
             </p>
           </article>
         </a>
@@ -102,19 +102,38 @@
             <span class="story-label">4</span>
             <h3>Cycle prediction</h3>
             <p>
-              Why this is harder than degree, how cycle labels are computed, and
-              what changed across architectures.
+              Node-level shortest-cycle labels, training behavior, and metrics.
+            </p>
+          </article>
+        </a>
+
+        <a class="story-link" href="/docs/module-assessment.html">
+          <article class="story-card">
+            <span class="story-label">5</span>
+            <h3>Assessment</h3>
+            <p>
+              Cross-task check of degree and min-cycle, with a dated snapshot.
             </p>
           </article>
         </a>
 
         <a class="story-link" href="/docs/module-cage.html">
           <article class="story-card">
-            <span class="story-label">5</span>
+            <span class="story-label">6</span>
             <h3>Cage generation</h3>
             <p>
-              The main objective: A* search, RL guidance, and what is solved vs
-              still open.
+              Why I started with A*, what failed in data design, and why PPO.
+            </p>
+          </article>
+        </a>
+
+        <a class="story-link" href="/docs/training.html">
+          <article class="story-card">
+            <span class="story-label">7</span>
+            <h3>Try it yourself</h3>
+            <p>
+              Minimal local tutorial for degree prediction with one
+              architecture.
             </p>
           </article>
         </a>

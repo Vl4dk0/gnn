@@ -16,24 +16,22 @@
         <h1>Cage generation: the main objective</h1>
         <p>
           This is the end goal of the thesis. Prediction tasks were preparation;
-          here I try to construct valid <code>(k,g)</code>-graphs and check how
-          close I am to cage-size solutions.
+          here I focus on constructing valid <code>(k,g)</code>-graphs.
         </p>
       </section>
 
       <section class="card section">
-        <h2>Why A* first?</h2>
+        <h2>Why I started with an A* idea</h2>
         <p>
-          A* gives controlled symbolic search with hard constraints. In this
-          implementation, it is a best-first search over partial graph states, not a
-          shortest path between two vertices. The start state is
-          <code>moore_bound(k,g)</code> isolated vertices; expansions add
-          constraint-safe edges (or occasionally a vertex), and candidates are
-          ranked by heuristic score.
+          The initial plan was not to replace search, but to guide it. I wanted
+          a search procedure that proposes many candidates and a learned guider
+          that tells which branches should be explored and which should be
+          dropped when the branching factor explodes.
         </p>
         <p>
-          Here, Moore bound is the theoretical lower bound on the number of
-          vertices needed for a <code>(k,g)</code>-graph.
+          In code, the A* part is best-first search over partial graph states.
+          It hashes states, skips duplicates, and pushes high-score successors
+          into a priority queue:
         </p>
         <pre><code># ai/cage/functions/astar.py
 for succ_graph in successors:
@@ -47,34 +45,60 @@ for succ_graph in successors:
       </section>
 
       <section class="card section">
-        <h2>Why RL on top of that?</h2>
+        <h2>What went wrong with the guided-A* dataset idea</h2>
         <p>
-          RL was added as a guide policy: bias search toward promising actions.
-          The environment acts on unordered node pairs; existing edges can be
-          removed, missing edges can be added if constraints allow it.
+          The bottleneck was data quality. I needed strong positive and negative
+          examples of partial states, especially states near the real decision
+          boundary: not trivially good and not trivially hopeless.
         </p>
         <p>
-          Reward semantics in the current code are: add valid edge
-          <code>+0.1</code>, remove <code>-0.2</code>, invalid add
-          <code>-1.0</code>, dead-end <code>-2.0</code>, success
-          <code>10.0 + 0.5*g</code>, with termination guards for max steps and
-          score floor.
+          It is similar to fitting a separator between red and blue points: the
+          most informative points are near the separating line. If those are
+          missing or badly distributed, the learned guide becomes unstable.
+          Building a reliable dataset of those hard boundary cases became a
+          rabbit hole.
         </p>
       </section>
 
       <section class="card section">
-        <h2>How is runtime behavior controlled?</h2>
+        <h2>Why I switched to PPO</h2>
         <p>
-          Generation is session-based and isolated per request. The backend caps
-          concurrency at <code>MAX_PARALLEL_GENERATIONS = 3</code>; when full, it
-          returns HTTP <code>429</code>. This keeps API behavior stable under
-          multiple users.
+          I switched from guide-for-A* to an explicit agent policy. The agent
+          acts on unordered node pairs: if an edge is absent it can try to add
+          it; if present it can try to remove it. The environment keeps active
+          nodes connected and enforces degree/girth constraints through action
+          validity checks.
+        </p>
+        <p>
+          Current reward constants in code are:
+          <code>ADD_REWARD = +0.1</code>,
+          <code>REMOVE_PENALTY = -0.2</code>,
+          <code>INVALID_PENALTY = -0.05</code>,
+          <code>SATISFY_BONUS = +0.1</code> when an action preserves or reaches a
+          target property, and <code>SUCCESS_REWARD = +20.0</code> when both
+          regularity and girth targets are satisfied.
+        </p>
+        <pre><code># ai/cage/rl/env.py (constants)
+SUCCESS_REWARD = 20.0
+INVALID_PENALTY = -0.05
+ADD_REWARD = 0.1
+REMOVE_PENALTY = -0.2
+SATISFY_BONUS = 0.1</code></pre>
+        <p>
+          This PPO line is still active work. I have not trained it long enough
+          yet to claim strong generation results.
         </p>
       </section>
 
       <p class="footer-mini">
-        Project code reference:
-        <a href="https://github.com/Vl4dk0/gnn">github.com/Vl4dk0/gnn</a>.
+        Code references:
+        <a href="https://github.com/Vl4dk0/gnn/tree/main/ai/cage">ai/cage</a>,
+        <a href="https://github.com/Vl4dk0/gnn/blob/main/backend/utils/graph_utils.py"
+          >backend/utils/graph_utils.py</a
+        >,
+        <a href="https://github.com/Vl4dk0/gnn/blob/main/backend/routes/cage.py"
+          >backend/routes/cage.py</a
+        >.
       </p>
     </main>
   </body>
