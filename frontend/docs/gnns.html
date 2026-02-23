@@ -4,6 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Project Notes - GNNs</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css"
+    />
     <link rel="stylesheet" href="/css/docs.css" />
   </head>
   <body>
@@ -63,7 +67,7 @@
           <code>v</code> at layer <code>t</code>. Let <code>N(v)</code> be the
           neighbors of <code>v</code>. Then one common update is:
         </p>
-        <pre><code>m_v^(t) = AGG_{w in N(v)} phi_t(h_v^(t), h_w^(t), e_vw)
+        <pre><code class="language-python">m_v^(t) = AGG_{w in N(v)} phi_t(h_v^(t), h_w^(t), e_vw)
 h_v^(t+1) = psi_t(h_v^(t), m_v^(t))</code></pre>
         <p>
           Here <code>phi_t</code> is the message function, <code>AGG</code> is a
@@ -148,5 +152,7 @@ h_v^(t+1) = psi_t(h_v^(t), m_v^(t))</code></pre>
         </ol>
       </section>
     </main>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+    <script src="/js/docs/highlight-init.js"></script>
   </body>
 </html>

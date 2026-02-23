@@ -4,6 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Project Notes - Cage Generation</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css"
+    />
     <link rel="stylesheet" href="/css/docs.css" />
   </head>
   <body>
@@ -33,7 +37,7 @@
           It hashes states, skips duplicates, and pushes high-score successors
           into a priority queue:
         </p>
-        <pre><code># ai/cage/functions/astar.py
+        <pre><code class="language-python"># ai/cage/functions/astar.py
 for succ_graph in successors:
     graph_h = graph_hash(succ_graph)
     if graph_h in self.visited_hashes:
@@ -89,7 +93,7 @@ for succ_graph in successors:
           a target property, and <code>SUCCESS_REWARD = +20.0</code> when both
           regularity and girth targets are satisfied.
         </p>
-        <pre><code># ai/cage/rl/env.py (constants)
+        <pre><code class="language-python"># ai/cage/rl/env.py (constants)
 SUCCESS_REWARD = 20.0
 INVALID_PENALTY = -0.05
 ADD_REWARD = 0.1
@@ -113,5 +117,7 @@ SATISFY_BONUS = 0.1</code></pre>
         >.
       </p>
     </main>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+    <script src="/js/docs/highlight-init.js"></script>
   </body>
 </html>

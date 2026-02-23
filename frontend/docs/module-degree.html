@@ -4,6 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Project Notes - Degree Prediction</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css"
+    />
     <link rel="stylesheet" href="/css/docs.css" />
   </head>
   <body>
@@ -30,13 +34,24 @@
           During training, evaluation runs on 100 fresh random graphs; final
           evaluation runs on 200 fresh random graphs.
         </p>
-        <pre><code># ai/degree/train.py (simplified)
+        <pre><code class="language-python"># ai/degree/train.py (simplified)
 G = generate_random_graph(...)
-y = torch.tensor([G.degree(i) for i in range(num_nodes)], dtype=torch.float)
+
+y = torch.tensor(
+    [G.degree(i) for i in range(num_nodes)],
+    dtype=torch.float,
+)
+
 out = model(data).squeeze()
 loss = F.mse_loss(out, data.y)
+
 loss.backward()
-torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+
+torch.nn.utils.clip_grad_norm_(
+    model.parameters(),
+    max_norm=1.0,
+)
+
 optimizer.step()</code></pre>
       </section>
 
@@ -118,6 +133,8 @@ optimizer.step()</code></pre>
         >.
       </p>
     </main>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+    <script src="/js/docs/highlight-init.js"></script>
     <script src="/config.js"></script>
     <script src="/js/shared/config.js"></script>
     <script src="/js/docs/metrics.js"></script>

@@ -4,6 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Project Notes - Cycle Prediction</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css"
+    />
     <link rel="stylesheet" href="/css/docs.css" />
   </head>
   <body>
@@ -36,7 +40,7 @@
           mainly the label generation: instead of <code>G.degree(i)</code>, each
           label is computed with <code>get_min_cycle(G, i)</code>.
         </p>
-        <pre><code># ai/min_cycle/train.py (simplified)
+        <pre><code class="language-python"># ai/min_cycle/train.py (simplified)
 G = generate_random_graph(...)
 y = torch.tensor([get_min_cycle(G, i) for i in range(num_nodes)], dtype=torch.float)
 out = model(data).squeeze()
@@ -123,6 +127,8 @@ optimizer.step()</code></pre>
         >.
       </p>
     </main>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+    <script src="/js/docs/highlight-init.js"></script>
     <script src="/config.js"></script>
     <script src="/js/shared/config.js"></script>
     <script src="/js/docs/metrics.js"></script>

@@ -227,6 +227,11 @@ code {
     font-size: 0.9rem;
 }
 
+pre code.hljs {
+    background: transparent !important;
+    padding: 0;
+}
+
 p code,
 td code {
     background: #1a1a1a;

@@ -4,6 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Project Notes - Try It Yourself</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css"
+    />
     <link rel="stylesheet" href="/css/docs.css" />
   </head>
   <body>
@@ -23,14 +27,14 @@
 
       <section class="card section">
         <h2><code>requirements.txt</code></h2>
-        <pre><code>torch
+        <pre><code class="language-plaintext">torch
 torch-geometric
 networkx</code></pre>
       </section>
 
       <section class="card section">
-        <h2><code>train.py</code> (minimal)</h2>
-        <pre><code>import random
+        <h2><code>train.py</code></h2>
+        <pre><code class="language-python">import random
 import torch
 import torch.nn.functional as F
 import networkx as nx
@@ -101,8 +105,8 @@ if __name__ == "__main__":
       </section>
 
       <section class="card section">
-        <h2><code>main.py</code> (quick test)</h2>
-        <pre><code>import torch
+        <h2><code>main.py</code></h2>
+        <pre><code class="language-python">import torch
 from train import DegreeSAGE, make_graph
 
 
@@ -130,12 +134,14 @@ if __name__ == "__main__":
       </section>
 
       <section class="card section">
-        <h2>What to change next</h2>
+        <h2>What to try next</h2>
         <p>
           Once this works, swap the label from degree to min-cycle, keep the
           same structure, and compare how accuracy changes across architectures.
         </p>
       </section>
     </main>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+    <script src="/js/docs/highlight-init.js"></script>
   </body>
 </html>
