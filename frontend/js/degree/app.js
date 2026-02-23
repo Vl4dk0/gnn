@@ -232,7 +232,7 @@ function openSettings() {
   document.getElementById("allowSelfLoops").checked = settings.allowSelfLoops;
   document.getElementById("enablePhysics").checked =
     settings.enablePhysics || false;
-  
+
   // Set model selector value
   const modelSelect = document.getElementById("modelSelect");
   if (modelSelect.options.length > 1) {
@@ -427,7 +427,7 @@ async function fetchModels() {
     if (response.ok && data.models) {
       const defaultLabel = data.default ? `Auto (${data.default})` : "Auto";
       modelSelect.innerHTML = `<option value="">${defaultLabel}</option>`;
-      
+
       data.models.forEach((model) => {
         const option = document.createElement("option");
         option.value = model.model_id;

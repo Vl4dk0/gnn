@@ -427,7 +427,7 @@ async function fetchModels() {
     if (response.ok && data.models) {
       const defaultLabel = data.default ? `Auto (${data.default})` : "Auto";
       modelSelect.innerHTML = `<option value="">${defaultLabel}</option>`;
-      
+
       data.models.forEach((model) => {
         const option = document.createElement("option");
         option.value = model.model_id;

@@ -12,7 +12,7 @@
   <body>
     <!-- Mobile navigation overlay -->
     <div class="mobile-overlay"></div>
-    
+
     <!-- Floating hamburger menu -->
     <div class="mobile-nav-toggle">
       <span class="nav-arrow"></span>
@@ -26,14 +26,22 @@
       </div>
 
       <div class="nav-links">
-        <a href="/degree/index.html" class="nav-project-link" data-project="degree">
+        <a
+          href="/degree/index.html"
+          class="nav-project-link"
+          data-project="degree"
+        >
           <div class="nav-project-text">
             <h3>Degree Predictor</h3>
             <p>Predicting vertex degree</p>
           </div>
         </a>
 
-        <a href="/min_cycle/index.html" class="nav-project-link" data-project="min_cycle">
+        <a
+          href="/min_cycle/index.html"
+          class="nav-project-link"
+          data-project="min_cycle"
+        >
           <div class="nav-project-text">
             <h3>Cycle Predictor</h3>
             <p>Smallest cycle containing vertex</p>
@@ -50,8 +58,11 @@
     </div>
 
     <!-- Center Column: Documentation (Full Width) -->
-    <div class="graph-column content-column" style="overflow-y: auto; display: block; background: #1a1a1a;">
-      <main class="page" style="margin: 0 auto;">
+    <div
+      class="graph-column content-column"
+      style="overflow-y: auto; display: block; background: #1a1a1a"
+    >
+      <main class="page" style="margin: 0 auto">
         <section class="hero">
           <h1>Graph neural networks for algebraic graph theory</h1>
           <p>
@@ -64,15 +75,15 @@
           <h2>What do these terms mean?</h2>
           <p>
             A graph is <code>k</code>-regular when every vertex has exactly
-            <code>k</code> neighbors. If <code>k=3</code>, every vertex has degree
-            3. The <code>girth</code> of a graph is the length of its shortest
-            cycle.
+            <code>k</code> neighbors. If <code>k=3</code>, every vertex has
+            degree 3. The <code>girth</code> of a graph is the length of its
+            shortest cycle.
           </p>
           <p>
             A <code>(k,g)</code>-graph satisfies both conditions at once:
             <code>k</code>-regularity and girth <code>g</code>. A
-            <code>(k,g)</code>-cage is the graph with the minimum possible number
-            of vertices among all <code>(k,g)</code>-graphs.
+            <code>(k,g)</code>-cage is the graph with the minimum possible
+            number of vertices among all <code>(k,g)</code>-graphs.
           </p>
         </section>
 
@@ -88,22 +99,23 @@
           <h2>Why this is hard</h2>
           <p>
             For example, if I were to generate <code>k</code>-regular graph, I
-            would just create complete graph of <code>k+1</code> vertices. This is
-            generally simple for any <code>k</code>.
+            would just create complete graph of <code>k+1</code> vertices. This
+            is generally simple for any <code>k</code>.
           </p>
           <p>
             If I were to generate graphs with girth <code>g</code>, I would just
-            create a cycle of length <code>g</code>. This is also generally simple
-            for any <code>g</code>.
+            create a cycle of length <code>g</code>. This is also generally
+            simple for any <code>g</code>.
           </p>
           <p>
             But combining both constraints at once already becomes a hard
             combinatorial search problem in practice.
           </p>
           <p>
-            I used a clear trick for each single constraint. The open question is
-            whether there is an analogous trick for <code>(k,g)</code>-graphs.
-            This is exactly where learned guidance may help.
+            I used a clear trick for each single constraint. The open question
+            is whether there is an analogous trick for
+            <code>(k,g)</code>-graphs. This is exactly where learned guidance
+            may help.
           </p>
         </section>
 
@@ -112,7 +124,9 @@
             <article class="story-card">
               <span class="story-label">1</span>
               <h3>How GNNs work</h3>
-              <p>Message passing, layers, node and edge features, and readout.</p>
+              <p>
+                Message passing, layers, node and edge features, and readout.
+              </p>
             </article>
           </a>
 
@@ -142,7 +156,8 @@
               <span class="story-label">4</span>
               <h3>Cycle prediction</h3>
               <p>
-                Node-level shortest-cycle labels, training behavior, and metrics.
+                Node-level shortest-cycle labels, training behavior, and
+                metrics.
               </p>
             </article>
           </a>
@@ -183,7 +198,6 @@
 
     <script src="/config.js"></script>
     <script src="js/shared/config.js"></script>
-    <script src="js/landing/status.js"></script>
     <script src="js/shared/sidebar.js"></script>
   </body>
 </html>

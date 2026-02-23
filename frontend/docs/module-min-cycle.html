@@ -15,7 +15,7 @@
   <body>
     <!-- Mobile navigation overlay -->
     <div class="mobile-overlay"></div>
-    
+
     <!-- Floating hamburger menu -->
     <div class="mobile-nav-toggle">
       <span class="nav-arrow"></span>
@@ -29,14 +29,22 @@
       </div>
 
       <div class="nav-links">
-        <a href="/degree/index.html" class="nav-project-link" data-project="degree">
+        <a
+          href="/degree/index.html"
+          class="nav-project-link"
+          data-project="degree"
+        >
           <div class="nav-project-text">
             <h3>Degree Predictor</h3>
             <p>Predicting vertex degree</p>
           </div>
         </a>
 
-        <a href="/min_cycle/index.html" class="nav-project-link" data-project="min_cycle">
+        <a
+          href="/min_cycle/index.html"
+          class="nav-project-link"
+          data-project="min_cycle"
+        >
           <div class="nav-project-text">
             <h3>Cycle Predictor</h3>
             <p>Smallest cycle containing vertex</p>
@@ -53,34 +61,37 @@
     </div>
 
     <!-- Center Column: Documentation (Full Width) -->
-    <div class="graph-column content-column" style="overflow-y: auto; display: block; background: #1a1a1a;">
+    <div
+      class="graph-column content-column"
+      style="overflow-y: auto; display: block; background: #1a1a1a"
+    >
       <main class="page">
+        <section class="hero">
+          <h1>Cycle prediction: moving from local to structural</h1>
+          <p>
+            After degree prediction, the next question was whether the model can
+            recover a less local signal: the shortest cycle containing each
+            node.
+          </p>
+        </section>
 
-      <section class="hero">
-        <h1>Cycle prediction: moving from local to structural</h1>
-        <p>
-          After degree prediction, the next question was whether the model can
-          recover a less local signal: the shortest cycle containing each node.
-        </p>
-      </section>
+        <section class="card section">
+          <h2>What is the label?</h2>
+          <p>
+            For node <code>v</code>, the label is the length of the shortest
+            cycle that contains <code>v</code>. If no such cycle exists, the
+            label is <code>0</code>.
+          </p>
+        </section>
 
-      <section class="card section">
-        <h2>What is the label?</h2>
-        <p>
-          For node <code>v</code>, the label is the length of the shortest cycle
-          that contains <code>v</code>. If no such cycle exists, the label is
-          <code>0</code>.
-        </p>
-      </section>
-
-      <section class="card section">
-        <h2>What changes in the training loop?</h2>
-        <p>
-          The loop structure is the same as degree training. The difference is
-          mainly the label generation: instead of <code>G.degree(i)</code>, each
-          label is computed with <code>get_min_cycle(G, i)</code>.
-        </p>
-        <pre><code class="language-python"># ai/min_cycle/train.py (simplified)
+        <section class="card section">
+          <h2>What changes in the training loop?</h2>
+          <p>
+            The loop structure is the same as degree training. The difference is
+            mainly the label generation: instead of <code>G.degree(i)</code>,
+            each label is computed with <code>get_min_cycle(G, i)</code>.
+          </p>
+          <pre><code class="language-python"># ai/min_cycle/train.py (simplified)
 G = generate_random_graph(...)
 y = torch.tensor([get_min_cycle(G, i) for i in range(num_nodes)], dtype=torch.float)
 out = model(data).squeeze()
@@ -88,98 +99,105 @@ loss = F.mse_loss(out, data.y)
 loss.backward()
 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 optimizer.step()</code></pre>
-      </section>
+        </section>
 
-      <section class="card section">
-        <h2>What graphs were used for training and testing?</h2>
-        <p>
-          As in degree prediction, both training and evaluation sample fresh
-          random graphs from the same distribution: <code>n in [5,12]</code>,
-          <code>p in [0.15,0.6]</code>, self-loop probability <code>0.1</code>,
-          and 4-dimensional node features. Evaluation uses 100 random graphs
-          during training and 200 random graphs for final metrics.
+        <section class="card section">
+          <h2>What graphs were used for training and testing?</h2>
+          <p>
+            As in degree prediction, both training and evaluation sample fresh
+            random graphs from the same distribution: <code>n in [5,12]</code>,
+            <code>p in [0.15,0.6]</code>, self-loop probability
+            <code>0.1</code>, and 4-dimensional node features. Evaluation uses
+            100 random graphs during training and 200 random graphs for final
+            metrics.
+          </p>
+        </section>
+
+        <section class="card section">
+          <h2>How well did it work?</h2>
+          <div class="table-scroll">
+            <table class="wide-table">
+              <thead>
+                <tr>
+                  <th>Model</th>
+                  <th>Accuracy</th>
+                  <th>MAE</th>
+                  <th>MSE</th>
+                  <th>Created at</th>
+                </tr>
+              </thead>
+              <tbody id="mincycle-metrics-body">
+                <tr>
+                  <td colspan="5">Loading live metrics...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <details class="note metric-note">
+            <summary><strong>How to read these metrics</strong></summary>
+            <p>
+              <code>Accuracy</code>: exact match rate after rounding predictions
+              to integers.
+            </p>
+            <p>
+              <code>MAE</code>: average absolute prediction error (same unit as
+              the label).
+            </p>
+            <p>
+              <code>MSE</code>: average squared prediction error (penalizes
+              large mistakes more than MAE).
+            </p>
+            <p>
+              <code>Created at</code>: model snapshot creation date from
+              metadata.
+            </p>
+          </details>
+        </section>
+
+        <section class="card section">
+          <h2>Timestamped assesments</h2>
+          <p>
+            As of <code>2026-02-23</code>: <code>loopy_r3_v1</code> performed
+            clearly best on min-cycle prediction (85.14%), while
+            <code>gcn_v1</code>, <code>gin_v1</code>, and especially
+            <code>sage_v1</code> lagged behind. This indicates that, in the
+            current runs, explicit cycle-aware path/r-neighborhood information
+            was important for this target.
+          </p>
+        </section>
+
+        <p class="footer-mini">
+          Code references:
+          <a href="https://github.com/Vl4dk0/gnn/tree/main/ai/min_cycle"
+            >ai/min_cycle</a
+          >,
+          <a
+            href="https://github.com/Vl4dk0/gnn/blob/main/backend/utils/graph_utils.py"
+            >backend/utils/graph_utils.py</a
+          >,
+          <a href="https://github.com/Vl4dk0/gnn/tree/main/ai/trained/min_cycle"
+            >ai/trained/min_cycle</a
+          >.
         </p>
-      </section>
 
-      <section class="card section">
-        <h2>How well did it work?</h2>
-        <div class="table-scroll">
-          <table class="wide-table">
-            <thead>
-              <tr>
-                <th>Model</th>
-                <th>Accuracy</th>
-                <th>MAE</th>
-                <th>MSE</th>
-                <th>Created at</th>
-              </tr>
-            </thead>
-            <tbody id="mincycle-metrics-body">
-              <tr>
-                <td colspan="5">Loading live metrics...</td>
-              </tr>
-            </tbody>
-          </table>
+        <div
+          style="
+            margin-top: 40px;
+            border-top: 1px solid #444;
+            padding-top: 20px;
+          "
+        >
+          <a class="apps-link" href="/">← Back to Overview</a>
         </div>
-        <details class="note metric-note">
-          <summary><strong>How to read these metrics</strong></summary>
-          <p>
-            <code>Accuracy</code>: exact match rate after rounding predictions
-            to integers.
-          </p>
-          <p>
-            <code>MAE</code>: average absolute prediction error (same unit as
-            the label).
-          </p>
-          <p>
-            <code>MSE</code>: average squared prediction error (penalizes large
-            mistakes more than MAE).
-          </p>
-          <p>
-            <code>Created at</code>: model snapshot creation date from metadata.
-          </p>
-        </details>
-      </section>
-
-      <section class="card section">
-        <h2>Timestamped assesments</h2>
-        <p>
-          As of <code>2026-02-23</code>: <code>loopy_r3_v1</code> performed
-          clearly best on min-cycle prediction (85.14%), while
-          <code>gcn_v1</code>, <code>gin_v1</code>, and especially
-          <code>sage_v1</code> lagged behind. This indicates that, in the
-          current runs, explicit cycle-aware path/r-neighborhood information was
-          important for this target.
-        </p>
-      </section>
-
-      <p class="footer-mini">
-        Code references:
-        <a href="https://github.com/Vl4dk0/gnn/tree/main/ai/min_cycle"
-          >ai/min_cycle</a
-        >,
-        <a
-          href="https://github.com/Vl4dk0/gnn/blob/main/backend/utils/graph_utils.py"
-          >backend/utils/graph_utils.py</a
-        >,
-        <a href="https://github.com/Vl4dk0/gnn/tree/main/ai/trained/min_cycle"
-          >ai/trained/min_cycle</a
-        >.
-      </p>
-    
-      <div style="margin-top: 40px; border-top: 1px solid #444; padding-top: 20px;">
-        <a class="apps-link" href="/">← Back to Overview</a>
-      </div>
-    </main>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
-    <script src="/js/docs/highlight-init.js"></script>
+      </main>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+      <script src="/js/docs/highlight-init.js"></script>
+      <script src="/config.js"></script>
+      <script src="/js/shared/config.js"></script>
+      <script src="/js/docs/metrics.js"></script>
+    </div>
     <script src="/config.js"></script>
     <script src="/js/shared/config.js"></script>
-    <script src="/js/docs/metrics.js"></script>
-  </div>
-    <script src="/config.js"></script>
-    <script src="/js/shared/config.js"></script>
-    <script src="/js/landing/status.js"></script>
     <script src="/js/shared/sidebar.js"></script>
   </body>
 </html>

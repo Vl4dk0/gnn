@@ -15,7 +15,7 @@
   <body>
     <!-- Mobile navigation overlay -->
     <div class="mobile-overlay"></div>
-    
+
     <!-- Floating hamburger menu -->
     <div class="mobile-nav-toggle">
       <span class="nav-arrow"></span>
@@ -29,14 +29,22 @@
       </div>
 
       <div class="nav-links">
-        <a href="/degree/index.html" class="nav-project-link" data-project="degree">
+        <a
+          href="/degree/index.html"
+          class="nav-project-link"
+          data-project="degree"
+        >
           <div class="nav-project-text">
             <h3>Degree Predictor</h3>
             <p>Predicting vertex degree</p>
           </div>
         </a>
 
-        <a href="/min_cycle/index.html" class="nav-project-link" data-project="min_cycle">
+        <a
+          href="/min_cycle/index.html"
+          class="nav-project-link"
+          data-project="min_cycle"
+        >
           <div class="nav-project-text">
             <h3>Cycle Predictor</h3>
             <p>Smallest cycle containing vertex</p>
@@ -53,28 +61,30 @@
     </div>
 
     <!-- Center Column: Documentation (Full Width) -->
-    <div class="graph-column content-column" style="overflow-y: auto; display: block; background: #1a1a1a;">
+    <div
+      class="graph-column content-column"
+      style="overflow-y: auto; display: block; background: #1a1a1a"
+    >
       <main class="page">
+        <section class="hero">
+          <h1>Degree prediction: first trust check</h1>
+          <p>
+            I started here because degree is local and unambiguous. If a model
+            cannot recover degree reliably, there is no reason to trust it on
+            harder structural properties.
+          </p>
+        </section>
 
-      <section class="hero">
-        <h1>Degree prediction: first trust check</h1>
-        <p>
-          I started here because degree is local and unambiguous. If a model
-          cannot recover degree reliably, there is no reason to trust it on
-          harder structural properties.
-        </p>
-      </section>
-
-      <section class="card section">
-        <h2>What exactly happens in the training loop?</h2>
-        <p>
-          Each iteration samples a random Erdős-Rényi graph, converts it to PyG,
-          sets label <code>y_v = deg(v)</code>, runs a forward pass, computes MSE
-          loss, clips gradients to <code>1.0</code>, and updates with Adam.
-          During training, evaluation runs on 100 fresh random graphs; final
-          evaluation runs on 200 fresh random graphs.
-        </p>
-        <pre><code class="language-python"># ai/degree/train.py (simplified)
+        <section class="card section">
+          <h2>What exactly happens in the training loop?</h2>
+          <p>
+            Each iteration samples a random Erdős-Rényi graph, converts it to
+            PyG, sets label <code>y_v = deg(v)</code>, runs a forward pass,
+            computes MSE loss, clips gradients to <code>1.0</code>, and updates
+            with Adam. During training, evaluation runs on 100 fresh random
+            graphs; final evaluation runs on 200 fresh random graphs.
+          </p>
+          <pre><code class="language-python"># ai/degree/train.py (simplified)
 G = generate_random_graph(...)
 
 y = torch.tensor(
@@ -93,99 +103,109 @@ torch.nn.utils.clip_grad_norm_(
 )
 
 optimizer.step()</code></pre>
-      </section>
+        </section>
 
-      <section class="card section">
-        <h2>How are training and test graphs generated?</h2>
-        <p>
-          Training and testing use the same generator family. Default settings
-          are <code>n in [5,12]</code>, edge probability
-          <code>p in [0.15,0.6]</code>, and self-loop probability
-          <code>0.1</code>. So reported metrics are out-of-sample on new random
-          graphs from that same distribution.
-        </p>
-        <p>
-          Node features use four channels: normalized node index, two random
-          channels, and one random channel used as a clustering-like placeholder.
-        </p>
-      </section>
+        <section class="card section">
+          <h2>How are training and test graphs generated?</h2>
+          <p>
+            Training and testing use the same generator family. Default settings
+            are <code>n in [5,12]</code>, edge probability
+            <code>p in [0.15,0.6]</code>, and self-loop probability
+            <code>0.1</code>. So reported metrics are out-of-sample on new
+            random graphs from that same distribution.
+          </p>
+          <p>
+            Node features use four channels: normalized node index, two random
+            channels, and one random channel used as a clustering-like
+            placeholder.
+          </p>
+        </section>
 
-      <section class="card section">
-        <h2>How well did the models solve it?</h2>
-        <div class="table-scroll">
-          <table class="wide-table">
-            <thead>
-              <tr>
-                <th>Model</th>
-                <th>Accuracy</th>
-                <th>MAE</th>
-                <th>MSE</th>
-                <th>Created at</th>
-              </tr>
-            </thead>
-            <tbody id="degree-metrics-body">
-              <tr>
-                <td colspan="5">Loading live metrics...</td>
-              </tr>
-            </tbody>
-          </table>
+        <section class="card section">
+          <h2>How well did the models solve it?</h2>
+          <div class="table-scroll">
+            <table class="wide-table">
+              <thead>
+                <tr>
+                  <th>Model</th>
+                  <th>Accuracy</th>
+                  <th>MAE</th>
+                  <th>MSE</th>
+                  <th>Created at</th>
+                </tr>
+              </thead>
+              <tbody id="degree-metrics-body">
+                <tr>
+                  <td colspan="5">Loading live metrics...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <details class="note metric-note">
+            <summary><strong>How to read these metrics</strong></summary>
+            <p>
+              <code>Accuracy</code>: exact match rate after rounding predictions
+              to integers.
+            </p>
+            <p>
+              <code>MAE</code>: average absolute prediction error (same unit as
+              the label).
+            </p>
+            <p>
+              <code>MSE</code>: average squared prediction error (penalizes
+              large mistakes more than MAE).
+            </p>
+            <p>
+              <code>Created at</code>: model snapshot creation date from
+              metadata.
+            </p>
+          </details>
+        </section>
+
+        <section class="card section">
+          <h2>Timestamped assesments</h2>
+          <p>
+            As of <code>2026-02-23</code>: <code>gin_v1</code> and
+            <code>sage_v1</code> performed very well (100.00% exact-node
+            accuracy), while <code>gcn_v1</code> and <code>loopy_r3_v1</code>
+            were much weaker on this degree setup. This indicates that, in the
+            current experiments, degree prediction behaves like a strongly local
+            counting signal that sum-aggregation models captured best.
+          </p>
+        </section>
+
+        <p class="footer-mini">
+          Code references:
+          <a href="https://github.com/Vl4dk0/gnn/tree/main/ai/degree"
+            >ai/degree</a
+          >,
+          <a
+            href="https://github.com/Vl4dk0/gnn/blob/main/backend/utils/graph_utils.py"
+            >backend/utils/graph_utils.py</a
+          >,
+          <a href="https://github.com/Vl4dk0/gnn/tree/main/ai/trained/degree"
+            >ai/trained/degree</a
+          >.
+        </p>
+
+        <div
+          style="
+            margin-top: 40px;
+            border-top: 1px solid #444;
+            padding-top: 20px;
+          "
+        >
+          <a class="apps-link" href="/">← Back to Overview</a>
         </div>
-        <details class="note metric-note">
-          <summary><strong>How to read these metrics</strong></summary>
-          <p>
-            <code>Accuracy</code>: exact match rate after rounding predictions
-            to integers.
-          </p>
-          <p>
-            <code>MAE</code>: average absolute prediction error (same unit as
-            the label).
-          </p>
-          <p>
-            <code>MSE</code>: average squared prediction error (penalizes large
-            mistakes more than MAE).
-          </p>
-          <p>
-            <code>Created at</code>: model snapshot creation date from metadata.
-          </p>
-        </details>
-      </section>
-
-      <section class="card section">
-        <h2>Timestamped assesments</h2>
-        <p>
-          As of <code>2026-02-23</code>: <code>gin_v1</code> and
-          <code>sage_v1</code> performed very well (100.00% exact-node
-          accuracy), while <code>gcn_v1</code> and <code>loopy_r3_v1</code>
-          were much weaker on this degree setup. This indicates that, in the
-          current experiments, degree prediction behaves like a strongly local
-          counting signal that sum-aggregation models captured best.
-        </p>
-      </section>
-
-      <p class="footer-mini">
-        Code references:
-        <a href="https://github.com/Vl4dk0/gnn/tree/main/ai/degree">ai/degree</a>,
-        <a href="https://github.com/Vl4dk0/gnn/blob/main/backend/utils/graph_utils.py"
-          >backend/utils/graph_utils.py</a
-        >,
-        <a href="https://github.com/Vl4dk0/gnn/tree/main/ai/trained/degree"
-          >ai/trained/degree</a
-        >.
-      </p>
-    
-      <div style="margin-top: 40px; border-top: 1px solid #444; padding-top: 20px;">
-        <a class="apps-link" href="/">← Back to Overview</a>
-      </div>
-    </main>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
-    <script src="/js/docs/highlight-init.js"></script>
+      </main>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+      <script src="/js/docs/highlight-init.js"></script>
+      <script src="/config.js"></script>
+      <script src="/js/shared/config.js"></script>
+      <script src="/js/docs/metrics.js"></script>
+    </div>
     <script src="/config.js"></script>
     <script src="/js/shared/config.js"></script>
-    <script src="/js/docs/metrics.js"></script>
-  </div>
-    <script src="/config.js"></script>
-    <script src="/js/shared/config.js"></script>
-    <script src="/js/landing/status.js"></script>
     <script src="/js/shared/sidebar.js"></script>
   </body>
 </html>

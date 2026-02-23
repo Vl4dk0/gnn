@@ -92,40 +92,68 @@ class InteractiveGraphEditor {
   }
 
   setupEventListeners() {
-    this.canvas.addEventListener("mousemove", (e) => this.handleMouseMove(e), { passive: false });
+    this.canvas.addEventListener("mousemove", (e) => this.handleMouseMove(e), {
+      passive: false,
+    });
 
-    this.canvas.addEventListener("mousedown", (e) => {
-      if (e.button === 0) {
-        this.handleLeftClick(e);
-      } else if (e.button === 1) {
+    this.canvas.addEventListener(
+      "mousedown",
+      (e) => {
+        if (e.button === 0) {
+          this.handleLeftClick(e);
+        } else if (e.button === 1) {
+          e.preventDefault();
+          this.handleMiddleClick(e);
+        }
+      },
+      { passive: false },
+    );
+
+    this.canvas.addEventListener(
+      "mouseup",
+      (e) => {
+        if (e.button === 0) {
+          this.handleLeftRelease(e);
+        }
+      },
+      { passive: false },
+    );
+
+    this.canvas.addEventListener(
+      "contextmenu",
+      (e) => {
         e.preventDefault();
-        this.handleMiddleClick(e);
-      }
-    }, { passive: false });
+        this.handleRightClick(e);
+      },
+      { passive: false },
+    );
 
-    this.canvas.addEventListener("mouseup", (e) => {
-      if (e.button === 0) {
-        this.handleLeftRelease(e);
-      }
-    }, { passive: false });
-
-    this.canvas.addEventListener("contextmenu", (e) => {
-      e.preventDefault();
-      this.handleRightClick(e);
-    }, { passive: false });
-
-    this.canvas.addEventListener("dblclick", (e) => this.handleDoubleClick(e), { passive: false });
+    this.canvas.addEventListener("dblclick", (e) => this.handleDoubleClick(e), {
+      passive: false,
+    });
 
     this.canvas.addEventListener("wheel", (e) => this.handleWheel(e), {
       passive: false,
     });
 
-    this.canvas.addEventListener("pointerdown", (e) => this.handlePointerDown(e), { passive: false });
-    this.canvas.addEventListener("pointermove", (e) => this.handlePointerMove(e), { passive: false });
-    this.canvas.addEventListener("pointerup", (e) => this.handlePointerUp(e), { passive: false });
-    this.canvas.addEventListener("pointercancel", (e) =>
-      this.handlePointerCancel(e),
-    { passive: false });
+    this.canvas.addEventListener(
+      "pointerdown",
+      (e) => this.handlePointerDown(e),
+      { passive: false },
+    );
+    this.canvas.addEventListener(
+      "pointermove",
+      (e) => this.handlePointerMove(e),
+      { passive: false },
+    );
+    this.canvas.addEventListener("pointerup", (e) => this.handlePointerUp(e), {
+      passive: false,
+    });
+    this.canvas.addEventListener(
+      "pointercancel",
+      (e) => this.handlePointerCancel(e),
+      { passive: false },
+    );
 
     document.addEventListener("keydown", (e) => {
       if (e.key === "Backspace" && this.selectedNode !== null) {
@@ -193,7 +221,8 @@ class InteractiveGraphEditor {
     this.cancelTouchLongPress();
     this.touchLongPressTimer = setTimeout(() => {
       const stillActive = this.touchPointers.get(pointer.pointerId);
-      if (!stillActive || stillActive.suppressTap || this.touchPinchState) return;
+      if (!stillActive || stillActive.suppressTap || this.touchPinchState)
+        return;
 
       if (this.selectedNode === stillActive.startNode) {
         if (this.edgeStart === stillActive.startNode) {
@@ -284,7 +313,10 @@ class InteractiveGraphEditor {
 
     const zoomFactor = distance / this.touchPinchState.startDistance;
     const unclampedScale = this.touchPinchState.startScale * zoomFactor;
-    const newScale = Math.max(this.minScale, Math.min(this.maxScale, unclampedScale));
+    const newScale = Math.max(
+      this.minScale,
+      Math.min(this.maxScale, unclampedScale),
+    );
 
     this.scale = newScale;
     this.offsetX =

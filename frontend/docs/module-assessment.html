@@ -11,7 +11,7 @@
   <body>
     <!-- Mobile navigation overlay -->
     <div class="mobile-overlay"></div>
-    
+
     <!-- Floating hamburger menu -->
     <div class="mobile-nav-toggle">
       <span class="nav-arrow"></span>
@@ -25,14 +25,22 @@
       </div>
 
       <div class="nav-links">
-        <a href="/degree/index.html" class="nav-project-link" data-project="degree">
+        <a
+          href="/degree/index.html"
+          class="nav-project-link"
+          data-project="degree"
+        >
           <div class="nav-project-text">
             <h3>Degree Predictor</h3>
             <p>Predicting vertex degree</p>
           </div>
         </a>
 
-        <a href="/min_cycle/index.html" class="nav-project-link" data-project="min_cycle">
+        <a
+          href="/min_cycle/index.html"
+          class="nav-project-link"
+          data-project="min_cycle"
+        >
           <div class="nav-project-text">
             <h3>Cycle Predictor</h3>
             <p>Smallest cycle containing vertex</p>
@@ -49,68 +57,77 @@
     </div>
 
     <!-- Center Column: Documentation (Full Width) -->
-    <div class="graph-column content-column" style="overflow-y: auto; display: block; background: #1a1a1a;">
+    <div
+      class="graph-column content-column"
+      style="overflow-y: auto; display: block; background: #1a1a1a"
+    >
       <main class="page">
+        <section class="hero">
+          <h1>Assessment across degree and min-cycle</h1>
+          <p>
+            This page compares both prediction tasks together, because success
+            on only one task is not enough to claim broad structural
+            understanding.
+          </p>
+        </section>
 
-      <section class="hero">
-        <h1>Assessment across degree and min-cycle</h1>
-        <p>
-          This page compares both prediction tasks together, because success on
-          only one task is not enough to claim broad structural understanding.
+        <section class="card section">
+          <h2>Results side by side</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Model</th>
+                <th>Degree Acc</th>
+                <th>Min-cycle Acc</th>
+              </tr>
+            </thead>
+            <tbody id="assessment-metrics-body">
+              <tr>
+                <td colspan="3">Loading live metrics...</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="card section">
+          <h2>Timestamped assesments</h2>
+          <p>
+            As of <code>2026-02-23</code>: no single model performed best across
+            both tasks. Degree is led by
+            <code>gin_v1</code>/<code>sage_v1</code>, while min-cycle is led by
+            <code>loopy_r3_v1</code>. This indicates that the current
+            architectures are specialized: models that are strong for local
+            counting are not automatically strong for cycle-sensitive structural
+            reasoning, and vice versa.
+          </p>
+        </section>
+
+        <p class="footer-mini">
+          Code references:
+          <a href="https://github.com/Vl4dk0/gnn/tree/main/ai/trained/degree"
+            >ai/trained/degree</a
+          >,
+          <a href="https://github.com/Vl4dk0/gnn/tree/main/ai/trained/min_cycle"
+            >ai/trained/min_cycle</a
+          >.
         </p>
-      </section>
 
-      <section class="card section">
-        <h2>Results side by side</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Model</th>
-              <th>Degree Acc</th>
-              <th>Min-cycle Acc</th>
-            </tr>
-          </thead>
-          <tbody id="assessment-metrics-body">
-            <tr>
-              <td colspan="3">Loading live metrics...</td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
-
-      <section class="card section">
-        <h2>Timestamped assesments</h2>
-        <p>
-          As of <code>2026-02-23</code>: no single model performed best across
-          both tasks. Degree is led by <code>gin_v1</code>/<code>sage_v1</code>,
-          while min-cycle is led by <code>loopy_r3_v1</code>. This indicates
-          that the current architectures are specialized: models that are strong
-          for local counting are not automatically strong for cycle-sensitive
-          structural reasoning, and vice versa.
-        </p>
-      </section>
-
-      <p class="footer-mini">
-        Code references:
-        <a href="https://github.com/Vl4dk0/gnn/tree/main/ai/trained/degree"
-          >ai/trained/degree</a
-        >,
-        <a href="https://github.com/Vl4dk0/gnn/tree/main/ai/trained/min_cycle"
-          >ai/trained/min_cycle</a
-        >.
-      </p>
-    
-      <div style="margin-top: 40px; border-top: 1px solid #444; padding-top: 20px;">
-        <a class="apps-link" href="/">← Back to Overview</a>
-      </div>
-    </main>
+        <div
+          style="
+            margin-top: 40px;
+            border-top: 1px solid #444;
+            padding-top: 20px;
+          "
+        >
+          <a class="apps-link" href="/">← Back to Overview</a>
+        </div>
+      </main>
+      <script src="/config.js"></script>
+      <script src="/js/shared/config.js"></script>
+      <script src="/js/docs/metrics.js"></script>
+    </div>
     <script src="/config.js"></script>
     <script src="/js/shared/config.js"></script>
-    <script src="/js/docs/metrics.js"></script>
-  </div>
-    <script src="/config.js"></script>
-    <script src="/js/shared/config.js"></script>
-    <script src="/js/landing/status.js"></script>
     <script src="/js/shared/sidebar.js"></script>
   </body>
 </html>

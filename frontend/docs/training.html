@@ -15,7 +15,7 @@
   <body>
     <!-- Mobile navigation overlay -->
     <div class="mobile-overlay"></div>
-    
+
     <!-- Floating hamburger menu -->
     <div class="mobile-nav-toggle">
       <span class="nav-arrow"></span>
@@ -29,14 +29,22 @@
       </div>
 
       <div class="nav-links">
-        <a href="/degree/index.html" class="nav-project-link" data-project="degree">
+        <a
+          href="/degree/index.html"
+          class="nav-project-link"
+          data-project="degree"
+        >
           <div class="nav-project-text">
             <h3>Degree Predictor</h3>
             <p>Predicting vertex degree</p>
           </div>
         </a>
 
-        <a href="/min_cycle/index.html" class="nav-project-link" data-project="min_cycle">
+        <a
+          href="/min_cycle/index.html"
+          class="nav-project-link"
+          data-project="min_cycle"
+        >
           <div class="nav-project-text">
             <h3>Cycle Predictor</h3>
             <p>Smallest cycle containing vertex</p>
@@ -53,28 +61,30 @@
     </div>
 
     <!-- Center Column: Documentation (Full Width) -->
-    <div class="graph-column content-column" style="overflow-y: auto; display: block; background: #1a1a1a;">
+    <div
+      class="graph-column content-column"
+      style="overflow-y: auto; display: block; background: #1a1a1a"
+    >
       <main class="page">
+        <section class="hero">
+          <h1>Try it yourself: a minimal degree predictor</h1>
+          <p>
+            This is a compact local tutorial without API or UI. It trains one
+            GNN for node-degree regression on random graphs, then prints how
+            many node predictions are exactly correct.
+          </p>
+        </section>
 
-      <section class="hero">
-        <h1>Try it yourself: a minimal degree predictor</h1>
-        <p>
-          This is a compact local tutorial without API or UI. It trains one GNN
-          for node-degree regression on random graphs, then prints how many node
-          predictions are exactly correct.
-        </p>
-      </section>
-
-      <section class="card section">
-        <h2><code>requirements.txt</code></h2>
-        <pre><code class="language-plaintext">torch
+        <section class="card section">
+          <h2><code>requirements.txt</code></h2>
+          <pre><code class="language-plaintext">torch
 torch-geometric
 networkx</code></pre>
-      </section>
+        </section>
 
-      <section class="card section">
-        <h2><code>train.py</code></h2>
-        <pre><code class="language-python">import random
+        <section class="card section">
+          <h2><code>train.py</code></h2>
+          <pre><code class="language-python">import random
 import torch
 import torch.nn.functional as F
 import networkx as nx
@@ -142,11 +152,11 @@ def train(epochs=2000, graphs_per_epoch=20):
 
 if __name__ == "__main__":
     train()</code></pre>
-      </section>
+        </section>
 
-      <section class="card section">
-        <h2><code>main.py</code></h2>
-        <pre><code class="language-python">import torch
+        <section class="card section">
+          <h2><code>main.py</code></h2>
+          <pre><code class="language-python">import torch
 from train import DegreeSAGE, make_graph
 
 
@@ -171,26 +181,32 @@ def evaluate(num_graphs=100):
 
 if __name__ == "__main__":
     evaluate()</code></pre>
-      </section>
+        </section>
 
-      <section class="card section">
-        <h2>What to try next</h2>
-        <p>
-          Once this works, swap the label from degree to min-cycle, keep the
-          same structure, and compare how accuracy changes across architectures.
-        </p>
-      </section>
-    
-      <div style="margin-top: 40px; border-top: 1px solid #444; padding-top: 20px;">
-        <a class="apps-link" href="/">← Back to Overview</a>
-      </div>
-    </main>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
-    <script src="/js/docs/highlight-init.js"></script>
-  </div>
+        <section class="card section">
+          <h2>What to try next</h2>
+          <p>
+            Once this works, swap the label from degree to min-cycle, keep the
+            same structure, and compare how accuracy changes across
+            architectures.
+          </p>
+        </section>
+
+        <div
+          style="
+            margin-top: 40px;
+            border-top: 1px solid #444;
+            padding-top: 20px;
+          "
+        >
+          <a class="apps-link" href="/">← Back to Overview</a>
+        </div>
+      </main>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+      <script src="/js/docs/highlight-init.js"></script>
+    </div>
     <script src="/config.js"></script>
     <script src="/js/shared/config.js"></script>
-    <script src="/js/landing/status.js"></script>
     <script src="/js/shared/sidebar.js"></script>
   </body>
 </html>

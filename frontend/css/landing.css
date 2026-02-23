@@ -1,103 +1,103 @@
 /* Extend shared styles for landing page */
 
 .nav-column {
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    padding: 40px 30px; /* Reduced side padding so boxes have room to stretch */
-    gap: 40px;
-    height: 100%;
-    overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 40px 30px; /* Reduced side padding so boxes have room to stretch */
+  gap: 40px;
+  height: 100%;
+  overflow-y: auto;
 }
 
 .thesis-header {
-    margin-bottom: 20px;
-    flex-shrink: 0;
+  margin-bottom: 20px;
+  flex-shrink: 0;
 }
 
 .thesis-header h1 {
-    font-size: 2.2rem;
-    color: #ffffff;
-    margin-bottom: 12px;
-    font-weight: 800;
-    letter-spacing: -0.5px;
-    line-height: 1.1;
+  font-size: 2.2rem;
+  color: #ffffff;
+  margin-bottom: 12px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  line-height: 1.1;
 }
 
 .thesis-header h2 {
-    font-size: 1.2rem;
-    color: #888888;
-    font-weight: 500;
-    line-height: 1.5;
+  font-size: 1.2rem;
+  color: #888888;
+  font-weight: 500;
+  line-height: 1.5;
 }
 
 .nav-links {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    flex-shrink: 0; /* Prevent the container from getting squished so you can actually scroll it */
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  flex-shrink: 0; /* Prevent the container from getting squished so you can actually scroll it */
 }
 
 .nav-project-link {
-    display: block;
-    background: #1a1a1a;
-    border: 2px solid #444444;
-    border-radius: 8px;
-    padding: 20px 24px;
-    text-decoration: none;
-    transition: all 0.2s ease;
-    cursor: pointer;
+  display: block;
+  background: #1a1a1a;
+  border: 2px solid #444444;
+  border-radius: 8px;
+  padding: 20px 24px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  cursor: pointer;
 }
 
 .nav-project-link:hover {
-    border-color: #888888;
-    background: #1e1e1e;
-    transform: translateX(4px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  border-color: #888888;
+  background: #1e1e1e;
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .nav-project-link.is-inactive {
-    opacity: 0.6;
-    border-color: #333333;
-    cursor: not-allowed;
-    background: #161616;
+  opacity: 0.6;
+  border-color: #333333;
+  cursor: not-allowed;
+  background: #161616;
 }
 
 .nav-project-link.is-inactive:hover {
-    transform: none;
-    border-color: #333333;
-    box-shadow: none;
+  transform: none;
+  border-color: #333333;
+  box-shadow: none;
 }
 
 .nav-project-text {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .nav-project-text h3 {
-    font-size: 1.3rem;
-    color: #ffffff;
-    margin: 0;
-    font-weight: 700;
-    letter-spacing: 0.3px;
-    text-transform: none;
+  font-size: 1.3rem;
+  color: #ffffff;
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: none;
 }
 
 .nav-project-text p {
-    font-size: 0.95rem;
-    color: #aaaaaa;
-    line-height: 1.4;
-    margin: 0;
+  font-size: 0.95rem;
+  color: #aaaaaa;
+  line-height: 1.4;
+  margin: 0;
 }
 
 /* Mobile specific landing tweaks */
 @media (max-width: 900px) {
-    .nav-column {
-        padding: 40px 20px; /* Even less side padding inside the drawer on mobile */
-    }
-    
-    .nav-project-link {
-        padding: 16px 20px;
-    }
+  .nav-column {
+    padding: 40px 20px; /* Even less side padding inside the drawer on mobile */
+  }
+
+  .nav-project-link {
+    padding: 16px 20px;
+  }
 }

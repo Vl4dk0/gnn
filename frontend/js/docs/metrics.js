@@ -28,7 +28,8 @@
   }
 
   function normalizeModel(model) {
-    const metrics = model && typeof model === "object" ? model.metrics || {} : {};
+    const metrics =
+      model && typeof model === "object" ? model.metrics || {} : {};
     return {
       model_id:
         model && typeof model.model_id === "string" && model.model_id.trim()
@@ -197,7 +198,6 @@
         );
       }
     }
-
   }
 
   document.addEventListener("DOMContentLoaded", () => {
