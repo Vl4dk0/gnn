@@ -1,10 +1,14 @@
 import argparse
 import copy
+import json
 import os
+import re
 import sys
 import time
+from collections import Counter
 from collections import deque
 from collections import defaultdict
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -12,6 +16,14 @@ import torch
 import torch.optim as optim
 from torch.distributions import Categorical
 from torch_geometric.data import Data
+try:
+    from rich.console import Console
+    from rich.live import Live
+    from rich.table import Table
+except ModuleNotFoundError:
+    Console = None  # type: ignore[assignment]
+    Live = None  # type: ignore[assignment]
+    Table = None  # type: ignore[assignment]
 
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../.."))
@@ -19,7 +31,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../.."))
 from ai.cage.rl.env import CageConstructionEnv
 from ai.cage.rl.model import ActorCritic
 from ai.models import MODEL_CLASSES
-from ai.registry import list_model_types, model_exists, save_model
+from ai.registry import get_trained_dir, list_model_types, model_exists, save_model
 
 
 def compute_gae(
@@ -59,18 +71,43 @@ def train_ppo(
 ) -> None:
     """Train Generalist PPO agent for cage generation."""
     del print_every
+    if Console is not None and Table is not None and Live is not None:
+        console: Any = Console()
+        table_cls: Any = Table
+        live_cls: Any = Live
+        use_rich_live = True
+    else:
+        class _FallbackConsole:
+            def rule(self, title: str = "") -> None:
+                print(re.sub(r"\[[^\]]+\]", "", title))
+
+            def print(self, *args: Any, **_: Any) -> None:
+                cleaned = [re.sub(r"\[[^\]]+\]", "", str(a)) for a in args]
+                print(*cleaned)
+
+        class _FallbackTable:
+            def __init__(self, show_header: bool = False):
+                del show_header
+                self.rows: list[tuple[str, str]] = []
+
+            def add_row(self, left: str, right: str) -> None:
+                self.rows.append((left, right))
+
+            def __str__(self) -> str:
+                return "\n".join(f"{k}: {v}" for (k, v) in self.rows)
+
+        console = _FallbackConsole()
+        table_cls = _FallbackTable
+        live_cls = None
+        use_rich_live = False
 
     model_id = f"{model_type}_{model_name}"
 
-    if model_exists("cage", model_id) and not force:
-        print(f"Error: Model '{model_id}' already exists for task 'cage'.")
-        print("Use --force to overwrite, or choose a different --name.")
-        sys.exit(1)
-
     env = CageConstructionEnv(k=3, g=5, randomize_params=randomize)
-
-    # Input dim in env observation: MAX_K (10) + 3 = 13
-    input_dim = 13
+    sample_obs = env.reset()
+    if sample_obs.x is None:
+        raise RuntimeError("Environment observation is missing node features.")
+    input_dim = int(sample_obs.x.size(1))
 
     if model_type not in MODEL_CLASSES:
         print(f"Error: Unknown model type '{model_type}'.")
@@ -86,6 +123,39 @@ def train_ppo(
     ).to(device)
 
     optimizer = optim.Adam(agent.parameters(), lr=lr)
+    resumed = False
+    resume_path: Path | None = None
+
+    if model_exists("cage", model_id):
+        model_dir = get_trained_dir("cage") / model_id
+        weights_path = model_dir / "weights.pt"
+        info_path = model_dir / "info.json"
+        if force:
+            console.print(
+                f"[yellow]Force mode:[/] existing model {model_id} will be overwritten from scratch."
+            )
+        else:
+            try:
+                agent.load_state_dict(torch.load(weights_path, map_location=device))
+                resumed = True
+                resume_path = weights_path
+                console.print(
+                    f"[green]Resume:[/] loaded existing checkpoint for {model_id} from {weights_path}."
+                )
+                if info_path.exists():
+                    with open(info_path, "r") as f:
+                        prev_info = json.load(f)
+                    prev_metrics = prev_info.get("metrics", {})
+                    if "avg_reward" in prev_metrics:
+                        console.print(
+                            f"[green]Resume metrics:[/] previous avg_reward={prev_metrics['avg_reward']}"
+                        )
+            except Exception as e:
+                console.print(
+                    f"[red]Failed to resume {model_id}:[/] {e}\n"
+                    "Run with --force to start from scratch for this name."
+                )
+                sys.exit(1)
 
     gamma = 0.99
     gae_lambda = 0.95
@@ -93,20 +163,20 @@ def train_ppo(
     value_coef = 0.5
     entropy_coef = 0.01
 
-    print("=" * 60)
-    print("Starting Generalist PPO Training")
-    print(f"Model ID: {model_id}")
-    print("=" * 60)
-    print("Configuration:")
-    print(f"  - Model Type: {model_type}")
-    print(f"  - Steps: {total_timesteps}")
-    print(f"  - Hidden Dim: {hidden_dim}")
-    print(f"  - Num Layers: {num_layers}")
-    print(f"  - Dropout: {dropout}")
-    print(f"  - Learning Rate: {lr}")
-    print(f"  - Randomize Curriculum: {randomize}")
-    print(f"  - Device: {device}")
-    print("=" * 60)
+    console.rule("Starting PPO Training")
+    console.print(f"Model ID: {model_id}")
+    cfg = table_cls(show_header=False)
+    cfg.add_row("Model Type", model_type)
+    cfg.add_row("Steps", str(total_timesteps))
+    cfg.add_row("Hidden Dim", str(hidden_dim))
+    cfg.add_row("Num Layers", str(num_layers))
+    cfg.add_row("Dropout", str(dropout))
+    cfg.add_row("Learning Rate", str(lr))
+    cfg.add_row("Randomize Curriculum", str(randomize))
+    cfg.add_row("Device", str(device))
+    cfg.add_row("Input Dim", str(input_dim))
+    console.print(cfg)
+    console.rule()
 
     obs_buffer: list[Data] = []
     action_buffer: list[int] = []
@@ -129,7 +199,7 @@ def train_ppo(
     )
     episode_idx = 0
 
-    obs = env.reset().to(device)
+    obs = sample_obs.to(device)
     current_ep_k = env.k
     current_ep_g = env.g
     current_ep_nodes = env.num_nodes
@@ -137,106 +207,135 @@ def train_ppo(
     current_ep_reward = 0.0
     current_ep_len = 0
     current_ep_actions: list[str] = []
+    current_ep_action_counts: Counter[str] = Counter()
 
     start_time = time.time()
     best_avg_reward = -float("inf")
     best_model_state: dict[str, Any] | None = None
     fps = 0
+    live_view: Any = None
+    if use_rich_live and live_cls is not None:
+        initial = table_cls(show_header=False)
+        initial.add_row("status", "waiting for first live step")
+        live_view = live_cls(initial, console=console, refresh_per_second=8, transient=True)
+        live_view.start()
 
-    while global_step < total_timesteps:
-        agent.eval()
-        rollout_start_time = time.time()
+    try:
+        while global_step < total_timesteps:
+            agent.eval()
+            rollout_start_time = time.time()
 
-        for i in range(update_interval):
-            if global_step >= total_timesteps:
+            for i in range(update_interval):
+                if global_step >= total_timesteps:
+                    break
+
+                if (i + 1) % 100 == 0 and live_view is None:
+                    elapsed = time.time() - rollout_start_time
+                    steps_per_sec = (i + 1) / elapsed if elapsed > 0 else 0.0
+                    print(
+                        f"  [Rollout] Collecting step {i + 1}/{update_interval} "
+                        f"(Global: {global_step}) | Speed: {steps_per_sec:.1f} steps/s",
+                        end="\r",
+                    )
+
+                with torch.no_grad():
+                    mask = env.get_valid_action_mask().to(device)
+                    action, log_prob, value = agent.get_action(obs, action_mask=mask)
+
+                next_obs, reward, done, info = env.step(action)
+                next_obs = next_obs.to(device)
+
+                action_type = str(info.get("action_type", "unknown"))
+                edge = info.get("edge", ["-", "-"])
+                action_desc = f"{edge[0]}-{edge[1]}"
+                action_str = f"{action_type}:{action_desc} r={reward:+.2f}"
+                current_ep_actions.append(action_str)
+                current_ep_action_counts[action_type] += 1
+                if len(current_ep_actions) > max_logged_actions:
+                    current_ep_actions.pop(0)
+
+                obs_buffer.append(obs)
+                action_buffer.append(action)
+                log_prob_buffer.append(log_prob)
+                value_buffer.append(value.item())
+                reward_buffer.append(reward)
+                mask_buffer.append(mask)
+                done_buffer.append(done)
+
+                obs = next_obs
+                global_step += 1
+                current_ep_reward += reward
+                current_ep_len += 1
+
+                if live_log_every > 0 and current_ep_len % live_log_every == 0:
+                    done_reason = info.get("done_reason", "-")
+                    if live_view is not None:
+                        status = table_cls(show_header=False)
+                        status.add_row("episode", f"{episode_idx + 1}  k={current_ep_k} g={current_ep_g} cap={current_ep_nodes} step={current_ep_len}")
+                        status.add_row("action", f"{action_type}:{action_desc}")
+                        status.add_row("reward/score", f"{reward:+.2f} / {float(info.get('episode_score', 0.0)):+.2f}")
+                        status.add_row("edges/active", f"{info.get('num_edges', 0)} / {info.get('active_nodes', 0)}")
+                        counts_line = ", ".join(
+                            f"{k}: {v}" for (k, v) in sorted(current_ep_action_counts.items())
+                        )
+                        status.add_row("action counts", counts_line if counts_line else "-")
+                        status.add_row("done/reason", f"{done} / {done_reason}")
+                        live_view.update(status, refresh=True)
+                    else:
+                        console.print(
+                            (
+                                f"LIVE ep={episode_idx + 1} k={current_ep_k} g={current_ep_g} "
+                                f"cap={current_ep_nodes} step={current_ep_len} "
+                                f"action={action_type}:{action_desc} reward={reward:+.2f} "
+                                f"score={float(info.get('episode_score', 0.0)):+.2f} "
+                                f"edges={info.get('num_edges', 0)} "
+                                f"active={info.get('active_nodes', 0)} done={done} reason={done_reason}"
+                            )
+                        )
+
+                if done:
+                    episode_rewards.append(current_ep_reward)
+                    episode_lens.append(current_ep_len)
+
+                    episode_idx += 1
+                    kg_key = (current_ep_k, current_ep_g)
+                    kg_stats[kg_key]["episodes"] += 1
+                    kg_stats[kg_key]["successes"] += (
+                        1.0 if bool(info.get("success", False)) else 0.0
+                    )
+                    kg_stats[kg_key]["reward_sum"] += current_ep_reward
+                    kg_stats[kg_key]["len_sum"] += current_ep_len
+
+                    status = "SUCCESS" if bool(info.get("success", False)) else "FAIL"
+                    summary = table_cls(show_header=False)
+                    summary.add_row("Episode", str(episode_idx))
+                    summary.add_row("Status", status)
+                    summary.add_row("k,g", f"{current_ep_k}, {current_ep_g}")
+                    summary.add_row("Capacity Nodes", str(current_ep_nodes))
+                    summary.add_row("Steps", str(current_ep_len))
+                    summary.add_row("Reward", f"{current_ep_reward:+.2f}")
+                    summary.add_row("Done Reason", str(info.get("done_reason", "-")))
+                    counts_line = ", ".join(
+                        f"{k}: {v}" for (k, v) in sorted(current_ep_action_counts.items())
+                    )
+                    summary.add_row("Action Counts", counts_line if counts_line else "-")
+                    console.print(summary)
+                    if current_ep_actions:
+                        console.print("actions:", " | ".join(current_ep_actions))
+
+                    current_ep_reward = 0.0
+                    current_ep_len = 0
+                    current_ep_actions = []
+                    current_ep_action_counts = Counter()
+                    obs = env.reset().to(device)
+                    current_ep_k = env.k
+                    current_ep_g = env.g
+                    current_ep_nodes = env.num_nodes
+
+            if not obs_buffer:
                 break
 
-            if (i + 1) % 100 == 0:
-                elapsed = time.time() - rollout_start_time
-                steps_per_sec = (i + 1) / elapsed if elapsed > 0 else 0.0
-                print(
-                    f"  [Rollout] Collecting step {i + 1}/{update_interval} "
-                    f"(Global: {global_step}) | Speed: {steps_per_sec:.1f} steps/s",
-                    end="\r",
-                )
-
-            with torch.no_grad():
-                mask = env.get_valid_action_mask().to(device)
-                action, log_prob, value = agent.get_action(obs, action_mask=mask)
-
-            u, v = env.idx_to_edge(action)
-            next_obs, reward, done, info = env.step(action)
-            next_obs = next_obs.to(device)
-
-            action_type = str(info.get("action_type", "unknown"))
-            action_str = f"{action_type}:{u}-{v} r={reward:+.2f}"
-            current_ep_actions.append(action_str)
-            if len(current_ep_actions) > max_logged_actions:
-                current_ep_actions.pop(0)
-
-            obs_buffer.append(obs)
-            action_buffer.append(action)
-            log_prob_buffer.append(log_prob)
-            value_buffer.append(value.item())
-            reward_buffer.append(reward)
-            mask_buffer.append(mask)
-            done_buffer.append(done)
-
-            obs = next_obs
-            global_step += 1
-            current_ep_reward += reward
-            current_ep_len += 1
-
-            if live_log_every > 0 and current_ep_len % live_log_every == 0:
-                done_reason = info.get("done_reason", "-")
-                print(
-                    f"  [Live] ep={episode_idx + 1} k={current_ep_k} g={current_ep_g} "
-                    f"n={current_ep_nodes} step={current_ep_len} "
-                    f"action={action_type}:{u}-{v} reward={reward:+.2f} "
-                    f"score={float(info.get('episode_score', 0.0)):+.2f} "
-                    f"edges={info.get('num_edges', 0)} "
-                    f"done={done} reason={done_reason}",
-                    end="\r",
-                )
-
-            if done:
-                print()
-                episode_rewards.append(current_ep_reward)
-                episode_lens.append(current_ep_len)
-
-                episode_idx += 1
-                kg_key = (current_ep_k, current_ep_g)
-                kg_stats[kg_key]["episodes"] += 1
-                kg_stats[kg_key]["successes"] += (
-                    1.0 if bool(info.get("success", False)) else 0.0
-                )
-                kg_stats[kg_key]["reward_sum"] += current_ep_reward
-                kg_stats[kg_key]["len_sum"] += current_ep_len
-
-                status = "SUCCESS" if bool(info.get("success", False)) else "FAIL"
-                print(
-                    f"[Episode {episode_idx}] {status} | "
-                    f"k={current_ep_k} g={current_ep_g} n={current_ep_nodes} | "
-                    f"steps={current_ep_len} reward={current_ep_reward:+.2f} "
-                    f"reason={info.get('done_reason', '-')}"
-                )
-                if current_ep_actions:
-                    print("  actions:", " | ".join(current_ep_actions))
-
-                current_ep_reward = 0.0
-                current_ep_len = 0
-                current_ep_actions = []
-                obs = env.reset().to(device)
-                current_ep_k = env.k
-                current_ep_g = env.g
-                current_ep_nodes = env.num_nodes
-
-        print()
-
-        if not obs_buffer:
-            break
-
-        agent.train()
+            agent.train()
 
         with torch.no_grad():
             _, next_value = agent(obs)
@@ -312,13 +411,15 @@ def train_ppo(
         elapsed = time.time() - start_time
         fps = int(global_step / elapsed) if elapsed > 0 else 0
 
-        print(
-            f"Step {global_step} | Avg Reward: {avg_rew:.2f} | "
-            f"Avg Len: {avg_len:.1f} | FPS: {fps}"
-        )
+        rollout_tbl = table_cls(show_header=False)
+        rollout_tbl.add_row("Global Step", str(global_step))
+        rollout_tbl.add_row("Avg Reward (last 20 eps)", f"{avg_rew:.2f}")
+        rollout_tbl.add_row("Avg Length (last 20 eps)", f"{avg_len:.1f}")
+        rollout_tbl.add_row("FPS", str(fps))
+        console.print(rollout_tbl)
 
         if kg_stats:
-            print("  [k,g stats] episodes/success/avg_rew/avg_len:")
+            console.print("k,g stats: episodes/success/avg_rew/avg_len")
             ranked = sorted(
                 kg_stats.items(),
                 key=lambda kv: kv[1]["episodes"],
@@ -329,7 +430,7 @@ def train_ppo(
                 succ_rate = 100.0 * stats["successes"] / eps
                 avg_pair_rew = stats["reward_sum"] / eps
                 avg_pair_len = stats["len_sum"] / eps
-                print(
+                console.print(
                     f"    ({k_val},{g_val}): "
                     f"{int(stats['episodes'])} eps | "
                     f"{succ_rate:5.1f}% | "
@@ -340,7 +441,10 @@ def train_ppo(
         if avg_rew > best_avg_reward:
             best_avg_reward = avg_rew
             best_model_state = copy.deepcopy(agent.state_dict())
-            print(f"  -> New best! Avg Reward: {best_avg_reward:.2f}")
+            console.print(f"New best! Avg Reward: {best_avg_reward:.2f}")
+    finally:
+        if live_view is not None:
+            live_view.stop()
 
     if best_model_state is not None:
         agent.load_state_dict(best_model_state)
@@ -350,6 +454,8 @@ def train_ppo(
         "learning_rate": lr,
         "update_interval": update_interval,
         "randomize": randomize,
+        "resumed": resumed,
+        "resume_path": str(resume_path) if resume_path is not None else None,
     }
 
     base_gnn_model: Any = agent
@@ -365,9 +471,9 @@ def train_ppo(
         training_info=training_info,
     )
 
-    print("=" * 60)
-    print(f"Model saved via registry to: {save_path}")
-    print("=" * 60)
+    console.rule("Training Finished")
+    console.print(f"Model saved via registry to: {save_path}")
+    console.rule()
 
 
 if __name__ == "__main__":
@@ -383,7 +489,13 @@ if __name__ == "__main__":
         choices=list(MODEL_CLASSES.keys()),
         help="Model type",
     )
-    parser.add_argument("--name", "-n", type=str, required=True, help="Model version name")
+    parser.add_argument(
+        "--name",
+        "-n",
+        type=str,
+        required=True,
+        help="Model run name (model_id becomes <model>_<name>)",
+    )
 
     parser.add_argument("--steps", type=int, default=100000, help="Total training steps")
     parser.add_argument("--hidden-dim", type=int, default=128, help="Hidden dimension")
@@ -408,7 +520,12 @@ if __name__ == "__main__":
         action="store_true",
         help="Disable curriculum randomization",
     )
-    parser.add_argument("--force", "-f", action="store_true", help="Overwrite existing model")
+    parser.add_argument(
+        "--force",
+        "-f",
+        action="store_true",
+        help="Start from scratch even if model_id exists (do not resume)",
+    )
 
     default_device = "cpu"
     if torch.backends.mps.is_available():

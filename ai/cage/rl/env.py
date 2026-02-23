@@ -1,47 +1,46 @@
-"""
-Gym-like environment for Cage Graph Construction.
-"""
+"""Gym-like environment for cage graph construction."""
+
+from __future__ import annotations
 
 import random
+from typing import Any
+
 import networkx as nx
 import torch
 from torch_geometric.data import Data
-from typing import Any
 
-from backend.utils.graph_utils import moore_bound, moore_hoffman_upper_bound
+from backend.utils.graph_utils import moore_bound
 
 
 class CageConstructionEnv:
     """
-    RL Environment for constructing (k,g)-cage graphs.
+    RL environment for constructing (k,g)-graphs with edge-only actions.
 
-    State:
-        - Graph structure (edge_index)
-        - Node features: [One-hot Degree, Norm Degree, Norm K, Norm G]
-
-    Action:
-        - Add edge (u, v)
-
-    Constraints:
-        - No self-loops (handled by action space definition)
-        - No multi-edges
-        - Max degree k
-        - Girth >= g
+    Action space:
+      - one action for each unordered pair (u,v), u<v
+      - if edge exists: try remove
+      - if edge does not exist: try add
     """
+
+    SCORE_FLOOR: float = -20.0
+    SUCCESS_REWARD: float = 20.0
+    INVALID_PENALTY: float = -0.05
+    ADD_REWARD: float = 0.1
+    SATISFY_BONUS: float = 0.1
 
     k: int
     g: int
     default_k: int
     default_g: int
     randomize_params: bool
-    MAX_K: int
-    MAX_G: int
+    max_k_norm: int
+    max_g_norm: int
     mb: int
     n_min: int
     n_max: int
     max_steps: int
     num_nodes: int
-    graph: nx.Graph
+    graph: nx.Graph[int]
     current_step: int
     episode_score: float
 
@@ -60,11 +59,8 @@ class CageConstructionEnv:
         self.g = g
         self.randomize_params = randomize_params
 
-        # Max possible values for normalization
-        self.MAX_K = 10
-        self.MAX_G = 12
-
-        # Initial bounds calculation (will update on reset if randomized)
+        self.max_k_norm = 10
+        self.max_g_norm = 12
         self._update_bounds(n_min, n_max)
 
         self.max_steps = max_steps
@@ -73,144 +69,131 @@ class CageConstructionEnv:
         self.current_step = 0
         self.episode_score = 0.0
 
-    def _update_bounds(
-        self, n_min: int | None = None, n_max: int | None = None
-    ) -> None:
+    def _update_bounds(self, n_min: int | None = None, n_max: int | None = None) -> None:
         self.mb = moore_bound(self.k, self.g)
-        if n_min is None:
-            self.n_min = self.mb
-        else:
-            self.n_min = n_min
+        self.n_min = self.mb if n_min is None else n_min
+        self.n_max = max(int(self.mb * 1.5), self.mb + 10) if n_max is None else n_max
 
-        if n_max is None:
-            # Heuristic upper bound
-            self.n_max = max(int(self.mb * 1.5), self.mb + 10)
-        else:
-            self.n_max = n_max
+    def get_input_dim(self) -> int:
+        """Feature dimension for node state."""
+        # one-hot degree bins + norm degree + norm k + norm g + active flag
+        return self.max_k_norm + 4
+
+    def get_num_pair_actions(self) -> int:
+        """Action count over all unordered pairs."""
+        return (self.num_nodes * (self.num_nodes - 1)) // 2
+
+    def get_action_dim(self) -> int:
+        """Total action dimension."""
+        return self.get_num_pair_actions()
+
+    def _active_nodes(self) -> set[int]:
+        """Active vertices are exactly those connected to the graph."""
+        return {n for n in self.graph.nodes if self.graph.degree(n) > 0}
+
+    def _active_subgraph(self) -> nx.Graph[int]:
+        active = self._active_nodes()
+        if not active:
+            return nx.Graph()
+        return self.graph.subgraph(active).copy()
+
+    def _active_component_count(self) -> int:
+        sg = self._active_subgraph()
+        if sg.number_of_nodes() == 0:
+            return 0
+        return nx.number_connected_components(sg)
+
+    def _is_k_regular_active(self) -> bool:
+        active = self._active_nodes()
+        if len(active) < (self.k + 1):
+            return False
+        return all(self.graph.degree(n) == self.k for n in active)
+
+    def _is_girth_satisfied_active(self) -> bool:
+        sg = self._active_subgraph()
+        if sg.number_of_edges() == 0:
+            return True
+        cycles = nx.cycle_basis(sg)
+        if not cycles:
+            return True
+        return min(len(c) for c in cycles) >= self.g
+
+    def _can_add_by_active_rule(self, u: int, v: int) -> bool:
+        active = self._active_nodes()
+        if not active:
+            # First edge can connect any two inactive vertices.
+            return True
+        return (u in active) or (v in active)
+
+    def _can_add_edge(self, u: int, v: int) -> bool:
+        if self.graph.has_edge(u, v):
+            return False
+        if not self._can_add_by_active_rule(u, v):
+            return False
+        if self.graph.degree(u) >= self.k or self.graph.degree(v) >= self.k:
+            return False
+        try:
+            path_len = nx.shortest_path_length(self.graph, u, v)
+            return (path_len + 1) >= self.g
+        except nx.NetworkXNoPath:
+            return True
 
     def reset(self, num_nodes: int | None = None) -> Data:
-        """
-        Reset the environment.
-        """
+        """Reset environment and sample a new target when randomization is enabled."""
         if self.randomize_params:
-            # Curriculum: Randomize k and g with safe complexity limits
-            # We want to avoid graphs that are too large for efficient training
-            # Limit based on Moore Bound
-
             while True:
-                # Candidate k, g
                 k = random.randint(3, 7)
                 g = random.randint(5, 10)
-
                 try:
                     mb = moore_bound(k, g)
-                    # Hard limit: Training on graphs > 60 nodes is too slow for now
                     if mb <= 60:
                         self.k = k
                         self.g = g
                         break
                 except ValueError:
                     continue
-
             self._update_bounds()
         else:
             self.k = self.default_k
             self.g = self.default_g
             self._update_bounds()
 
-        if num_nodes is None:
-            self.num_nodes = random.randint(self.n_min, self.n_max)
-        else:
-            self.num_nodes = num_nodes
-
+        self.num_nodes = random.randint(self.n_min, self.n_max) if num_nodes is None else num_nodes
         self.current_step = 0
         self.episode_score = 0.0
         self.graph = nx.Graph()
         self.graph.add_nodes_from(range(self.num_nodes))
-
         return self._get_obs()
 
     def _get_obs(self) -> Data:
-        """Convert current state to PyG Data object."""
-        # Node features:
-        # 1. One-hot encoding of degree (up to MAX_K)
-        # 2. Normalized degree
-        # 3. Normalized target K
-        # 4. Normalized target G
-
-        degrees = [self.graph.degree(i) for i in range(self.num_nodes)]
-
-        # Feature dim = MAX_K + 1 (norm deg) + 1 (norm K) + 1 (norm G) = MAX_K + 3
-        # e.g., if MAX_K=10, input_dim=13
-        input_dim = self.MAX_K + 3
+        """Convert state to PyG Data."""
+        active = self._active_nodes()
+        input_dim = self.get_input_dim()
         x = torch.zeros((self.num_nodes, input_dim), dtype=torch.float)
 
-        norm_k = self.k / self.MAX_K
-        norm_g = self.g / self.MAX_G
+        norm_k = self.k / self.max_k_norm
+        norm_g = self.g / self.max_g_norm
 
-        for i, d in enumerate(degrees):
-            # One-hot degree (clamp to MAX_K-1)
-            idx = min(d, self.MAX_K - 1)
-            x[i, idx] = 1.0
+        for i in range(self.num_nodes):
+            deg = self.graph.degree(i) if i in active else 0
+            idx = min(deg, self.max_k_norm - 1)
+            x[i, idx] = 1.0 if i in active else 0.0
+            x[i, self.max_k_norm] = (deg / max(1, self.k)) if i in active else 0.0
+            x[i, self.max_k_norm + 1] = norm_k
+            x[i, self.max_k_norm + 2] = norm_g
+            x[i, self.max_k_norm + 3] = 1.0 if i in active else 0.0
 
-            # Normalized features
-            x[i, self.MAX_K] = d / self.k  # Norm Degree
-            x[i, self.MAX_K + 1] = norm_k  # Target K
-            x[i, self.MAX_K + 2] = norm_g  # Target G
-
-        # Edge index
-        if self.graph.number_of_edges() > 0:
-            edge_index = (
-                torch.tensor(list(self.graph.edges()), dtype=torch.long)
-                .t()
-                .contiguous()
-            )
+        edges = list(self.graph.edges())
+        if edges:
+            edge_index = torch.tensor(edges, dtype=torch.long).t().contiguous()
             edge_index = torch.cat([edge_index, edge_index.flip(0)], dim=1)
         else:
             edge_index = torch.empty((2, 0), dtype=torch.long)
 
         return Data(x=x, edge_index=edge_index, num_nodes=self.num_nodes)
 
-    def get_valid_action_mask(self) -> torch.Tensor:
-        """
-        Compute valid actions over all vertex pairs.
-
-        Action semantics per pair (u, v):
-        - If edge exists: action means REMOVE edge (always valid).
-        - Else: action means ADD edge (valid only if constraints hold).
-        """
-        mask = []
-        nodes = range(self.num_nodes)
-        degrees = [self.graph.degree(i) for i in nodes]
-
-        def check_girth(u, v):
-            try:
-                # Optimization: BFS with depth limit g-2
-                path_len = nx.shortest_path_length(self.graph, u, v)
-                return (path_len + 1) >= self.g
-            except nx.NetworkXNoPath:
-                return True
-
-        for u in range(self.num_nodes):
-            for v in range(u + 1, self.num_nodes):
-                # Existing edge can always be removed.
-                if self.graph.has_edge(u, v):
-                    mask.append(True)
-                    continue
-
-                # Otherwise action means ADD edge; validate constraints.
-                if degrees[u] >= self.k or degrees[v] >= self.k:
-                    mask.append(False)
-                    continue
-                if not check_girth(u, v):
-                    mask.append(False)
-                    continue
-                mask.append(True)
-
-        return torch.tensor(mask, dtype=torch.bool)
-
     def idx_to_edge(self, idx: int) -> tuple[int, int]:
-        """Convert flat index to (u, v)."""
+        """Convert flat pair index to (u,v)."""
         count = 0
         for u in range(self.num_nodes):
             row_len = self.num_nodes - 1 - u
@@ -220,89 +203,90 @@ class CageConstructionEnv:
             count += row_len
         return 0, 0
 
+    def get_valid_action_mask(self) -> torch.Tensor:
+        """
+        Return valid pair actions.
+        - Existing edge: removable action is allowed.
+        - Missing edge: add action allowed only if _can_add_edge passes.
+        """
+        mask: list[bool] = []
+        for u in range(self.num_nodes):
+            for v in range(u + 1, self.num_nodes):
+                if self.graph.has_edge(u, v):
+                    mask.append(True)
+                else:
+                    mask.append(self._can_add_edge(u, v))
+        return torch.tensor(mask, dtype=torch.bool)
+
     def step(self, action_idx: int) -> tuple[Data, float, bool, dict[str, Any]]:
-        """Execute action."""
+        """Apply one pair action."""
         self.current_step += 1
+        reward = 0.0
+        done = False
 
         u, v = self.idx_to_edge(action_idx)
+        pre_active_count = len(self._active_nodes())
         info: dict[str, Any] = {
             "k": self.k,
             "g": self.g,
-            "num_nodes": self.num_nodes,
+            "capacity_nodes": self.num_nodes,
+            "active_nodes": pre_active_count,
             "step": self.current_step,
             "action_idx": action_idx,
             "edge": [u, v],
             "action_type": "unknown",
+            "success": False,
         }
 
-        # Existing edge => REMOVE action.
+        valid_action = False
         if self.graph.has_edge(u, v):
+            # Try remove; reject if it would split active graph.
             self.graph.remove_edge(u, v)
-            reward = -0.2
-            done = False
-            info["action_type"] = "remove"
-            info["success"] = False
-        else:
-            # Otherwise this is an ADD action and must satisfy constraints.
-            if self.graph.degree(u) >= self.k or self.graph.degree(v) >= self.k:
-                reward = -1.0
-                done = False
-                info["action_type"] = "add"
-                info["error"] = "Invalid action: degree limit"
-                info["success"] = False
-                info["done_reason"] = "invalid_action"
+            if self._active_component_count() > 1:
+                self.graph.add_edge(u, v)
+                reward += self.INVALID_PENALTY
+                info["action_type"] = "edge_invalid_remove"
+                info["done_reason"] = "split_component"
             else:
-                try:
-                    path_len = nx.shortest_path_length(self.graph, u, v)
-                    add_ok = (path_len + 1) >= self.g
-                except nx.NetworkXNoPath:
-                    add_ok = True
+                valid_action = True
+                info["action_type"] = "edge_remove"
+        else:
+            if self._can_add_edge(u, v):
+                self.graph.add_edge(u, v)
+                reward += self.ADD_REWARD
+                valid_action = True
+                info["action_type"] = "edge_add"
+            else:
+                reward += self.INVALID_PENALTY
+                info["action_type"] = "edge_invalid_add"
+                info["done_reason"] = "add_rule_or_constraint"
 
-                if not add_ok:
-                    reward = -1.0
-                    done = False
-                    info["action_type"] = "add"
-                    info["error"] = "Invalid action: girth violation"
-                    info["success"] = False
-                    info["done_reason"] = "invalid_action"
-                else:
-                    self.graph.add_edge(u, v)
-                    reward = 0.1
-                    done = False
-                    info["action_type"] = "add"
-                    info["success"] = False
+        girth_ok = self._is_girth_satisfied_active()
+        is_k_regular = self._is_k_regular_active()
+        if valid_action and (girth_ok or is_k_regular):
+            reward += self.SATISFY_BONUS
 
-        is_k_reg = all(self.graph.degree(n) == self.k for n in self.graph.nodes())
-
-        if is_k_reg:
-            # Huge reward for success
-            reward = 10.0 + (self.g * 0.5)  # Bonus for harder girths
+        if is_k_regular and girth_ok:
+            reward += self.SUCCESS_REWARD
             done = True
             info["success"] = True
             info["done_reason"] = "success"
 
-        # Dead-end: no valid add/remove actions left.
-        valid_mask = self.get_valid_action_mask()
-        if (not done) and (not bool(valid_mask.any())):
-            reward = -2.0
-            done = True
-            info["success"] = False
-            info["done_reason"] = "dead_end"
-
         if (not done) and self.current_step >= self.max_steps:
             done = True
-            reward = -1.0
             info["success"] = False
             info["done_reason"] = "max_steps"
 
         self.episode_score += reward
-        if (not done) and self.episode_score <= -10.0:
+        if (not done) and self.episode_score <= self.SCORE_FLOOR:
             done = True
             info["success"] = False
             info["done_reason"] = "score_floor"
 
-        info["num_edges"] = self.graph.number_of_edges()
-        info["is_k_regular"] = is_k_reg
         info["episode_score"] = self.episode_score
+        info["num_edges"] = self.graph.number_of_edges()
+        info["active_nodes"] = len(self._active_nodes())
+        info["girth_ok"] = girth_ok
+        info["is_k_regular"] = is_k_regular
 
         return self._get_obs(), reward, done, info

@@ -120,10 +120,9 @@ class ActorCritic(nn.Module):
         h_u = h[u_indices]
         h_v = h[v_indices]
 
-        # Compute scores [num_pairs, 1]
+        # Compute pair scores [num_pairs, 1]
         # Bilinear: x1 * A * x2 + b
         logits = self.actor_bilinear(h_u, h_v).squeeze(-1)
-
         return logits, value
 
     def get_action(
