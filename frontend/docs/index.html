@@ -3,105 +3,122 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GNN Project Notes - Overview</title>
+    <title>Project Notes - Overview</title>
     <link rel="stylesheet" href="/css/docs.css" />
   </head>
   <body>
     <main class="page">
-      <nav class="nav">
-        <a class="active" href="/docs/index.html">Overview</a>
-        <a href="/docs/architecture.html">Architecture</a>
-        <a href="/docs/training.html">Training Notes</a>
-      </nav>
+      <header class="topbar">
+        <a class="apps-link" href="/">Back to Apps</a>
+      </header>
 
       <section class="hero">
-        <h1>GNN Experimentation Platform</h1>
+        <h1>Graph neural networks for algebraic graph theory</h1>
         <p>
-          This project is an interactive environment for experimenting with
-          graph neural networks and combinatorial graph problems. It combines a
-          static frontend editor with a Flask backend and model registry.
-        </p>
-      </section>
-
-      <section class="grid modules-grid section">
-        <a class="card-link" href="/docs/module-degree.html">
-          <article class="card module-card">
-            <span class="chip module-chip">Module 01</span>
-            <h2>Degree Prediction</h2>
-            <p>
-              Predict node degree from structure. Includes training setup,
-              complete model metrics, and interpretation of why some models hit
-              exact matches while others drift.
-            </p>
-          </article>
-        </a>
-
-        <a class="card-link" href="/docs/module-min-cycle.html">
-          <article class="card module-card">
-            <span class="chip module-chip">Module 02</span>
-            <h2>Minimum-Cycle Prediction</h2>
-            <p>
-              Predict shortest cycle length through each node. Includes training
-              details and analysis of why cycle-sensitive models separate from
-              baseline message-passing models.
-            </p>
-          </article>
-        </a>
-
-        <a class="card-link" href="/docs/module-cage.html">
-          <article class="card module-card module-card--wide">
-            <span class="chip module-chip">Module 03</span>
-            <h2>Cage Generator</h2>
-            <p>
-              Generate candidate cage graphs with search and RL. Includes queue
-              constraints, checkpoint coverage, and discussion of practical
-              interpretation when RL metadata is limited.
-            </p>
-          </article>
-        </a>
-      </section>
-
-      <section class="card section">
-        <h2>Why This Work Matters Overall</h2>
-        <p>
-          Graph-structured tasks appear in chemistry, planning, recommendation,
-          and network analysis. Having one environment where multiple graph
-          objectives are implemented side by side lets you compare what is easy
-          for standard message passing and what needs stronger structural bias.
-          This helps turn model selection into an evidence-based decision rather
-          than trial-and-error.
-        </p>
-        <p>
-          The degree task acts as a low-level sanity check, min-cycle tests
-          whether the model can capture cycle structure, and cage generation
-          stresses constructive search under constraints. Together they form a
-          progression from node regression to structure-aware reasoning and
-          controlled generation.
+          The core thesis question is: can learning help us construct new
+          <code>(k,g)</code>-cage graphs? Before models and metrics, I need the
+          language to be precise.
         </p>
       </section>
 
       <section class="card section">
-        <h2>Why Model Performance Differs</h2>
+        <h2>What do these terms mean?</h2>
         <p>
-          Not all tasks reward the same inductive bias. Degree prediction can be
-          solved well by architectures that aggregate local neighbor statistics,
-          so some models saturate quickly. Minimum-cycle prediction requires
-          stronger cycle-sensitive representations, where models with explicit
-          cycle-related structure (such as Loopy variants) can gain a large
-          advantage.
+          A graph is <code>k</code>-regular when every vertex has exactly
+          <code>k</code> neighbors. If <code>k=3</code>, every vertex must have
+          degree 3, no exceptions. The <code>girth</code> of a graph is the
+          length of its shortest cycle. So if the smallest loop has 5 edges,
+          girth is 5.
         </p>
         <p>
-          Training dynamics also matter: best epoch can differ dramatically
-          across models, indicating each architecture has a different stability
-          region. Comparing MAE, MSE, and exact-match accuracy together is
-          important because each metric highlights a different failure mode.
+          A <code>(k,g)</code>-graph is simply a graph that satisfies both
+          conditions at once: it is <code>k</code>-regular and has girth
+          <code>g</code>. A <code>(k,g)</code>-cage is the smallest possible
+          graph that satisfies those two constraints.
         </p>
       </section>
 
-      <div class="page-links">
-        <a href="/">← Back to Apps</a>
-        <a href="/docs/architecture.html">Continue to Architecture details →</a>
-      </div>
+      <section class="card section">
+        <img src="/static/kg-graph-terms.svg" alt="k-regular and girth examples" style="width:100%; display:block; border-radius:8px;" />
+      </section>
+
+      <section class="card section">
+        <h2>Why this is hard</h2>
+        <p>
+          For example, if I were to generate k-regular graph, I would just create
+          complete graph of k+1 vertices. This is generally simple for any k.
+        </p>
+        <p>
+          If I were to generate graphs with girth g, I would just create a cycle
+          of length g. This is also generally simple for any g.
+        </p>
+        <p>
+          But combine those two with the minimum-size requirement, and the task
+          becomes a hard combinatorial search problem in practice. Exact cage
+          orders are still unknown for most <code>(k,g)</code> pairs. Notice
+          that I used a clear trick for each single constraint; maybe there is
+          an analogous trick for <code>(k,g)</code>-graphs, but I do not know
+          it yet. One hope is that GNN-guided search can help expose such
+          structure.
+        </p>
+      </section>
+
+      <section class="deck section">
+        <a class="story-link" href="/docs/gnns.html">
+          <article class="story-card">
+            <span class="story-label">1</span>
+            <h3>How GNNs work</h3>
+            <p>
+              Message passing, locality, depth, and why expressive limits matter
+              for graph problems.
+            </p>
+          </article>
+        </a>
+
+        <a class="story-link" href="/docs/architecture.html">
+          <article class="story-card">
+            <span class="story-label">2</span>
+            <h3>Architectures</h3>
+            <p>
+              GCN, SAGE, GIN, and Loopy explained in plain language with strengths
+              and failure modes.
+            </p>
+          </article>
+        </a>
+
+        <a class="story-link" href="/docs/module-degree.html">
+          <article class="story-card">
+            <span class="story-label">3</span>
+            <h3>Degree prediction</h3>
+            <p>
+              Why I started with local structure, how the loop works, and what
+              each model learned.
+            </p>
+          </article>
+        </a>
+
+        <a class="story-link" href="/docs/module-min-cycle.html">
+          <article class="story-card">
+            <span class="story-label">4</span>
+            <h3>Cycle prediction</h3>
+            <p>
+              Why this is harder than degree, how cycle labels are computed, and
+              what changed across architectures.
+            </p>
+          </article>
+        </a>
+
+        <a class="story-link" href="/docs/module-cage.html">
+          <article class="story-card">
+            <span class="story-label">5</span>
+            <h3>Cage generation</h3>
+            <p>
+              The main objective: A* search, RL guidance, and what is solved vs
+              still open.
+            </p>
+          </article>
+        </a>
+      </section>
     </main>
   </body>
 </html>

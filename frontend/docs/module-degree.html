@@ -3,134 +3,90 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Module 01 - Degree Prediction</title>
+    <title>Project Notes - Degree Prediction</title>
     <link rel="stylesheet" href="/css/docs.css" />
   </head>
   <body>
     <main class="page">
-      <nav class="nav">
-        <a
-          class="active"
-          href="#"
-          onclick="if (window.history.length > 1) { window.history.back(); } else { window.location.href = '/docs/index.html'; } return false;"
-          >Back</a
-        >
-      </nav>
+      <header class="topbar">
+        <a class="apps-link" href="/docs/index.html">Back</a>
+      </header>
 
       <section class="hero">
-        <h1>Module 01: Degree Prediction</h1>
+        <h1>Degree prediction: first trust check</h1>
         <p>
-          Goal: for each node, predict its degree based only on the graph
-          structure and node features generated at training time.
+          I started here because degree is the most local structural signal. If a
+          model cannot recover this reliably, there is no reason to trust it on
+          more complex graph properties.
         </p>
       </section>
 
       <section class="card section">
-        <h2>Why This Module Is Important</h2>
+        <h2>What exactly happens in the training loop?</h2>
         <p>
-          Degree is a foundational structural property. If a GNN cannot predict
-          degree reliably, it is unlikely to be trustworthy for more demanding
-          graph reasoning tasks. This module is the baseline checkpoint for the
-          rest of the project: it tests whether the model family and data
-          generation pipeline are internally consistent before moving to harder
-          objectives.
+          Each step samples a new random Erdős-Rényi graph, converts it to a PyG
+          object, computes node-degree labels directly from NetworkX, runs a
+          forward pass, minimizes MSE, clips gradients, and updates parameters
+          with Adam. This repeats across many randomly generated graphs.
         </p>
         <p>
-          Practically, this module also exposes calibration behavior. Exact-match
-          degree accuracy and absolute error directly show whether the model is
-          learning stable local counting behavior or just approximate trends.
+          PyG means PyTorch Geometric, the graph tensor format/library used by
+          my models and trainers in this project.
+        </p>
+        <pre><code># ai/degree/train.py (simplified)
+G = generate_random_graph(...)
+y = torch.tensor([G.degree(i) for i in range(num_nodes)], dtype=torch.float)
+out = model(data).squeeze()
+loss = F.mse_loss(out, data.y)
+loss.backward()
+torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+optimizer.step()</code></pre>
+      </section>
+
+      <section class="card section">
+        <h2>How are graphs and features generated?</h2>
+        <p>
+          By default, training graphs use <code>n=5..12</code> nodes and edge
+          probability <code>p=0.15..0.6</code>. The generator can add self-loops
+          with probability <code>0.1</code>. Node features use four channels:
+          normalized node index, two random channels, and one random
+          clustering-like channel.
+        </p>
+        <p>
+          Erdős-Rényi means each possible edge is sampled independently with
+          probability <code>p</code>.
         </p>
       </section>
 
       <section class="card section">
-        <h2>How It Was Trained</h2>
-        <ul>
-          <li>Models trained on random graphs generated each epoch.</li>
-          <li>4 input features per node, hidden size 64, 4 layers, dropout 0.2.</li>
-          <li>5000 epochs, learning rate 0.001, 50 graphs per epoch.</li>
-          <li>
-            Evaluation rounds predictions and computes exact-match node accuracy.
-          </li>
-        </ul>
-        <pre><code>uv run python -m ai.degree.train --model gcn --name v1 --epochs 5000
-uv run python -m ai.degree.train --model sage --name v1 --epochs 5000
-uv run python -m ai.degree.train --model gin --name v1 --epochs 5000
-uv run python -m ai.degree.train --model loopy --name r3_v1 --r 3 --epochs 5000</code></pre>
-      </section>
-
-      <section class="card section">
-        <h2>Saved Results</h2>
-        <p>Source: <code>ai/trained/degree/*/info.json</code>.</p>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Model</th>
-                <th>Accuracy (%)</th>
-                <th>MAE</th>
-                <th>MSE</th>
-                <th>Best Epoch</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>gin_v1</td>
-                <td>100.00</td>
-                <td>0.0000</td>
-                <td>0.0000</td>
-                <td>450</td>
-              </tr>
-              <tr>
-                <td>sage_v1</td>
-                <td>100.00</td>
-                <td>0.0000</td>
-                <td>0.0000</td>
-                <td>450</td>
-              </tr>
-              <tr>
-                <td>gcn_v1</td>
-                <td>23.76</td>
-                <td>1.8810</td>
-                <td>3.5382</td>
-                <td>150</td>
-              </tr>
-              <tr>
-                <td>loopy_r3_v1</td>
-                <td>25.89</td>
-                <td>6.7847</td>
-                <td>46.0323</td>
-                <td>250</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="card section">
-        <h2>Why Models Behave Differently Here</h2>
+        <h2>How well did the models solve it?</h2>
         <p>
-          Degree is highly local, so architectures with strong neighborhood
-          aggregation can excel quickly. In your current runs, GIN and SAGE hit
-          perfect rounded-node accuracy, while GCN and Loopy underperform. That
-          pattern suggests this specific training distribution favors local
-          aggregation fidelity and is less forgiving to architectural settings
-          that were tuned for other structural objectives.
+          In saved checkpoints, SAGE and GIN reached perfect rounded-node
+          accuracy, while current GCN and Loopy checkpoints were much weaker.
         </p>
-        <p>
-          The large MAE on <code>loopy_r3_v1</code> indicates mismatch between
-          its bias and this exact target, not necessarily a universally weaker
-          model. It can still dominate on cycle-sensitive tasks, which is why
-          cross-task comparison matters more than single-task ranking.
-        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Model</th>
+              <th>Accuracy</th>
+              <th>MAE</th>
+              <th>MSE</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>sage_v1</td><td>100.00%</td><td>0.0000</td><td>0.0000</td></tr>
+            <tr><td>gin_v1</td><td>100.00%</td><td>0.0000</td><td>0.0000</td></tr>
+            <tr><td>loopy_r3_v1</td><td>25.89%</td><td>6.7847</td><td>46.0323</td></tr>
+            <tr><td>gcn_v1</td><td>23.76%</td><td>1.8810</td><td>3.5382</td></tr>
+          </tbody>
+        </table>
       </section>
 
-      <section class="note">
-        Meaning of results: in this training setup, GIN and SAGE perfectly match
-        rounded degree labels on evaluation graphs, while GCN and Loopy are much
-        less stable. This indicates strong model/training-distribution
-        sensitivity for this task.
-      </section>
-
+      <p class="footer-mini">
+        Sources: <code>ai/degree/train.py</code>,
+        <code>backend/utils/graph_utils.py</code>,
+        <code>ai/trained/degree/*/info.json</code>.
+      </p>
     </main>
   </body>
 </html>

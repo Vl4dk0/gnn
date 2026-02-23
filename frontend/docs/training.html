@@ -2,84 +2,13 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta http-equiv="refresh" content="0; url=/docs/gnns.html" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GNN Project Notes - Training</title>
-    <link rel="stylesheet" href="/css/docs.css" />
+    <title>Moved - GNNs</title>
   </head>
   <body>
-    <main class="page">
-      <nav class="nav">
-        <a href="/docs/index.html">Overview</a>
-        <a href="/docs/architecture.html">Architecture</a>
-        <a class="active" href="/docs/training.html">Training Notes</a>
-      </nav>
-
-      <section class="hero">
-        <h1>Training Notes</h1>
-        <p>
-          This page summarizes how models are trained and stored, including the
-          RL setup used in cage generation experiments.
-        </p>
-      </section>
-
-      <section class="card section">
-        <h2>Supervised Tasks</h2>
-        <p>Degree and min-cycle tasks share a common model family interface.</p>
-        <pre><code>uv run python -m ai.degree.train --model gin --name v1 --epochs 5000
-uv run python -m ai.degree.train --model loopy --name r3_v1 --r 3 --epochs 5000
-
-uv run python -m ai.min_cycle.train --model gcn --name v1 --epochs 5000
-uv run python -m ai.min_cycle.train --model sage --name v1 --epochs 5000</code></pre>
-      </section>
-
-      <section class="card section">
-        <h2>Model Artifact Structure</h2>
-        <pre><code>ai/trained/
-  degree/
-    gin_v1/
-      info.json
-      weights.pt
-  min_cycle/
-    loopy_r3_v1/
-      info.json
-      weights.pt
-  cage/
-    &lt;model_id&gt;/
-      info.json
-      weights.pt</code></pre>
-      <p>
-        The registry reads metrics and metadata from <code>info.json</code> and
-        loads weights from <code>weights.pt</code>.
-      </p>
-    </section>
-
-      <section class="card section">
-        <h2>PPO / Cage RL</h2>
-        <p>
-          PPO training builds an actor-critic network and collects rollouts with
-          valid-action masks from the cage environment.
-        </p>
-        <pre><code>uv run python -m ai.cage.rl.train \
-  --model gin \
-  --name ppo_exp \
-  --steps 100000 \
-  --update-interval 2048 \
-  --lr 3e-4</code></pre>
-        <p>
-          During inference, generation requests run in isolated sessions and are
-          polled by session ID until complete or stopped.
-        </p>
-      </section>
-
-      <section class="note">
-        Training is compute-heavy. For deployment, keep training scripts off the
-        public-serving process.
-      </section>
-
-      <div class="page-links">
-        <a href="/docs/architecture.html">← Back to Architecture</a>
-        <a href="/">Back to Apps →</a>
-      </div>
-    </main>
+    <p>
+      This page moved to <a href="/docs/gnns.html">/docs/gnns.html</a>.
+    </p>
   </body>
 </html>

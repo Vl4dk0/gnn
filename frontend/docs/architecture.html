@@ -3,86 +3,93 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GNN Project Notes - Architecture</title>
+    <title>Project Notes - Architectures</title>
     <link rel="stylesheet" href="/css/docs.css" />
   </head>
   <body>
     <main class="page">
-      <nav class="nav">
-        <a href="/docs/index.html">Overview</a>
-        <a class="active" href="/docs/architecture.html">Architecture</a>
-        <a href="/docs/training.html">Training Notes</a>
-      </nav>
+      <header class="topbar">
+        <a class="apps-link" href="/docs/index.html">Back</a>
+      </header>
 
       <section class="hero">
-        <h1>Architecture</h1>
+        <h1>Architectures used in my project</h1>
         <p>
-          The codebase is organized by responsibility: API routes, reusable
-          model definitions, task-specific train/inference code, and static UI.
+          These are not interchangeable names. Each model changes what structural
+          information is preserved and what gets blurred away.
         </p>
       </section>
 
       <section class="card section">
-        <h2>Directory Layout</h2>
-        <pre><code>ai/
-  models/        # GCN, SAGE, GIN, Loopy implementations
-  registry.py    # model discovery/load/save
-  degree/        # training + prediction for degree task
-  min_cycle/     # training + prediction for cycle task
-  cage/          # search + RL generator logic
-  trained/       # saved info.json + weights.pt artifacts
-
-backend/
-  app.py         # Flask app and static serving
-  routes/        # /api/degree, /api/min_cycle, /api/cage
-  utils/         # graph parsing and generation helpers
-
-frontend/
-  index.html     # landing
-  degree/        # degree UI
-  min_cycle/     # min-cycle UI
-  cage/          # cage generator UI</code></pre>
-      </section>
-
-      <section class="grid section">
-        <article class="card">
-          <h3>Model Registry Contract</h3>
-          <p>
-            Every trained model directory must include both
-            <code>info.json</code> and <code>weights.pt</code>. Registry
-            functions rely on this contract for listing and loading.
-          </p>
-        </article>
-        <article class="card">
-          <h3>Cage Session Model</h3>
-          <p>
-            Cage generation uses session IDs and background threads, with
-            abandonment timeout and queue limit enforcement.
-          </p>
-        </article>
+        <h2>GCN</h2>
+        <p>
+          GCN performs normalized neighborhood aggregation, which makes it stable
+          and simple. The downside is that normalization can suppress raw count
+          signals. For count-like tasks, that can become a limitation.
+        </p>
       </section>
 
       <section class="card section">
-        <h2>Cage Queue Protection</h2>
-        <pre><code>MAX_PARALLEL_GENERATIONS = 3
-
-if active &gt;= MAX_PARALLEL_GENERATIONS:
-    return jsonify({
-        "error": "Generating queue is full.",
-        "active_sessions": active,
-        "max_parallel_generations": MAX_PARALLEL_GENERATIONS
-    }), 429</code></pre>
+        <h2>GraphSAGE</h2>
+        <p>
+          In this project, SAGE uses <code>aggr="add"</code>, which tends to
+          preserve count information better than mean aggregation. That aligns
+          with its strong degree performance in my saved runs.
+        </p>
+        <p>
+          <code>aggr="add"</code> means neighbor messages are summed, not
+          averaged.
+        </p>
       </section>
 
-      <section class="note">
-        Deployment note: frontend can be static-hosted, but backend requires a
-        persistent Python runtime because of PyTorch and session threads.
+      <section class="card section">
+        <h2>GIN</h2>
+        <p>
+          GIN combines sum aggregation with an MLP and learnable self-weight,
+          aiming at strong structural discrimination within the 1-WL family. It
+          is often a robust choice when structural distinctions matter.
+        </p>
+        <p>
+          1-WL refers to the one-dimensional Weisfeiler-Lehman graph refinement
+          test, a standard notion of graph distinguishability.
+        </p>
       </section>
 
-      <div class="page-links">
-        <a href="/docs/index.html">← Back to Overview</a>
-        <a href="/docs/training.html">Continue to Training details →</a>
-      </div>
+      <section class="card section">
+        <h2>Loopy</h2>
+        <p>
+          Loopy injects r-neighborhood path information and is intentionally
+          biased toward cycle-sensitive structure. In my experiments, this is
+          exactly where it shines: minimum-cycle prediction.
+        </p>
+        <p>
+          r-neighborhood here means paths/structures around a node up to radius
+          <code>r</code>, giving the model richer cycle context than plain
+          one-hop message passing.
+        </p>
+      </section>
+
+      <section class="card section references">
+        <h2>Primary Sources</h2>
+        <ol>
+          <li>
+            Kipf and Welling, GCN:
+            <a href="https://arxiv.org/pdf/1609.02907">arXiv 1609.02907</a>
+          </li>
+          <li>
+            Hamilton et al., GraphSAGE:
+            <a href="https://arxiv.org/pdf/1706.02216">arXiv 1706.02216</a>
+          </li>
+          <li>
+            Xu et al., GIN:
+            <a href="https://openreview.net/pdf?id=ryGs6iA5Km">OpenReview PDF</a>
+          </li>
+          <li>
+            Paolino et al., Weisfeiler and Leman Go Loopy:
+            <a href="https://arxiv.org/pdf/2302.07049">arXiv 2302.07049</a>
+          </li>
+        </ol>
+      </section>
     </main>
   </body>
 </html>

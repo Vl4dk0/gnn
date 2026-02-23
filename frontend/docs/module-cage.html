@@ -3,137 +3,80 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Module 03 - Cage Generation</title>
+    <title>Project Notes - Cage Generation</title>
     <link rel="stylesheet" href="/css/docs.css" />
   </head>
   <body>
     <main class="page">
-      <nav class="nav">
-        <a
-          class="active"
-          href="#"
-          onclick="if (window.history.length > 1) { window.history.back(); } else { window.location.href = '/docs/index.html'; } return false;"
-          >Back</a
-        >
-      </nav>
+      <header class="topbar">
+        <a class="apps-link" href="/docs/index.html">Back</a>
+      </header>
 
       <section class="hero">
-        <h1>Module 03: Cage Generator</h1>
+        <h1>Cage generation: the main objective</h1>
         <p>
-          Goal: search for candidate (k,g)-cages using multiple generators and
-          expose live progress via session polling.
+          This is the end goal of the thesis. Prediction tasks were preparation;
+          here I try to construct valid <code>(k,g)</code>-graphs and check how
+          close I am to cage-size solutions.
         </p>
       </section>
 
       <section class="card section">
-        <h2>Why This Module Is Important</h2>
+        <h2>Why A* first?</h2>
         <p>
-          This module shifts from prediction to constrained construction. Instead
-          of estimating a property on a fixed graph, the system must iteratively
-          build a graph that satisfies regularity and girth constraints. That
-          makes it an end-to-end reasoning and search benchmark, not only a
-          regression benchmark.
+          A* gives controlled symbolic search with hard constraints. In this
+          implementation, it is a best-first search over partial graph states, not a
+          shortest path between two vertices. The start state is
+          <code>moore_bound(k,g)</code> isolated vertices; expansions add
+          constraint-safe edges (or occasionally a vertex), and candidates are
+          ranked by heuristic score.
         </p>
         <p>
-          It also gives direct user-facing feedback about algorithm behavior:
-          speed, quality of partial states, and convergence or failure modes are
-          visible live through session polling.
+          Here, Moore bound is the theoretical lower bound on the number of
+          vertices needed for a <code>(k,g)</code>-graph.
+        </p>
+        <pre><code># ai/cage/functions/astar.py
+for succ_graph in successors:
+    graph_h = graph_hash(succ_graph)
+    if graph_h in self.visited_hashes:
+        self.duplicates_skipped += 1
+        continue
+    self.visited_hashes.add(graph_h)
+    succ_score = self._score_graph(succ_graph)
+    heapq.heappush(self.pq, (-succ_score, self.counter, succ_graph))</code></pre>
+      </section>
+
+      <section class="card section">
+        <h2>Why RL on top of that?</h2>
+        <p>
+          RL was added as a guide policy: bias search toward promising actions.
+          The environment acts on unordered node pairs; existing edges can be
+          removed, missing edges can be added if constraints allow it.
+        </p>
+        <p>
+          Reward semantics in the current code are: add valid edge
+          <code>+0.1</code>, remove <code>-0.2</code>, invalid add
+          <code>-1.0</code>, dead-end <code>-2.0</code>, success
+          <code>10.0 + 0.5*g</code>, with termination guards for max steps and
+          score floor.
         </p>
       </section>
 
       <section class="card section">
-        <h2>Available Generation Methods</h2>
-        <ul>
-          <li>Random Walk (fast stochastic search)</li>
-          <li>Bruteforce (systematic/backtracking search)</li>
-          <li>A* Search (best-first heuristic search)</li>
-          <li>RL Agent (policy-guided action selection)</li>
-        </ul>
-      </section>
-
-      <section class="card section">
-        <h2>Runtime Behavior Stats</h2>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Parameter</th>
-                <th>Current Value</th>
-                <th>Meaning</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>MAX_PARALLEL_GENERATIONS</td>
-                <td>3</td>
-                <td>At most 3 active generation threads at once.</td>
-              </tr>
-              <tr>
-                <td>POLL_TIMEOUT</td>
-                <td>5 seconds</td>
-                <td>Session is marked stopped if client stops polling.</td>
-              </tr>
-              <tr>
-                <td>Queue-full response</td>
-                <td>HTTP 429</td>
-                <td>Returned when generation limit is reached.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="card section">
-        <h2>RL Checkpoints Present</h2>
-        <p>Source: <code>ai/trained/cage_rl/</code>.</p>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Checkpoint</th>
-                <th>Size</th>
-                <th>Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>ppo_generalist_gin_final.pt</td>
-                <td>474 KB</td>
-                <td>Generalist PPO checkpoint.</td>
-              </tr>
-              <tr>
-                <td>ppo_k3_g5_gin_final.pt</td>
-                <td>128 KB</td>
-                <td>Specialized checkpoint (target inferred from filename).</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="card section">
-        <h2>Why Methods Behave Differently Here</h2>
+        <h2>How is runtime behavior controlled?</h2>
         <p>
-          Random walk and bruteforce trade speed for completeness in opposite
-          ways, while A* depends strongly on heuristic quality. The RL generator
-          can be faster on some trajectories if policy priors align with the
-          target structure, but can also stall when generalization is weak.
-        </p>
-        <p>
-          In the current repository, RL checkpoints are available but not
-          accompanied by standardized metrics metadata. That means the most
-          reliable comparison is still behavioral: success rate, time to valid
-          cage, and stability under concurrent sessions.
+          Generation is session-based and isolated per request. The backend caps
+          concurrency at <code>MAX_PARALLEL_GENERATIONS = 3</code>; when full, it
+          returns HTTP <code>429</code>. This keeps API behavior stable under
+          multiple users.
         </p>
       </section>
 
-      <section class="note">
-        Interpretation: unlike degree/min-cycle, these RL checkpoints currently
-        do not have companion metrics metadata in <code>info.json</code>, so
-        quality comparison is operational (generation behavior/speed/success)
-        rather than a single offline score table.
-      </section>
-
+      <p class="footer-mini">
+        Sources: <code>ai/cage/functions/astar.py</code>,
+        <code>ai/cage/rl/env.py</code>, <code>backend/routes/cage.py</code>,
+        <code>backend/utils/graph_utils.py</code>.
+      </p>
     </main>
   </body>
 </html>

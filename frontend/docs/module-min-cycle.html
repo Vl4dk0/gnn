@@ -3,132 +3,80 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Module 02 - Min-Cycle Prediction</title>
+    <title>Project Notes - Cycle Prediction</title>
     <link rel="stylesheet" href="/css/docs.css" />
   </head>
   <body>
     <main class="page">
-      <nav class="nav">
-        <a
-          class="active"
-          href="#"
-          onclick="if (window.history.length > 1) { window.history.back(); } else { window.location.href = '/docs/index.html'; } return false;"
-          >Back</a
-        >
-      </nav>
+      <header class="topbar">
+        <a class="apps-link" href="/docs/index.html">Back</a>
+      </header>
 
       <section class="hero">
-        <h1>Module 02: Minimum-Cycle Prediction</h1>
+        <h1>Cycle prediction: moving from local to structural</h1>
         <p>
-          Goal: for each node, predict the length of the shortest cycle passing
-          through that node.
+          After degree prediction, the next question was: can the model detect a
+          less local property? Here the target is the shortest cycle that passes
+          through each vertex.
         </p>
       </section>
 
       <section class="card section">
-        <h2>Why This Module Is Important</h2>
+        <h2>What is the label here?</h2>
         <p>
-          Shortest-cycle-through-node is substantially harder than degree and
-          better reflects whether a model can capture nontrivial graph structure.
-          This module is a stress test for representational expressivity: it
-          checks if the network can go beyond local counting and reason about
-          cycle context.
-        </p>
-        <p>
-          It is also practically useful for identifying nodes in dense
-          feedback-like regions of a graph. That makes it a good bridge task
-          between pure benchmarking and meaningful structural analysis.
+          For every node <code>v</code>, the label is the length of the smallest
+          cycle that contains <code>v</code>. This is harder than degree because
+          the signal depends on multi-hop structure and not only immediate
+          neighbors.
         </p>
       </section>
 
       <section class="card section">
-        <h2>How It Was Trained</h2>
-        <ul>
-          <li>Same training regime as degree: random generated graphs.</li>
-          <li>4 node features, hidden size 64, 4 layers, dropout 0.2.</li>
-          <li>5000 epochs, learning rate 0.001, 50 graphs per epoch.</li>
-          <li>
-            Accuracy is exact match after rounding predicted cycle length to
-            integer.
-          </li>
-        </ul>
-        <pre><code>uv run python -m ai.min_cycle.train --model gcn --name v1 --epochs 5000
-uv run python -m ai.min_cycle.train --model sage --name v1 --epochs 5000
-uv run python -m ai.min_cycle.train --model gin --name v1 --epochs 5000
-uv run python -m ai.min_cycle.train --model loopy --name r3_v1 --r 3 --epochs 5000</code></pre>
+        <h2>What changes in the training loop?</h2>
+        <p>
+          The loop shape is the same as degree training. The key difference is
+          label generation. Instead of <code>G.degree(i)</code>, the trainer uses
+          <code>get_min_cycle(G, i)</code> for each node.
+        </p>
+        <pre><code># ai/min_cycle/train.py (simplified)
+G = generate_random_graph(...)
+y = torch.tensor([get_min_cycle(G, i) for i in range(num_nodes)], dtype=torch.float)
+out = model(data).squeeze()
+loss = F.mse_loss(out, data.y)
+loss.backward()
+torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+optimizer.step()</code></pre>
       </section>
 
       <section class="card section">
-        <h2>Saved Results</h2>
-        <p>Source: <code>ai/trained/min_cycle/*/info.json</code>.</p>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Model</th>
-                <th>Accuracy (%)</th>
-                <th>MAE</th>
-                <th>MSE</th>
-                <th>Best Epoch</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>loopy_r3_v1</td>
-                <td>85.14</td>
-                <td>0.2258</td>
-                <td>0.0510</td>
-                <td>1750</td>
-              </tr>
-              <tr>
-                <td>gcn_v1</td>
-                <td>43.35</td>
-                <td>1.0887</td>
-                <td>1.1852</td>
-                <td>100</td>
-              </tr>
-              <tr>
-                <td>gin_v1</td>
-                <td>38.10</td>
-                <td>1.4728</td>
-                <td>2.1691</td>
-                <td>3100</td>
-              </tr>
-              <tr>
-                <td>sage_v1</td>
-                <td>23.67</td>
-                <td>2.8893</td>
-                <td>8.3479</td>
-                <td>50</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="card section">
-        <h2>Why Models Behave Differently Here</h2>
+        <h2>How well did it work?</h2>
         <p>
-          Cycle tasks reward models that preserve richer structural signals.
-          Your results show <code>loopy_r3_v1</code> clearly ahead (85.14%
-          accuracy, low MAE), while the baseline families trail behind. This is
-          consistent with cycle-aware inductive bias providing a direct advantage
-          for shortest-cycle estimation.
+          Loopy with <code>r=3</code> clearly outperformed the others in this run
+          set, which is consistent with its cycle-aware design.
         </p>
-        <p>
-          Another important signal is best epoch spread: some models peak early,
-          others much later. That indicates architecture-specific optimization
-          dynamics and suggests per-model early-stopping rules may outperform a
-          single shared training schedule.
-        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Model</th>
+              <th>Accuracy</th>
+              <th>MAE</th>
+              <th>MSE</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>loopy_r3_v1</td><td>85.14%</td><td>0.2258</td><td>0.0510</td></tr>
+            <tr><td>gcn_v1</td><td>43.35%</td><td>1.0887</td><td>1.1852</td></tr>
+            <tr><td>gin_v1</td><td>38.10%</td><td>1.4728</td><td>2.1691</td></tr>
+            <tr><td>sage_v1</td><td>23.67%</td><td>2.8893</td><td>8.3479</td></tr>
+          </tbody>
+        </table>
       </section>
 
-      <section class="note">
-        Meaning of results: this task is harder than degree. Loopy (r=3)
-        performs much better here, which is consistent with cycle-focused
-        inductive bias helping shortest-cycle estimation.
-      </section>
-
+      <p class="footer-mini">
+        Sources: <code>ai/min_cycle/train.py</code>,
+        <code>ai/min_cycle/functions/graph_service.py</code>,
+        <code>ai/trained/min_cycle/*/info.json</code>.
+      </p>
     </main>
   </body>
 </html>

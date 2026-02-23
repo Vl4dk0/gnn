@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="430" viewBox="0 0 1200 430" role="img" aria-labelledby="title desc">
+  <title id="title">Three graph examples</title>
+  <desc id="desc">From left to right: a 3-regular graph, a graph with girth 5, and a 3,5-graph (Petersen graph).</desc>
+
+  <rect width="1200" height="430" fill="#1a1a1a"/>
+
+  <!-- Panel guides (subtle) -->
+  <g stroke="#333" stroke-width="1" fill="none" opacity="0.65">
+    <rect x="18" y="18" width="364" height="394" rx="10"/>
+    <rect x="418" y="18" width="364" height="394" rx="10"/>
+    <rect x="818" y="18" width="364" height="394" rx="10"/>
+  </g>
+
+  <!-- LEFT: 3-regular graph (complete graph K4) -->
+  <g transform="translate(38,38)">
+    <text x="0" y="0" fill="#d8d8d8" font-family="Segoe UI, Tahoma, sans-serif" font-size="24">3-regular graph</text>
+    <text x="0" y="28" fill="#a9a9a9" font-family="Segoe UI, Tahoma, sans-serif" font-size="18">complete graph K4 (each node degree 3)</text>
+
+    <g transform="translate(182,234)" stroke="#8a8a8a" stroke-width="4" fill="none">
+      <!-- K4 in symmetric planar embedding -->
+      <line x1="0" y1="-108" x2="-93.531" y2="54"/>
+      <line x1="-93.531" y1="54" x2="93.531" y2="54"/>
+      <line x1="93.531" y1="54" x2="0" y2="-108"/>
+      <line x1="0" y1="0" x2="0" y2="-108"/>
+      <line x1="0" y1="0" x2="-93.531" y2="54"/>
+      <line x1="0" y1="0" x2="93.531" y2="54"/>
+    </g>
+
+    <g transform="translate(182,234)" fill="#2f2f2f" stroke="#cfcfcf" stroke-width="3">
+      <circle cx="0" cy="-108" r="17"/>
+      <circle cx="-93.531" cy="54" r="17"/>
+      <circle cx="93.531" cy="54" r="17"/>
+      <circle cx="0" cy="0" r="17"/>
+    </g>
+  </g>
+
+  <!-- MIDDLE: girth 5 graph (cycle C5) -->
+  <g transform="translate(438,38)">
+    <text x="0" y="0" fill="#d8d8d8" font-family="Segoe UI, Tahoma, sans-serif" font-size="24">Graph with girth 5</text>
+    <text x="0" y="28" fill="#a9a9a9" font-family="Segoe UI, Tahoma, sans-serif" font-size="18">shortest cycle has length 5</text>
+
+    <g transform="translate(182,234)">
+      <g stroke="#4ade80" stroke-width="6" fill="none">
+        <line x1="0" y1="-115" x2="109.371" y2="-35.537"/>
+        <line x1="109.371" y1="-35.537" x2="67.595" y2="93.037"/>
+        <line x1="67.595" y1="93.037" x2="-67.595" y2="93.037"/>
+        <line x1="-67.595" y1="93.037" x2="-109.371" y2="-35.537"/>
+        <line x1="-109.371" y1="-35.537" x2="0" y2="-115"/>
+      </g>
+      <g fill="#2f2f2f" stroke="#cfcfcf" stroke-width="3">
+        <circle cx="0" cy="-115" r="17"/>
+        <circle cx="109.371" cy="-35.537" r="17"/>
+        <circle cx="67.595" cy="93.037" r="17"/>
+        <circle cx="-67.595" cy="93.037" r="17"/>
+        <circle cx="-109.371" cy="-35.537" r="17"/>
+      </g>
+    </g>
+  </g>
+
+  <!-- RIGHT: (3,5)-graph (Petersen graph) -->
+  <g transform="translate(838,38)">
+    <text x="0" y="0" fill="#d8d8d8" font-family="Segoe UI, Tahoma, sans-serif" font-size="24">(3,5)-graph</text>
+    <text x="0" y="28" fill="#a9a9a9" font-family="Segoe UI, Tahoma, sans-serif" font-size="18">Petersen graph: 3-regular, girth 5</text>
+
+    <g transform="translate(182,234)" stroke="#8a8a8a" stroke-width="3.5" fill="none">
+      <!-- outer pentagon -->
+      <line x1="0" y1="-115" x2="109.371" y2="-35.537"/>
+      <line x1="109.371" y1="-35.537" x2="67.595" y2="93.037"/>
+      <line x1="67.595" y1="93.037" x2="-67.595" y2="93.037"/>
+      <line x1="-67.595" y1="93.037" x2="-109.371" y2="-35.537"/>
+      <line x1="-109.371" y1="-35.537" x2="0" y2="-115"/>
+
+      <!-- inner star (same angular positions, smaller radius) -->
+      <line x1="0" y1="-60" x2="35.267" y2="48.541"/>
+      <line x1="35.267" y1="48.541" x2="-57.063" y2="-18.541"/>
+      <line x1="-57.063" y1="-18.541" x2="57.063" y2="-18.541"/>
+      <line x1="57.063" y1="-18.541" x2="-35.267" y2="48.541"/>
+      <line x1="-35.267" y1="48.541" x2="0" y2="-60"/>
+
+      <!-- spokes -->
+      <line x1="0" y1="-115" x2="0" y2="-60"/>
+      <line x1="109.371" y1="-35.537" x2="57.063" y2="-18.541"/>
+      <line x1="67.595" y1="93.037" x2="35.267" y2="48.541"/>
+      <line x1="-67.595" y1="93.037" x2="-35.267" y2="48.541"/>
+      <line x1="-109.371" y1="-35.537" x2="-57.063" y2="-18.541"/>
+    </g>
+
+    <g transform="translate(182,234)" fill="#2f2f2f" stroke="#cfcfcf" stroke-width="3">
+      <!-- outer -->
+      <circle cx="0" cy="-115" r="15"/>
+      <circle cx="109.371" cy="-35.537" r="15"/>
+      <circle cx="67.595" cy="93.037" r="15"/>
+      <circle cx="-67.595" cy="93.037" r="15"/>
+      <circle cx="-109.371" cy="-35.537" r="15"/>
+      <!-- inner -->
+      <circle cx="0" cy="-60" r="14"/>
+      <circle cx="57.063" cy="-18.541" r="14"/>
+      <circle cx="35.267" cy="48.541" r="14"/>
+      <circle cx="-35.267" cy="48.541" r="14"/>
+      <circle cx="-57.063" cy="-18.541" r="14"/>
+    </g>
+  </g>
+</svg>

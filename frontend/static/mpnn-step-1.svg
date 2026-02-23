@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="420" viewBox="0 0 680 420" role="img" aria-labelledby="t d">
+  <title id="t">Step 1 current node states</title>
+  <desc id="d">A center node and four neighbors with values.</desc>
+
+  <g stroke="#747474" stroke-width="3" fill="none">
+    <line x1="340" y1="205" x2="210" y2="120"/>
+    <line x1="340" y1="205" x2="470" y2="120"/>
+    <line x1="340" y1="205" x2="210" y2="290"/>
+    <line x1="340" y1="205" x2="470" y2="290"/>
+  </g>
+
+  <g fill="#333" stroke="#cfcfcf" stroke-width="2">
+    <circle cx="340" cy="205" r="46" fill="#3f6f8f"/>
+    <circle cx="210" cy="120" r="35"/>
+    <circle cx="470" cy="120" r="35"/>
+    <circle cx="210" cy="290" r="35"/>
+    <circle cx="470" cy="290" r="35"/>
+  </g>
+
+  <g fill="#ffffff" font-family="Segoe UI,Tahoma,sans-serif" text-anchor="middle">
+    <text x="340" y="198" font-size="22" font-weight="700">v</text>
+    <text x="340" y="224" font-size="19">0.30</text>
+
+    <text x="210" y="116" font-size="16" font-weight="700">w₁</text>
+    <text x="210" y="137" font-size="15">0.25</text>
+
+    <text x="470" y="116" font-size="16" font-weight="700">w₂</text>
+    <text x="470" y="137" font-size="15">0.10</text>
+
+    <text x="210" y="286" font-size="16" font-weight="700">w₃</text>
+    <text x="210" y="307" font-size="15">0.40</text>
+
+    <text x="470" y="286" font-size="16" font-weight="700">w₄</text>
+    <text x="470" y="307" font-size="15">0.05</text>
+  </g>
+</svg>
