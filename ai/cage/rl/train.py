@@ -71,6 +71,7 @@ def train_ppo(
 ) -> None:
     """Train Generalist PPO agent for cage generation."""
     del print_every
+    del max_logged_actions
     if Console is not None and Table is not None and Live is not None:
         console: Any = Console()
         table_cls: Any = Table
@@ -206,7 +207,6 @@ def train_ppo(
 
     current_ep_reward = 0.0
     current_ep_len = 0
-    current_ep_actions: list[str] = []
     current_ep_action_counts: Counter[str] = Counter()
 
     start_time = time.time()
@@ -248,11 +248,7 @@ def train_ppo(
                 action_type = str(info.get("action_type", "unknown"))
                 edge = info.get("edge", ["-", "-"])
                 action_desc = f"{edge[0]}-{edge[1]}"
-                action_str = f"{action_type}:{action_desc} r={reward:+.2f}"
-                current_ep_actions.append(action_str)
                 current_ep_action_counts[action_type] += 1
-                if len(current_ep_actions) > max_logged_actions:
-                    current_ep_actions.pop(0)
 
                 obs_buffer.append(obs)
                 action_buffer.append(action)
@@ -320,12 +316,9 @@ def train_ppo(
                     )
                     summary.add_row("Action Counts", counts_line if counts_line else "-")
                     console.print(summary)
-                    if current_ep_actions:
-                        console.print("actions:", " | ".join(current_ep_actions))
 
                     current_ep_reward = 0.0
                     current_ep_len = 0
-                    current_ep_actions = []
                     current_ep_action_counts = Counter()
                     obs = env.reset().to(device)
                     current_ep_k = env.k
@@ -544,7 +537,7 @@ if __name__ == "__main__":
         "--max-logged-actions",
         type=int,
         default=30,
-        help="Number of latest actions to print when an episode ends.",
+        help="Deprecated: retained for CLI compatibility.",
     )
     args = parser.parse_args()
 

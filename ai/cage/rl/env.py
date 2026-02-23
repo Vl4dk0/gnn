@@ -26,6 +26,7 @@ class CageConstructionEnv:
     SUCCESS_REWARD: float = 20.0
     INVALID_PENALTY: float = -0.05
     ADD_REWARD: float = 0.1
+    REMOVE_PENALTY: float = -0.2
     SATISFY_BONUS: float = 0.1
 
     k: int
@@ -249,6 +250,7 @@ class CageConstructionEnv:
                 info["done_reason"] = "split_component"
             else:
                 valid_action = True
+                reward += self.REMOVE_PENALTY
                 info["action_type"] = "edge_remove"
         else:
             if self._can_add_edge(u, v):
