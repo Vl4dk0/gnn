@@ -37,6 +37,9 @@ session_lock = threading.Lock()
 POLL_TIMEOUT = 5
 MAX_PARALLEL_GENERATIONS = 3
 
+# Safety limits to prevent pathological generation requests from exhausting local compute.
+MAX_MOORE_BOUND = 120
+
 
 def _count_active_generations_locked() -> int:
     """Count currently running generation threads (lock must be held)."""
@@ -96,6 +99,7 @@ def status() -> Response:
             "message": "Cage graph generator API is ready",
             "active_sessions": active,
             "max_parallel_generations": MAX_PARALLEL_GENERATIONS,
+            "max_moore_bound": MAX_MOORE_BOUND,
         }
     )
 
@@ -119,6 +123,25 @@ def generate() -> Response | tuple[Response, int]:
         return jsonify({"error": "k must be >= 2"}), 400
     if g < 3:
         return jsonify({"error": "g must be >= 3"}), 400
+    mb = moore_bound(k, g)
+    if mb > MAX_MOORE_BOUND:
+        moore_formula = (
+            "N_M(k,g)=1+k*sum_{i=0}^{(g-3)/2}(k-1)^i (odd g), "
+            "N_M(k,g)=2*sum_{i=0}^{g/2-1}(k-1)^i (even g)"
+        )
+        return (
+            jsonify(
+                {
+                    "error": (
+                        f"(k,g)=({k},{g}) is outside this showcase range: "
+                        f"Moore bound N_M={mb} exceeds the limit {MAX_MOORE_BOUND}. "
+                        f"Formula used: {moore_formula}. "
+                        "Please choose smaller k or g."
+                    )
+                }
+            ),
+            400,
+        )
 
     # Create generator based on type
     session_id = str(uuid.uuid4())
@@ -173,7 +196,7 @@ def generate() -> Response | tuple[Response, int]:
             "status": "started",
             "k": k,
             "g": g,
-            "moore_bound": moore_bound(k, g),
+            "moore_bound": mb,
             "upper_bound": moore_hoffman_upper_bound(k, g),
         }
     )
@@ -246,6 +269,9 @@ def analyze() -> Response | tuple[Response, int]:
     k: int = int(data["k"])
     g: int = int(data["g"])
     edges: Any = data["edges"]
+
+    if k < 2 or g < 3:
+        return jsonify({"error": "k must be >= 2 and g must be >= 3"}), 400
 
     # Build graph from edges
     import networkx as nx

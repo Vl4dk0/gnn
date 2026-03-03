@@ -73,17 +73,27 @@
       <div class="input-details">
         <div class="input-section">
           <label for="degreeK">Degree (k)</label>
-          <input type="number" id="degreeK" min="2" max="10" value="3" />
+          <input type="number" id="degreeK" min="2" value="3" />
         </div>
 
         <div class="input-section">
           <label for="girthG">Girth (g)</label>
-          <input type="number" id="girthG" min="3" max="10" value="5" />
+          <input type="number" id="girthG" min="3" value="5" />
         </div>
 
         <button id="generateBtn" onclick="startGeneration()">
           Generate Cage
         </button>
+        <div
+          id="mooreBoundHint"
+          style="
+            margin-top: 8px;
+            color: #8f8f8f;
+            font-size: 0.82em;
+            min-height: 1.2em;
+            visibility: hidden;
+          "
+        ></div>
 
         <button
           id="stopBtn"

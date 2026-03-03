@@ -1,6 +1,11 @@
 let currentSessionId = null;
 let pollingInterval = null;
 
+const CAGE_K_MIN = 2;
+const CAGE_G_MIN = 3;
+const DEFAULT_MAX_MOORE_BOUND = 120;
+let maxMooreBound = DEFAULT_MAX_MOORE_BOUND;
+
 function clearCanvas() {
   if (window.interactiveGraph) {
     window.interactiveGraph.clear();
@@ -13,8 +18,7 @@ async function startGeneration() {
   const generateBtn = document.getElementById("generateBtn");
   const stopBtn = document.getElementById("stopBtn");
 
-  if (k < 2 || g < 3) {
-    alert("k must be >= 2 and g must be >= 3");
+  if (!isGenerationRequestValid(k, g)) {
     return;
   }
 
@@ -234,6 +238,7 @@ function resetButtons() {
   generateBtn.textContent = "Generate Cage";
   stopBtn.disabled = true;
   stopBtn.style.display = "none";
+  updateGenerationValidation();
 }
 
 function showError(message) {
@@ -259,6 +264,95 @@ function showSuccess(message) {
     `;
 }
 
+function mooreBound(k, g) {
+  if (g % 2 === 1) {
+    let sumTerm = 0;
+    for (let i = 0; i <= (g - 3) / 2; i += 1) {
+      sumTerm += (k - 1) ** i;
+    }
+    return 1 + k * sumTerm;
+  }
+
+  let sumTerm = 0;
+  for (let i = 0; i <= g / 2 - 1; i += 1) {
+    sumTerm += (k - 1) ** i;
+  }
+  return 2 * sumTerm;
+}
+
+function isGenerationRunning() {
+  const stopBtn = document.getElementById("stopBtn");
+  return stopBtn && stopBtn.style.display !== "none";
+}
+
+function isGenerationRequestValid(k, g) {
+  if (!Number.isInteger(k) || !Number.isInteger(g)) return false;
+  if (k < CAGE_K_MIN || g < CAGE_G_MIN) return false;
+  return mooreBound(k, g) <= maxMooreBound;
+}
+
+function updateGenerationValidation() {
+  const kInput = document.getElementById("degreeK");
+  const gInput = document.getElementById("girthG");
+  const generateBtn = document.getElementById("generateBtn");
+  const hint = document.getElementById("mooreBoundHint");
+
+  if (!kInput || !gInput || !generateBtn || !hint) return;
+
+  const k = parseInt(kInput.value);
+  const g = parseInt(gInput.value);
+
+  if (!Number.isInteger(k) || !Number.isInteger(g)) {
+    if (!isGenerationRunning()) generateBtn.disabled = true;
+    if (!isGenerationRunning()) generateBtn.textContent = "Generate Cage";
+    hint.textContent = `* Moore bound must be smaller than ${maxMooreBound}.`;
+    hint.style.visibility = "hidden";
+    return;
+  }
+
+  if (k < CAGE_K_MIN || g < CAGE_G_MIN) {
+    if (!isGenerationRunning()) generateBtn.disabled = true;
+    if (!isGenerationRunning()) generateBtn.textContent = "Generate Cage";
+    hint.textContent = `* Moore bound must be smaller than ${maxMooreBound}.`;
+    hint.style.visibility = "hidden";
+    return;
+  }
+
+  const mb = mooreBound(k, g);
+  if (mb > maxMooreBound) {
+    if (!isGenerationRunning()) {
+      generateBtn.disabled = true;
+      generateBtn.textContent = `MB = ${mb} > ${maxMooreBound}`;
+    }
+    hint.textContent = `* Moore bound must be smaller than ${maxMooreBound}.`;
+    hint.style.color = "#8f8f8f";
+    hint.style.visibility = "visible";
+    return;
+  }
+
+  if (!isGenerationRunning()) {
+    generateBtn.disabled = false;
+    generateBtn.textContent = "Generate Cage";
+  }
+  hint.textContent = `* Moore bound must be smaller than ${maxMooreBound}.`;
+  hint.style.visibility = "hidden";
+}
+
+async function loadGenerationLimits() {
+  try {
+    const response = await fetch(`${API_CAGE_URL}/status`);
+    if (!response.ok) return;
+    const data = await response.json();
+    if (Number.isInteger(data.max_moore_bound)) {
+      maxMooreBound = data.max_moore_bound;
+    }
+  } catch (error) {
+    console.warn("Failed to load cage limits from backend status:", error);
+  } finally {
+    updateGenerationValidation();
+  }
+}
+
 function initializeEventListeners() {
   // Stop polling when page is closed
   window.addEventListener("beforeunload", () => {
@@ -280,6 +374,18 @@ function initializeEventListeners() {
       window.interactiveGraph.disablePhysics();
     }
   }
+
+  const kInput = document.getElementById("degreeK");
+  const gInput = document.getElementById("girthG");
+  if (kInput) {
+    kInput.addEventListener("input", updateGenerationValidation);
+  }
+  if (gInput) {
+    gInput.addEventListener("input", updateGenerationValidation);
+  }
+
+  updateGenerationValidation();
+  loadGenerationLimits();
 }
 
 function initializeMobileInputToggle() {
