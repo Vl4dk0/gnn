@@ -65,7 +65,9 @@ def train_ppo(
     force: bool = False,
     device: str = "cpu",
     randomize: bool = True,
-    live_log_every: int = 1,
+    episode_steps: int = 1000,
+    log_seconds: float = 5.0,
+    save_episodes: int = 20,
 ) -> None:
     """Train Generalist PPO agent for cage generation."""
     if Console is not None and Table is not None and Live is not None:
@@ -100,7 +102,7 @@ def train_ppo(
 
     model_id = f"{model_type}_{model_name}"
 
-    env = CageConstructionEnv(k=3, g=5, randomize_params=randomize)
+    env = CageConstructionEnv(k=3, g=5, max_steps=episode_steps, randomize_params=randomize)
     sample_obs = env.reset()
     if sample_obs.x is None:
         raise RuntimeError("Environment observation is missing node features.")
@@ -170,6 +172,7 @@ def train_ppo(
     cfg.add_row("Dropout", str(dropout))
     cfg.add_row("Learning Rate", str(lr))
     cfg.add_row("Randomize Curriculum", str(randomize))
+    cfg.add_row("Episode Steps", str(episode_steps))
     cfg.add_row("Device", str(device))
     cfg.add_row("Input Dim", str(input_dim))
     console.print(cfg)
@@ -209,12 +212,38 @@ def train_ppo(
     best_avg_reward = -float("inf")
     best_model_state: dict[str, Any] | None = None
     fps = 0
+    last_checkpoint_episode = 0
+    last_live_log_time = start_time
     live_view: Any = None
     if use_rich_live and live_cls is not None:
         initial = table_cls(show_header=False)
         initial.add_row("status", "waiting for first live step")
         live_view = live_cls(initial, console=console, refresh_per_second=8, transient=True)
         live_view.start()
+
+    def _save_checkpoint(partial: bool, avg_rew_value: float, step: int) -> None:
+        training_info = {
+            "steps": total_timesteps,
+            "learning_rate": lr,
+            "update_interval": update_interval,
+            "randomize": randomize,
+            "resumed": resumed,
+            "resume_path": str(resume_path) if resume_path is not None else None,
+            "checkpoint_step": step,
+            "partial": partial,
+        }
+        base_gnn_model: Any = agent
+        save_path = save_model(
+            model=base_gnn_model,
+            task="cage",
+            model_id=model_id,
+            metrics={
+                "avg_reward": round(avg_rew_value, 2),
+                "fps": fps,
+            },
+            training_info=training_info,
+        )
+        console.print(f"Checkpoint saved at step {step}: {save_path}")
 
     try:
         while global_step < total_timesteps:
@@ -259,7 +288,8 @@ def train_ppo(
                 current_ep_reward += reward
                 current_ep_len += 1
 
-                if live_log_every > 0 and current_ep_len % live_log_every == 0:
+                if log_seconds > 0 and (time.time() - last_live_log_time) >= log_seconds:
+                    last_live_log_time = time.time()
                     done_reason = info.get("done_reason", "-")
                     if live_view is not None:
                         status = table_cls(show_header=False)
@@ -431,6 +461,13 @@ def train_ppo(
             best_avg_reward = avg_rew
             best_model_state = copy.deepcopy(agent.state_dict())
             console.print(f"New best! Avg Reward: {best_avg_reward:.2f}")
+
+        checkpoint_due_by_episode = (
+            save_episodes > 0 and (episode_idx - last_checkpoint_episode) >= save_episodes
+        )
+        if checkpoint_due_by_episode:
+            _save_checkpoint(partial=True, avg_rew_value=avg_rew, step=global_step)
+            last_checkpoint_episode = episode_idx
     finally:
         if live_view is not None:
             live_view.stop()
@@ -443,8 +480,11 @@ def train_ppo(
         "learning_rate": lr,
         "update_interval": update_interval,
         "randomize": randomize,
+        "episode_steps": episode_steps,
         "resumed": resumed,
         "resume_path": str(resume_path) if resume_path is not None else None,
+        "checkpoint_step": global_step,
+        "partial": False,
     }
 
     base_gnn_model: Any = agent
@@ -498,6 +538,12 @@ if __name__ == "__main__":
         help="PPO update interval",
     )
     parser.add_argument(
+        "--episode-steps",
+        type=int,
+        default=1000,
+        help="Maximum steps per episode before done_reason=max_steps.",
+    )
+    parser.add_argument(
         "--no-random",
         action="store_true",
         help="Disable curriculum randomization",
@@ -517,10 +563,16 @@ if __name__ == "__main__":
 
     parser.add_argument("--device", type=str, default=default_device)
     parser.add_argument(
-        "--live-log-every",
+        "--log",
+        type=float,
+        default=5.0,
+        help="Update live logs every N seconds (0 disables).",
+    )
+    parser.add_argument(
+        "--save",
         type=int,
-        default=1,
-        help="Print live per-episode step logs every N environment steps (0 disables).",
+        default=20,
+        help="Save checkpoint every N completed episodes (0 disables episode-based checkpointing).",
     )
     args = parser.parse_args()
     run_name = args.name or "ppo"
@@ -537,5 +589,7 @@ if __name__ == "__main__":
         force=args.force,
         device=args.device,
         randomize=not args.no_random,
-        live_log_every=args.live_log_every,
+        episode_steps=args.episode_steps,
+        log_seconds=args.log,
+        save_episodes=args.save,
     )

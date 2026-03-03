@@ -139,6 +139,14 @@ class CageConstructionEnv:
         except nx.NetworkXNoPath:
             return True
 
+    def _can_remove_edge(self, u: int, v: int) -> bool:
+        if not self.graph.has_edge(u, v):
+            return False
+        self.graph.remove_edge(u, v)
+        split = self._active_component_count() > 1
+        self.graph.add_edge(u, v)
+        return not split
+
     def reset(self, num_nodes: int | None = None) -> Data:
         """Reset environment and sample a new target when randomization is enabled."""
         if self.randomize_params:
@@ -207,14 +215,14 @@ class CageConstructionEnv:
     def get_valid_action_mask(self) -> torch.Tensor:
         """
         Return valid pair actions.
-        - Existing edge: removable action is allowed.
+        - Existing edge: removable action is allowed only if it does not split active graph.
         - Missing edge: add action allowed only if _can_add_edge passes.
         """
         mask: list[bool] = []
         for u in range(self.num_nodes):
             for v in range(u + 1, self.num_nodes):
                 if self.graph.has_edge(u, v):
-                    mask.append(True)
+                    mask.append(self._can_remove_edge(u, v))
                 else:
                     mask.append(self._can_add_edge(u, v))
         return torch.tensor(mask, dtype=torch.bool)
@@ -242,13 +250,12 @@ class CageConstructionEnv:
         valid_action = False
         if self.graph.has_edge(u, v):
             # Try remove; reject if it would split active graph.
-            self.graph.remove_edge(u, v)
-            if self._active_component_count() > 1:
-                self.graph.add_edge(u, v)
+            if not self._can_remove_edge(u, v):
                 reward += self.INVALID_PENALTY
                 info["action_type"] = "edge_invalid_remove"
                 info["done_reason"] = "split_component"
             else:
+                self.graph.remove_edge(u, v)
                 valid_action = True
                 reward += self.REMOVE_PENALTY
                 info["action_type"] = "edge_remove"
