@@ -12,10 +12,13 @@ import random
 import time
 import networkx as nx
 
-from backend.utils.graph_utils import (compute_girth, moore_bound,
-                                       moore_hoffman_upper_bound,
-                                       can_add_edge_preserving_girth,
-                                       is_k_regular)
+from backend.utils.graph_utils import (
+    compute_girth,
+    moore_bound,
+    moore_hoffman_upper_bound,
+    can_add_edge_preserving_girth,
+    is_k_regular,
+)
 
 
 class RandomWalkGenerator:
@@ -35,14 +38,15 @@ class RandomWalkGenerator:
         self.step_count = 0
         self.is_complete = False
         self.success = False
-        self.start_time = time.time()
+        self.start_time = 0.0
 
         # Track expected edges for k-regularity
-        self.target_edges = (self.graph.number_of_nodes() *
-                             k) // 2  # type: ignore
+        self.target_edges = (self.graph.number_of_nodes() * k) // 2  # type: ignore
 
     def elapsed_time(self):
-        """Get elapsed time since start."""
+        """Get elapsed time since first step."""
+        if self.start_time == 0:
+            return 0.0
         return time.time() - self.start_time
 
     def is_regular(self):
@@ -51,6 +55,8 @@ class RandomWalkGenerator:
 
     def step(self):
         """Execute one construction step."""
+        if self.start_time == 0:
+            self.start_time = time.time()
         self.step_count += 1
 
         # Check if we've exceeded the upper bound
@@ -74,14 +80,9 @@ class RandomWalkGenerator:
 
         # Calculate degree distribution
         nodes = list(self.graph.nodes())  # type: ignore
-        low_degree_nodes = [n for n in nodes
-                            if self.graph.degree(n) < self.k]  # type: ignore
-        high_degree_nodes = [
-            n for n in nodes if self.graph.degree(n) > self.k
-        ]  # type: ignore
-        correct_degree_nodes = [
-            n for n in nodes if self.graph.degree(n) == self.k
-        ]  # type: ignore
+        low_degree_nodes = [n for n in nodes if self.graph.degree(n) < self.k]  # type: ignore
+        high_degree_nodes = [n for n in nodes if self.graph.degree(n) > self.k]  # type: ignore
+        correct_degree_nodes = [n for n in nodes if self.graph.degree(n) == self.k]  # type: ignore
 
         # Decision probabilities based on current state
         edge_deficit = self.target_edges - num_edges
@@ -92,44 +93,44 @@ class RandomWalkGenerator:
         if len(high_degree_nodes) > 0:
             # If we have nodes with degree > k, strongly prefer removing edges
             action_probs = {
-                'remove_edge_high': 0.8,
-                'remove_edge': 0.15,
-                'remove_vertex': 0.05
+                "remove_edge_high": 0.8,
+                "remove_edge": 0.15,
+                "remove_vertex": 0.05,
             }
 
         elif edge_deficit > 0 and len(low_degree_nodes) >= 2:
             # Need more edges - but still allow restructuring
             action_probs = {
-                'add_edge': 0.75,
-                'remove_edge': 0.10,
-                'add_vertex': 0.10 if num_nodes < self.mb else 0.0,
-                'remove_vertex': 0.05 if num_nodes > self.mb else 0.0
+                "add_edge": 0.75,
+                "remove_edge": 0.10,
+                "add_vertex": 0.10 if num_nodes < self.mb else 0.0,
+                "remove_vertex": 0.05 if num_nodes > self.mb else 0.0,
             }
 
         elif edge_deficit < 0:
             # Too many edges - remove or restructure
             action_probs = {
-                'remove_edge': 0.7,
-                'remove_vertex': 0.2 if num_nodes > self.mb else 0.0,
-                'add_vertex': 0.1 if num_nodes < self.mb else 0.0
+                "remove_edge": 0.7,
+                "remove_vertex": 0.2 if num_nodes > self.mb else 0.0,
+                "add_vertex": 0.1 if num_nodes < self.mb else 0.0,
             }
 
         elif len(low_degree_nodes) == 1:
             # Odd node out - need to restructure
             action_probs = {
-                'remove_edge': 0.5,
-                'remove_vertex': 0.25,
-                'add_vertex': 0.15 if num_nodes < self.mb else 0.0,
-                'add_edge': 0.1
+                "remove_edge": 0.5,
+                "remove_vertex": 0.25,
+                "add_vertex": 0.15 if num_nodes < self.mb else 0.0,
+                "add_edge": 0.1,
             }
 
         else:
             # General case or stuck - balanced exploration
             action_probs = {
-                'remove_edge': 0.4,
-                'add_edge': 0.25,
-                'remove_vertex': 0.2 if num_nodes > self.mb else 0.1,
-                'add_vertex': 0.15 if num_nodes < self.mb else 0.05
+                "remove_edge": 0.4,
+                "add_edge": 0.25,
+                "remove_vertex": 0.2 if num_nodes > self.mb else 0.1,
+                "add_vertex": 0.15 if num_nodes < self.mb else 0.05,
             }
 
         # Normalize probabilities
@@ -143,15 +144,15 @@ class RandomWalkGenerator:
         action = random.choices(actions, weights=probs, k=1)[0]
 
         # Execute chosen action
-        if action == 'add_edge':
+        if action == "add_edge":
             self._add_edge_between_low_degree(low_degree_nodes)
-        elif action == 'remove_edge_high':
+        elif action == "remove_edge_high":
             self._remove_edge_from_high_degree(high_degree_nodes)
-        elif action == 'remove_edge':
+        elif action == "remove_edge":
             self._remove_random_edge()
-        elif action == 'add_vertex':
+        elif action == "add_vertex":
             self._add_vertex()
-        elif action == 'remove_vertex':
+        elif action == "remove_vertex":
             self._remove_vertex()
 
     def _add_edge_between_low_degree(self, low_degree_nodes):
@@ -188,20 +189,17 @@ class RandomWalkGenerator:
         """Add a new vertex."""
         new_id = max(self.graph.nodes(), default=-1) + 1  # type: ignore
         self.graph.add_node(new_id)  # type: ignore
-        self.target_edges = (self.graph.number_of_nodes() *
-                             self.k) // 2  # type: ignore
+        self.target_edges = (self.graph.number_of_nodes() * self.k) // 2  # type: ignore
 
     def _remove_vertex(self):
         """Remove a random vertex (preferably low degree)."""
         nodes = list(self.graph.nodes())  # type: ignore
         if nodes:
             # Prefer removing nodes with degree 0 or 1
-            low_deg = [n for n in nodes
-                       if self.graph.degree(n) <= 1]  # type: ignore
+            low_deg = [n for n in nodes if self.graph.degree(n) <= 1]  # type: ignore
             if low_deg:
                 node = random.choice(low_deg)
             else:
                 node = random.choice(nodes)
             self.graph.remove_node(node)  # type: ignore
-            self.target_edges = (self.graph.number_of_nodes() *
-                                 self.k) // 2  # type: ignore
+            self.target_edges = (self.graph.number_of_nodes() * self.k) // 2  # type: ignore

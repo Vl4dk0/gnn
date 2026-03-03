@@ -95,12 +95,14 @@ class AStarGenerator:
         self.step_count = 0
         self.is_complete = False
         self.success = False
-        self.start_time = time.time()
+        self.start_time = 0.0
         self.explored_states = 0
         self.duplicates_skipped = 0
 
     def elapsed_time(self) -> float:
-        """Get elapsed time since start."""
+        """Get elapsed time since first step."""
+        if self.start_time == 0:
+            return 0.0
         return time.time() - self.start_time
 
     def is_regular(self) -> bool:
@@ -115,6 +117,8 @@ class AStarGenerator:
         3. Generate all valid successors
         4. Add new successors to queue (if not visited)
         """
+        if self.start_time == 0:
+            self.start_time = time.time()
         self.step_count += 1
 
         # Check if queue is empty

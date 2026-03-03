@@ -14,10 +14,14 @@ import time
 import networkx as nx
 from typing import List, Tuple
 
-from backend.utils.graph_utils import (compute_girth, moore_bound,
-                                       moore_hoffman_upper_bound, is_k_regular,
-                                       can_add_edge_preserving_girth,
-                                       score_graph_quality)
+from backend.utils.graph_utils import (
+    compute_girth,
+    moore_bound,
+    moore_hoffman_upper_bound,
+    is_k_regular,
+    can_add_edge_preserving_girth,
+    score_graph_quality,
+)
 
 
 class BruteforceGenerator:
@@ -37,14 +41,16 @@ class BruteforceGenerator:
         self.step_count = 0
         self.is_complete = False
         self.success = False
-        self.start_time = time.time()
+        self.start_time = 0.0
 
         # Initialize with first state
         initial_actions = self._get_all_actions(self.graph)
         self.search_stack.append((self.graph.copy(), initial_actions))
 
     def elapsed_time(self):
-        """Get elapsed time since start."""
+        """Get elapsed time since first step."""
+        if self.start_time == 0:
+            return 0.0
         return time.time() - self.start_time
 
     def is_regular(self):
@@ -53,6 +59,8 @@ class BruteforceGenerator:
 
     def step(self):
         """Execute one search step - try next action or backtrack."""
+        if self.start_time == 0:
+            self.start_time = time.time()
         self.step_count += 1
 
         # Check if we've exceeded the upper bound
@@ -99,10 +107,10 @@ class BruteforceGenerator:
         # Apply action to create new graph
         new_graph = current_graph.copy()
 
-        if action_type == 'add_edge':
+        if action_type == "add_edge":
             u, v = action_data
             new_graph.add_edge(u, v)
-        elif action_type == 'add_vertex':
+        elif action_type == "add_vertex":
             new_id = len(new_graph.nodes())  # type: ignore
             new_graph.add_node(new_id)
 
@@ -115,8 +123,7 @@ class BruteforceGenerator:
         # Push new state onto stack
         self.search_stack.append((new_graph.copy(), new_actions))
 
-    def _get_all_actions(
-            self, graph: nx.Graph) -> List[Tuple[str, any]]:  # type: ignore
+    def _get_all_actions(self, graph: nx.Graph) -> List[Tuple[str, any]]:  # type: ignore
         """
         Generate all possible valid actions for the current graph state.
         Returns sorted list of (action_type, action_data) tuples.
@@ -129,7 +136,7 @@ class BruteforceGenerator:
         # Don't add too many vertices (heuristic: stop at 2x Moore bound)
         if num_nodes < self.mb * 2:
             score = self._score_add_vertex(graph)
-            actions.append((score, 'add_vertex', None))
+            actions.append((score, "add_vertex", None))
 
         # Option 2: Add edges between existing nodes
         nodes = list(graph.nodes())
@@ -139,7 +146,7 @@ class BruteforceGenerator:
             if graph.degree(u) >= self.k:  # type: ignore
                 continue
 
-            for v in nodes[i + 1:]:  # Only consider u < v to avoid duplicates
+            for v in nodes[i + 1 :]:  # Only consider u < v to avoid duplicates
                 # Skip if v already has degree >= k
                 if graph.degree(v) >= self.k:  # type: ignore
                     continue
@@ -151,15 +158,14 @@ class BruteforceGenerator:
                 # Check if adding edge would violate girth constraint
                 if can_add_edge_preserving_girth(graph, u, v, self.g):
                     score = self._score_add_edge(graph, u, v)
-                    actions.append((score, 'add_edge', (u, v)))
+                    actions.append((score, "add_edge", (u, v)))
 
         # Sort actions by score (ascending - lower scores first)
         # We'll pop from the end, so best (highest score) will be at the end
         actions.sort(key=lambda x: x[0])
 
         # Return only action type and data (remove score)
-        return [(action_type, action_data)
-                for _, action_type, action_data in actions]
+        return [(action_type, action_data) for _, action_type, action_data in actions]
 
     def _score_add_vertex(self, graph: nx.Graph) -> float:
         """Score the action of adding a new vertex."""
