@@ -1,4 +1,3 @@
-import os
 import torch
 import networkx as nx
 from typing import Any
@@ -8,7 +7,6 @@ from ai.cage.rl.model import ActorCritic
 from ai.registry import load_model, get_best_model_id, list_trained_models
 from backend.utils.graph_utils import (
     is_k_regular,
-    compute_girth,
     moore_bound,
     moore_hoffman_upper_bound,
 )
@@ -23,12 +21,12 @@ class RLGenerator:
     g: int
     mb: int
     upper_bound: int
-    MAX_K: int
-    MAX_G: int
+    max_k_norm: int
+    max_g_norm: int
     device: torch.device
     model: ActorCritic
     num_nodes: int
-    graph: nx.Graph
+    graph: nx.Graph[int]
     step_count: int
     is_complete: bool
     success: bool
@@ -44,8 +42,8 @@ class RLGenerator:
         self.upper_bound = moore_hoffman_upper_bound(k, g)
 
         # Max parameters for normalization (must match training env)
-        self.MAX_K = 10
-        self.MAX_G = 12
+        self.max_k_norm = 10
+        self.max_g_norm = 12
 
         # Load Model
         self.device = torch.device("cpu")  # Inference on CPU is fine
@@ -58,7 +56,7 @@ class RLGenerator:
             # ActorCritic needs input_dim/hidden_dim which are saved in registry config but maybe not in raw pt.
             # If using manual path, we assume default config or contained in path?
             # For simplicity, if model_path is given, we assume it's a weights file and we use default config.
-            input_dim = self.MAX_K + 3
+            input_dim = self.max_k_norm + 4
             self.model = ActorCritic(
                 model_type=model_type, input_dim=input_dim, hidden_dim=128
             )
@@ -102,7 +100,7 @@ class RLGenerator:
                         print(
                             f"Model {model_id} is not an ActorCritic. Using random initialization."
                         )
-                        input_dim = self.MAX_K + 3
+                        input_dim = self.max_k_norm + 4
                         self.model = ActorCritic(
                             model_type=model_type, input_dim=input_dim, hidden_dim=128
                         )
@@ -111,7 +109,7 @@ class RLGenerator:
                     print(
                         f"Error loading from registry: {e}. Using random initialization."
                     )
-                    input_dim = self.MAX_K + 3
+                    input_dim = self.max_k_norm + 4
                     self.model = ActorCritic(
                         model_type=model_type, input_dim=input_dim, hidden_dim=128
                     )
@@ -119,7 +117,7 @@ class RLGenerator:
                 print(
                     "No trained models found in registry. Using random initialization."
                 )
-                input_dim = self.MAX_K + 3
+                input_dim = self.max_k_norm + 4
                 self.model = ActorCritic(
                     model_type=model_type, input_dim=input_dim, hidden_dim=128
                 )
@@ -155,23 +153,24 @@ class RLGenerator:
 
     def _get_obs(self) -> Data:
         """Construct PyG data from current graph."""
-        degrees = [self.graph.degree(i) for i in range(self.num_nodes)]
-
-        input_dim = self.MAX_K + 3
+        active = self._active_nodes()
+        input_dim = self.max_k_norm + 4
         x = torch.zeros((self.num_nodes, input_dim), dtype=torch.float)
 
-        norm_k = self.k / self.MAX_K
-        norm_g = self.g / self.MAX_G
+        norm_k = self.k / self.max_k_norm
+        norm_g = self.g / self.max_g_norm
 
-        for i, d in enumerate(degrees):
+        for i in range(self.num_nodes):
+            d = self.graph.degree(i) if i in active else 0
             # One-hot degree
-            idx = min(d, self.MAX_K - 1)
-            x[i, idx] = 1.0
+            idx = min(d, self.max_k_norm - 1)
+            x[i, idx] = 1.0 if i in active else 0.0
 
             # Normalized features
-            x[i, self.MAX_K] = d / self.k
-            x[i, self.MAX_K + 1] = norm_k
-            x[i, self.MAX_K + 2] = norm_g
+            x[i, self.max_k_norm] = (d / max(1, self.k)) if i in active else 0.0
+            x[i, self.max_k_norm + 1] = norm_k
+            x[i, self.max_k_norm + 2] = norm_g
+            x[i, self.max_k_norm + 3] = 1.0 if i in active else 0.0
 
         if self.graph.number_of_edges() > 0:
             edge_index = (
@@ -185,32 +184,74 @@ class RLGenerator:
 
         return Data(x=x, edge_index=edge_index, num_nodes=self.num_nodes)
 
-    def _get_valid_mask(self) -> torch.Tensor:
-        # Re-implement mask logic locally or reuse Env?
-        # Re-implementing is safer to avoid dependency issues with Gym
-        mask = []
-        degrees = [self.graph.degree(i) for i in range(self.num_nodes)]
+    def _active_nodes(self) -> set[int]:
+        return {n for n in self.graph.nodes if self.graph.degree(n) > 0}
 
-        def check_girth(u, v):
-            try:
-                # Optimization: BFS with depth limit g-2
-                path_len = nx.shortest_path_length(self.graph, u, v)
-                return (path_len + 1) >= self.g
-            except nx.NetworkXNoPath:
-                return True
+    def _active_subgraph(self) -> nx.Graph[int]:
+        active = self._active_nodes()
+        if not active:
+            return nx.Graph()
+        return self.graph.subgraph(active).copy()
+
+    def _active_component_count(self) -> int:
+        sg = self._active_subgraph()
+        if sg.number_of_nodes() == 0:
+            return 0
+        return nx.number_connected_components(sg)
+
+    def _is_k_regular_active(self) -> bool:
+        active = self._active_nodes()
+        if len(active) < (self.k + 1):
+            return False
+        return all(self.graph.degree(n) == self.k for n in active)
+
+    def _is_girth_satisfied_active(self) -> bool:
+        sg = self._active_subgraph()
+        if sg.number_of_edges() == 0:
+            return True
+        cycles = nx.cycle_basis(sg)
+        if not cycles:
+            return True
+        return min(len(c) for c in cycles) >= self.g
+
+    def _can_add_by_active_rule(self, u: int, v: int) -> bool:
+        active = self._active_nodes()
+        if not active:
+            # First edge can activate any two vertices.
+            return True
+        # Only allow active->active or active->inactive.
+        return (u in active) or (v in active)
+
+    def _can_add_edge(self, u: int, v: int) -> bool:
+        if self.graph.has_edge(u, v):
+            return False
+        if not self._can_add_by_active_rule(u, v):
+            return False
+        if self.graph.degree(u) >= self.k or self.graph.degree(v) >= self.k:
+            return False
+        try:
+            path_len = nx.shortest_path_length(self.graph, u, v)
+            return (path_len + 1) >= self.g
+        except nx.NetworkXNoPath:
+            return True
+
+    def _can_remove_edge(self, u: int, v: int) -> bool:
+        if not self.graph.has_edge(u, v):
+            return False
+        self.graph.remove_edge(u, v)
+        split = self._active_component_count() > 1
+        self.graph.add_edge(u, v)
+        return not split
+
+    def _get_valid_mask(self) -> torch.Tensor:
+        mask: list[bool] = []
 
         for u in range(self.num_nodes):
             for v in range(u + 1, self.num_nodes):
-                if degrees[u] >= self.k or degrees[v] >= self.k:
-                    mask.append(False)
-                    continue
                 if self.graph.has_edge(u, v):
-                    mask.append(False)
-                    continue
-                if not check_girth(u, v):
-                    mask.append(False)
-                    continue
-                mask.append(True)
+                    mask.append(self._can_remove_edge(u, v))
+                else:
+                    mask.append(self._can_add_edge(u, v))
 
         return torch.tensor(mask, dtype=torch.bool)
 
@@ -233,12 +274,10 @@ class RLGenerator:
         self.step_count += 1
 
         # Check success
-        if is_k_regular(self.graph, self.k):
-            girth = compute_girth(self.graph)
-            if girth == self.g:
-                self.is_complete = True
-                self.success = True
-                return
+        if self._is_k_regular_active() and self._is_girth_satisfied_active():
+            self.is_complete = True
+            self.success = True
+            return
 
         # Get Action
         obs = self._get_obs()
@@ -246,15 +285,7 @@ class RLGenerator:
 
         # If no valid moves
         if not mask.any():
-            # Dead end -> Backtrack
-            if not self.stack:
-                self.is_complete = True  # Failed
-                self.success = False
-                return
-
-            # Pop last state
-            # print("Dead end. Backtracking...")
-            # self.graph, last_forbidden = self.stack.pop()
+            # Keep the session alive; user can stop manually.
             return
 
         with torch.no_grad():
@@ -268,14 +299,11 @@ class RLGenerator:
         # Let's do Greedy with some noise?
         # Or just softmax sample
         probs = torch.softmax(logits, dim=0)
-        action_idx = torch.multinomial(probs, 1).item()
+        action_idx = int(torch.multinomial(probs, 1).item())
 
         u, v = self._idx_to_edge(action_idx)
 
-        # Save state for backtracking (Deep copy is expensive!)
-        # Only save every N steps? Or simple recursion?
-        # For now, no backtracking implementation to save memory/speed.
-        # Just pure RL generation.
-        # If we want backtracking, we need to manage the stack.
-
-        self.graph.add_edge(u, v)
+        if self.graph.has_edge(u, v):
+            self.graph.remove_edge(u, v)
+        elif self._can_add_edge(u, v):
+            self.graph.add_edge(u, v)
