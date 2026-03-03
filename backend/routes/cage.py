@@ -35,6 +35,8 @@ session_lock = threading.Lock()
 
 # Timeout in seconds - stop generation if not polled for this long
 POLL_TIMEOUT = 5
+# Hard cap on how long a single generation session may run
+MAX_GENERATION_TIME = 300  # 5 minutes
 MAX_PARALLEL_GENERATIONS = 3
 
 # Safety limits to prevent pathological generation requests from exhausting local compute.
@@ -77,6 +79,15 @@ def run_generation(
                     )
                     # Mark as stopped but keep in sessions for one final status check
                     session["stopped"] = True
+                    break
+
+                # Stop if generation has been running too long
+                if generator.elapsed_time() > MAX_GENERATION_TIME:
+                    print(
+                        f"Generation thread {session_id} - exceeded {MAX_GENERATION_TIME}s limit, stopping"
+                    )
+                    session["stopped"] = True
+                    session["timed_out"] = True
                     break
 
             generator.step()
@@ -217,6 +228,7 @@ def get_status(session_id: str) -> Response | tuple[Response, int]:
             RandomWalkGenerator | BruteforceGenerator | AStarGenerator | RLGenerator
         ) = session["generator"]
         stopped: bool = session.get("stopped", False)
+        timed_out: bool = session.get("timed_out", False)
 
     # Just read current state - don't execute steps (background thread handles that)
     # Compute girth and convert infinity to null for JSON
@@ -239,7 +251,8 @@ def get_status(session_id: str) -> Response | tuple[Response, int]:
             "is_k_regular": generator.is_regular(),
             "is_complete": generator.is_complete,
             "success": generator.success,
-            "stopped": stopped,  # Indicate if stopped due to no polling
+            "stopped": stopped,
+            "timed_out": timed_out,
             "current_graph": graph_to_edge_list(generator.graph),  # type: ignore
             "moore_bound": moore_bound(generator.k, generator.g),
             "elapsed_time": generator.elapsed_time(),
