@@ -69,10 +69,10 @@ export const OverviewPage = () => {
         <div className="mt-5 border-t border-line pt-4 text-sm leading-[1.7] text-textMuted">
           <div className="ml-auto flex w-fit flex-col gap-2 text-left">
             <p>
-            <span className="font-semibold text-textMain">Author:</span> {THESIS_AUTHOR}
+              <span className="font-semibold text-textMain">Author:</span> {THESIS_AUTHOR}
             </p>
             <p>
-            <span className="font-semibold text-textMain">Supervisor:</span> {THESIS_SUPERVISOR}
+              <span className="font-semibold text-textMain">Supervisor:</span> {THESIS_SUPERVISOR}
             </p>
           </div>
         </div>
