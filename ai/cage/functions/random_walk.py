@@ -24,16 +24,27 @@ from backend.utils.graph_utils import (
 class RandomWalkGenerator:
     """Random walk cage generator starting from Moore bound structure."""
 
-    def __init__(self, k, g):
+    k: int
+    g: int
+    mb: int
+    upper_bound: int
+    graph: nx.Graph[int]
+    step_count: int
+    is_complete: bool
+    success: bool
+    start_time: float
+    target_edges: int
+
+    def __init__(self, k: int, g: int) -> None:
         self.k = k
         self.g = g
         self.mb = moore_bound(k, g)
         self.upper_bound = moore_hoffman_upper_bound(k, g)
 
         # Initialize graph with Moore bound nodes
-        self.graph = nx.Graph()  # type: ignore
+        self.graph = nx.Graph()
         for i in range(self.mb):
-            self.graph.add_node(i)  # type: ignore
+            self.graph.add_node(i)
 
         self.step_count = 0
         self.is_complete = False
@@ -41,19 +52,19 @@ class RandomWalkGenerator:
         self.start_time = 0.0
 
         # Track expected edges for k-regularity
-        self.target_edges = (self.graph.number_of_nodes() * k) // 2  # type: ignore
+        self.target_edges = (self.graph.number_of_nodes() * k) // 2
 
-    def elapsed_time(self):
+    def elapsed_time(self) -> float:
         """Get elapsed time since first step."""
         if self.start_time == 0:
             return 0.0
         return time.time() - self.start_time
 
-    def is_regular(self):
+    def is_regular(self) -> bool:
         """Check if graph is k-regular."""
         return is_k_regular(self.graph, self.k)
 
-    def step(self):
+    def step(self) -> None:
         """Execute one construction step."""
         if self.start_time == 0:
             self.start_time = time.time()
@@ -82,7 +93,7 @@ class RandomWalkGenerator:
         nodes = list(self.graph.nodes())  # type: ignore
         low_degree_nodes = [n for n in nodes if self.graph.degree(n) < self.k]  # type: ignore
         high_degree_nodes = [n for n in nodes if self.graph.degree(n) > self.k]  # type: ignore
-        correct_degree_nodes = [n for n in nodes if self.graph.degree(n) == self.k]  # type: ignore
+        _correct_degree_nodes = [n for n in nodes if self.graph.degree(n) == self.k]  # type: ignore
 
         # Decision probabilities based on current state
         edge_deficit = self.target_edges - num_edges
@@ -155,7 +166,7 @@ class RandomWalkGenerator:
         elif action == "remove_vertex":
             self._remove_vertex()
 
-    def _add_edge_between_low_degree(self, low_degree_nodes):
+    def _add_edge_between_low_degree(self, low_degree_nodes: list[int]) -> None:
         """Try to add an edge between two low-degree nodes."""
         # Try multiple pairs to find valid edge
         attempts = min(50, len(low_degree_nodes) * len(low_degree_nodes))
@@ -166,10 +177,10 @@ class RandomWalkGenerator:
             if not self.graph.has_edge(u, v):  # type: ignore
                 # Check girth constraint
                 if can_add_edge_preserving_girth(self.graph, u, v, self.g):
-                    self.graph.add_edge(u, v)  # type: ignore
+                    _ = self.graph.add_edge(u, v)
                     return
 
-    def _remove_edge_from_high_degree(self, high_degree_nodes):
+    def _remove_edge_from_high_degree(self, high_degree_nodes: list[int]) -> None:
         """Remove an edge from a high-degree node."""
         node = random.choice(high_degree_nodes)
         neighbors = list(self.graph.neighbors(node))  # type: ignore
@@ -180,7 +191,7 @@ class RandomWalkGenerator:
 
     def _remove_random_edge(self):
         """Remove a random edge."""
-        edges = list(self.graph.edges())  # type: ignore
+        edges: list[tuple[int, int]] = list(self.graph.edges())  # type: ignore
         if edges:
             u, v = random.choice(edges)
             self.graph.remove_edge(u, v)  # type: ignore

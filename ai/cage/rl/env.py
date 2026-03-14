@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import random
-from typing import Any
 
 import networkx as nx
 import torch
-from torch_geometric.data import Data
+from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
 
 from backend.utils.graph_utils import moore_bound
 
@@ -70,7 +69,9 @@ class CageConstructionEnv:
         self.current_step = 0
         self.episode_score = 0.0
 
-    def _update_bounds(self, n_min: int | None = None, n_max: int | None = None) -> None:
+    def _update_bounds(
+        self, n_min: int | None = None, n_max: int | None = None
+    ) -> None:
         self.mb = moore_bound(self.k, self.g)
         self.n_min = self.mb if n_min is None else n_min
         self.n_max = max(int(self.mb * 1.5), self.mb + 10) if n_max is None else n_max
@@ -134,7 +135,7 @@ class CageConstructionEnv:
         if self.graph.degree(u) >= self.k or self.graph.degree(v) >= self.k:
             return False
         try:
-            path_len = nx.shortest_path_length(self.graph, u, v)
+            path_len = int(nx.shortest_path_length(self.graph, u, v))  # pyright: ignore[reportUnknownMemberType]
             return (path_len + 1) >= self.g
         except nx.NetworkXNoPath:
             return True
@@ -144,7 +145,7 @@ class CageConstructionEnv:
             return False
         self.graph.remove_edge(u, v)
         split = self._active_component_count() > 1
-        self.graph.add_edge(u, v)
+        _ = self.graph.add_edge(u, v)
         return not split
 
     def reset(self, num_nodes: int | None = None) -> Data:
@@ -167,7 +168,9 @@ class CageConstructionEnv:
             self.g = self.default_g
             self._update_bounds()
 
-        self.num_nodes = random.randint(self.n_min, self.n_max) if num_nodes is None else num_nodes
+        self.num_nodes = (
+            random.randint(self.n_min, self.n_max) if num_nodes is None else num_nodes
+        )
         self.current_step = 0
         self.episode_score = 0.0
         self.graph = nx.Graph()
@@ -227,7 +230,9 @@ class CageConstructionEnv:
                     mask.append(self._can_add_edge(u, v))
         return torch.tensor(mask, dtype=torch.bool)
 
-    def step(self, action_idx: int) -> tuple[Data, float, bool, dict[str, Any]]:
+    def step(
+        self, action_idx: int
+    ) -> tuple[Data, float, bool, dict[str, int | str | bool | list[int] | float]]:
         """Apply one pair action."""
         self.current_step += 1
         reward = 0.0
@@ -235,7 +240,7 @@ class CageConstructionEnv:
 
         u, v = self.idx_to_edge(action_idx)
         pre_active_count = len(self._active_nodes())
-        info: dict[str, Any] = {
+        info: dict[str, int | str | bool | list[int] | float] = {
             "k": self.k,
             "g": self.g,
             "capacity_nodes": self.num_nodes,
@@ -261,7 +266,7 @@ class CageConstructionEnv:
                 info["action_type"] = "edge_remove"
         else:
             if self._can_add_edge(u, v):
-                self.graph.add_edge(u, v)
+                _ = self.graph.add_edge(u, v)
                 reward += self.ADD_REWARD
                 valid_action = True
                 info["action_type"] = "edge_add"

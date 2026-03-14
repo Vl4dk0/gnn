@@ -12,7 +12,6 @@ This algorithm:
 
 import time
 import networkx as nx
-from typing import List, Tuple
 
 from backend.utils.graph_utils import (
     compute_girth,
@@ -24,10 +23,24 @@ from backend.utils.graph_utils import (
 )
 
 
+Action = tuple[str, tuple[int, int] | None]
+
+
 class BruteforceGenerator:
     """Bruteforce backtracking search for cage graphs."""
 
-    def __init__(self, k, g):
+    k: int
+    g: int
+    mb: int
+    upper_bound: int
+    graph: nx.Graph[int]
+    search_stack: list[tuple[nx.Graph[int], list[Action]]]
+    step_count: int
+    is_complete: bool
+    success: bool
+    start_time: float
+
+    def __init__(self, k: int, g: int) -> None:
         self.k = k
         self.g = g
         self.mb = moore_bound(k, g)
@@ -47,17 +60,17 @@ class BruteforceGenerator:
         initial_actions = self._get_all_actions(self.graph)
         self.search_stack.append((self.graph.copy(), initial_actions))
 
-    def elapsed_time(self):
+    def elapsed_time(self) -> float:
         """Get elapsed time since first step."""
         if self.start_time == 0:
             return 0.0
         return time.time() - self.start_time
 
-    def is_regular(self):
+    def is_regular(self) -> bool:
         """Check if graph is k-regular."""
         return is_k_regular(self.graph, self.k)
 
-    def step(self):
+    def step(self) -> None:
         """Execute one search step - try next action or backtrack."""
         if self.start_time == 0:
             self.start_time = time.time()
@@ -67,7 +80,7 @@ class BruteforceGenerator:
         if self.graph.number_of_nodes() > self.upper_bound:  # type: ignore
             # This path is invalid - backtrack
             if self.search_stack:
-                self.search_stack.pop()
+                _ = self.search_stack.pop()
                 if self.search_stack:
                     self.graph = self.search_stack[-1][0].copy()
             else:
@@ -95,7 +108,7 @@ class BruteforceGenerator:
 
         if not actions_remaining:
             # No more actions at this level - backtrack
-            self.search_stack.pop()
+            _ = self.search_stack.pop()
             if self.search_stack:
                 self.graph = self.search_stack[-1][0].copy()
             return
@@ -108,10 +121,11 @@ class BruteforceGenerator:
         new_graph = current_graph.copy()
 
         if action_type == "add_edge":
+            assert action_data is not None
             u, v = action_data
-            new_graph.add_edge(u, v)
+            _ = new_graph.add_edge(u, v)
         elif action_type == "add_vertex":
-            new_id = len(new_graph.nodes())  # type: ignore
+            new_id = len(new_graph.nodes())
             new_graph.add_node(new_id)
 
         # Update current graph
@@ -123,14 +137,14 @@ class BruteforceGenerator:
         # Push new state onto stack
         self.search_stack.append((new_graph.copy(), new_actions))
 
-    def _get_all_actions(self, graph: nx.Graph) -> List[Tuple[str, any]]:  # type: ignore
+    def _get_all_actions(self, graph: nx.Graph[int]) -> list[Action]:
         """
         Generate all possible valid actions for the current graph state.
         Returns sorted list of (action_type, action_data) tuples.
         """
-        actions = []
+        actions: list[tuple[float, str, tuple[int, int] | None]] = []
 
-        num_nodes = len(graph.nodes())  # type: ignore
+        num_nodes = len(graph.nodes())
 
         # Option 1: Add a new vertex (always valid, but only if we need more)
         # Don't add too many vertices (heuristic: stop at 2x Moore bound)
@@ -167,7 +181,7 @@ class BruteforceGenerator:
         # Return only action type and data (remove score)
         return [(action_type, action_data) for _, action_type, action_data in actions]
 
-    def _score_add_vertex(self, graph: nx.Graph) -> float:
+    def _score_add_vertex(self, graph: nx.Graph[int]) -> float:
         """Score the action of adding a new vertex."""
         num_nodes = len(graph.nodes())  # type: ignore
 
@@ -181,14 +195,14 @@ class BruteforceGenerator:
             excess = num_nodes - self.mb
             return max(0.0, 0.3 - 0.1 * excess)
 
-    def _score_add_edge(self, graph: nx.Graph, u: int, v: int) -> float:
+    def _score_add_edge(self, graph: nx.Graph[int], u: int, v: int) -> float:
         """
         Score the action of adding edge (u, v).
         Uses graph quality score after the edge is added.
         """
         # Create temporary graph with edge added
-        temp_graph = graph.copy()
-        temp_graph.add_edge(u, v)
+        temp_graph: nx.Graph[int] = graph.copy()
+        _ = temp_graph.add_edge(u, v)
 
         # Use existing quality scoring function
         base_score = score_graph_quality(temp_graph, self.k, self.g)

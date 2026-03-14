@@ -13,7 +13,6 @@ This algorithm:
 import time
 import heapq
 import networkx as nx
-from typing import Any
 
 from backend.utils.graph_utils import (
     compute_girth,
@@ -25,7 +24,7 @@ from backend.utils.graph_utils import (
 )
 
 
-def graph_hash(G: nx.Graph) -> str:
+def graph_hash(G: nx.Graph[int]) -> str:
     """
     Compute a hash for the graph to detect duplicates.
 
@@ -54,9 +53,9 @@ class AStarGenerator:
     mb: int
     upper_bound: int
     counter: int
-    pq: list[tuple[float, int, nx.Graph]]
+    pq: list[tuple[float, int, nx.Graph[int]]]
     visited_hashes: set[str]
-    graph: nx.Graph
+    graph: nx.Graph[int]
     step_count: int
     is_complete: bool
     success: bool
@@ -71,7 +70,7 @@ class AStarGenerator:
         self.upper_bound = moore_hoffman_upper_bound(k, g)
 
         # Start with Moore bound vertices and no edges
-        initial_graph = nx.Graph()
+        initial_graph: nx.Graph[int] = nx.Graph()
         for i in range(self.mb):
             initial_graph.add_node(i)
 
@@ -168,7 +167,7 @@ class AStarGenerator:
             heapq.heappush(self.pq, (-succ_score, self.counter, succ_graph))
             self.counter += 1
 
-    def _generate_successors(self, graph: nx.Graph) -> list[nx.Graph]:
+    def _generate_successors(self, graph: nx.Graph[int]) -> list[nx.Graph[int]]:
         """
         Generate all valid successor graphs.
 
@@ -176,7 +175,7 @@ class AStarGenerator:
         1. Add an edge between two existing vertices (if it preserves girth)
         2. Add a new vertex
         """
-        successors: list[nx.Graph] = []
+        successors: list[nx.Graph[int]] = []
         nodes = list(graph.nodes())
         num_nodes = len(nodes)
 
@@ -197,8 +196,8 @@ class AStarGenerator:
 
                 # Check if adding edge preserves girth constraint
                 if can_add_edge_preserving_girth(graph, u, v, self.g):
-                    new_graph = graph.copy()
-                    new_graph.add_edge(u, v)
+                    new_graph: nx.Graph[int] = graph.copy()
+                    _ = new_graph.add_edge(u, v)
                     successors.append(new_graph)
 
         # Action 2: Add a new vertex (only if we haven't exceeded reasonable limit)
@@ -211,7 +210,7 @@ class AStarGenerator:
 
         return successors
 
-    def _score_graph(self, graph: nx.Graph) -> float:
+    def _score_graph(self, graph: nx.Graph[int]) -> float:
         """
         Score a graph based on how likely it is to lead to a valid cage.
 

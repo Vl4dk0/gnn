@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
-from torch_geometric.nn import global_mean_pool
-from torch_geometric.data import Data
-from typing import Any
+from torch_geometric.nn import global_mean_pool  # pyright: ignore[reportMissingTypeStubs]
+from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
+from typing import cast, override
 
 from ai.models import MODEL_CLASSES
 
@@ -17,7 +17,7 @@ class ActorCritic(nn.Module):
     gnn: nn.Module
     actor_bilinear: nn.Bilinear
     value_head: nn.Sequential
-    config: dict[str, Any]
+    config: dict[str, str | int | float | bool]
 
     def __init__(
         self,
@@ -25,9 +25,9 @@ class ActorCritic(nn.Module):
         input_dim: int = 5,
         hidden_dim: int = 64,
         num_layers: int = 3,
-        **kwargs: Any,
+        **kwargs: str | int | float | bool,
     ):
-        super().__init__()
+        super().__init__()  # pyright: ignore[reportUnknownMemberType]
 
         # 1. Shared Encoder (GNN)
         if model_type not in MODEL_CLASSES:
@@ -43,7 +43,7 @@ class ActorCritic(nn.Module):
             hidden_dim=hidden_dim,
             output_dim=hidden_dim,  # Node embeddings
             num_layers=num_layers,
-            **kwargs,
+            **kwargs,  # pyright: ignore[reportArgumentType]
         )
 
         # 2. Actor Head (Policy)
@@ -63,10 +63,10 @@ class ActorCritic(nn.Module):
             "input_dim": input_dim,
             "hidden_dim": hidden_dim,
             "num_layers": num_layers,
-            **kwargs,
         }
+        self.config.update(kwargs)
 
-    def get_config(self) -> dict[str, Any]:
+    def get_config(self) -> dict[str, str | int | float | bool]:
         """Return model configuration for registry."""
         return self.config
 
@@ -74,6 +74,7 @@ class ActorCritic(nn.Module):
         """Return model name."""
         return "actor_critic"
 
+    @override  # type: ignore[misc]
     def forward(self, data: Data) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Forward pass.
@@ -89,7 +90,7 @@ class ActorCritic(nn.Module):
         # We need to hack the GNN slightly because BaseGNN.forward usually does a projection at the end
         # But let's see... BaseGNN returns `out.squeeze(-1)` if output_dim=1.
         # If output_dim=hidden, it returns [num_nodes, hidden].
-        h = self.gnn(data)
+        h = cast(torch.Tensor, self.gnn(data))
 
         # --- Critic ---
         # Global pooling (if batch is present, use it, otherwise batch is zeros)
@@ -99,12 +100,13 @@ class ActorCritic(nn.Module):
             else torch.zeros(h.size(0), dtype=torch.long, device=h.device)
         )
         graph_emb = global_mean_pool(h, batch)
-        value = self.value_head(graph_emb)
+        value = cast(torch.Tensor, self.value_head(graph_emb))
 
         # --- Actor ---
         # We need to compute scores for all pairs (u, v) where u < v
         # Number of nodes
-        num_nodes = h.size(0)
+        num_nodes: int = int(h.size(0))
+        h_device = h.device
 
         # Create indices for all upper triangle pairs
         # We can cache this if num_nodes is constant, but it might vary
@@ -113,7 +115,7 @@ class ActorCritic(nn.Module):
         # Construct pairs efficiently using triu_indices
         # row (u), col (v)
         u_indices, v_indices = torch.triu_indices(
-            num_nodes, num_nodes, offset=1, device=h.device
+            num_nodes, num_nodes, offset=1, device=h_device
         )
 
         # Gather embeddings
@@ -122,7 +124,8 @@ class ActorCritic(nn.Module):
 
         # Compute pair scores [num_pairs, 1]
         # Bilinear: x1 * A * x2 + b
-        logits = self.actor_bilinear(h_u, h_v).squeeze(-1)
+        bilinear_out = cast(torch.Tensor, self.actor_bilinear(h_u, h_v))
+        logits = bilinear_out.squeeze(-1)
         return logits, value
 
     def get_action(
@@ -144,13 +147,15 @@ class ActorCritic(nn.Module):
             log_prob: Log probability of selected action
             value: Predicted value
         """
-        logits, value = self(data)
+        _out = cast(tuple[torch.Tensor, torch.Tensor], self(data))
+        logits, value = _out
 
         if action_mask is not None:
             # Apply mask (set invalid to -inf)
             # Ensure mask is on same device
-            if action_mask.device != logits.device:
-                action_mask = action_mask.to(logits.device)
+            mask_device = logits.device
+            if action_mask.device != mask_device:
+                action_mask = action_mask.to(mask_device)
 
             logits = logits.masked_fill(~action_mask, -1e9)
 
@@ -162,6 +167,6 @@ class ActorCritic(nn.Module):
         else:
             action = dist.sample()
 
-        log_prob = dist.log_prob(action)
+        log_prob = cast(torch.Tensor, dist.log_prob(action))
 
         return int(action.item()), log_prob, value

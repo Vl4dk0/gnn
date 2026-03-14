@@ -11,41 +11,40 @@ Proper MCTS with:
 import random
 import time
 import math
-import random
 import networkx as nx
-from typing import Any
 
 from backend.utils.graph_utils import (
     compute_girth,
     moore_bound,
-    moore_hoffman_upper_bound,
     is_k_regular,
     can_add_edge_preserving_girth,
     score_graph_quality,
 )
 
+Action = tuple[str, tuple[int, int] | None]
+
 
 class MCTSNode:
     """Node in the Monte Carlo Search Tree."""
 
-    graph: nx.Graph
+    graph: nx.Graph[int]
     k: int
     g: int
     parent: "MCTSNode | None"
-    action: Any
+    action: Action | None
     children: list["MCTSNode"]
     visits: int
     value: float
-    untried_actions: list[tuple[str, Any]]
+    untried_actions: list[Action]
     is_terminal: bool
 
     def __init__(
         self,
-        graph: nx.Graph,
+        graph: nx.Graph[int],
         k: int,
         g: int,
         parent: "MCTSNode | None" = None,
-        action: Any = None,
+        action: Action | None = None,
     ):
         self.graph = graph
         self.k = k
@@ -60,9 +59,9 @@ class MCTSNode:
         self.untried_actions = self._get_legal_actions()
         self.is_terminal = is_k_regular(self.graph, self.k)
 
-    def _get_legal_actions(self) -> list[tuple[str, Any]]:
+    def _get_legal_actions(self) -> list[Action]:
         """Generate legal actions from current state."""
-        actions: list[tuple[str, Any]] = []
+        actions: list[Action] = []
         nodes = list(self.graph.nodes())
         num_nodes = len(nodes)
 
@@ -111,7 +110,7 @@ class MCTSGenerator:
     k: int
     g: int
     root: MCTSNode
-    graph: nx.Graph
+    graph: nx.Graph[int]
     step_count: int
     is_complete: bool
     success: bool
@@ -124,7 +123,7 @@ class MCTSGenerator:
 
         # Start with Moore bound vertices
         mb = moore_bound(k, g)
-        initial_graph = nx.Graph()
+        initial_graph: nx.Graph[int] = nx.Graph()
         for i in range(mb):
             initial_graph.add_node(i)
 
@@ -193,10 +192,11 @@ class MCTSGenerator:
         action = node.untried_actions.pop()
         action_type, action_data = action
 
-        new_graph = node.graph.copy()
+        new_graph: nx.Graph[int] = node.graph.copy()
         if action_type == "add_edge":
+            assert action_data is not None
             u, v = action_data
-            new_graph.add_edge(u, v)
+            _ = new_graph.add_edge(u, v)
         elif action_type == "add_node":
             new_id = len(new_graph.nodes())
             new_graph.add_node(new_id)
@@ -231,7 +231,7 @@ class MCTSGenerator:
                         continue
                     if not curr_graph.has_edge(u, v):
                         if can_add_edge_preserving_girth(curr_graph, u, v, self.g):
-                            curr_graph.add_edge(u, v)
+                            _ = curr_graph.add_edge(u, v)
                             added = True
                             break
                 if added:

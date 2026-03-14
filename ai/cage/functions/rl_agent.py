@@ -2,12 +2,16 @@ import time
 
 import networkx as nx
 import torch
-from torch_geometric.data import Data
+from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
 
 from ai.cage.rl.env import CageConstructionEnv
 from ai.cage.rl.model import ActorCritic
 from ai.registry import get_best_model_id, list_trained_models, load_model
-from backend.utils.graph_utils import is_k_regular, moore_bound, moore_hoffman_upper_bound
+from backend.utils.graph_utils import (
+    is_k_regular,
+    moore_bound,
+    moore_hoffman_upper_bound,
+)
 
 
 class RLGenerator:
@@ -62,7 +66,7 @@ class RLGenerator:
             model_path=model_path,
             input_dim=input_dim,
         )
-        self.model.eval()
+        _ = self.model.eval()
 
         self.step_count = 0
         self.is_complete = False
@@ -74,21 +78,26 @@ class RLGenerator:
     ) -> ActorCritic:
         if model_path:
             print(f"Loading RL model from specific path: {model_path}")
-            model = ActorCritic(model_type=model_type, input_dim=input_dim, hidden_dim=128)
+            model = ActorCritic(
+                model_type=model_type, input_dim=input_dim, hidden_dim=128
+            )
             try:
-                _ = model.load_state_dict(torch.load(model_path, map_location=self.device))
+                loaded_weights = torch.load(model_path, map_location=self.device)  # pyright: ignore[reportAny]
+                _ = model.load_state_dict(loaded_weights)  # type: ignore[arg-type]  # pyright: ignore[reportAny]
             except Exception as e:
-                print(f"Failed to load model from {model_path}: {e}. Using random weights.")
+                print(
+                    f"Failed to load model from {model_path}: {e}. Using random weights."
+                )
             return model
 
         model_id: str | None = None
         models = list_trained_models("cage")
         for model_info in models:
-            if model_info.get("training", {}).get("model_type") == model_type:
-                model_id = str(model_info["model_id"])
+            if model_info.get("training", {}).get("model_type") == model_type:  # pyright: ignore[reportAny]
+                model_id = str(model_info["model_id"])  # pyright: ignore[reportAny]
+                avg_reward = model_info.get("metrics", {}).get("avg_reward", "N/A")  # pyright: ignore[reportAny]
                 print(
-                    f"Found best {model_type} model: {model_id} "
-                    f"(Avg Reward: {model_info.get('metrics', {}).get('avg_reward', 'N/A')})"
+                    f"Found best {model_type} model: {model_id} (Avg Reward: {avg_reward})"
                 )
                 break
 
@@ -103,7 +112,9 @@ class RLGenerator:
                 if isinstance(loaded, ActorCritic):
                     print(f"Successfully loaded model {model_id} from registry.")
                     return loaded
-                print(f"Model {model_id} is not an ActorCritic. Using random initialization.")
+                print(
+                    f"Model {model_id} is not an ActorCritic. Using random initialization."
+                )
             except Exception as e:
                 print(f"Error loading from registry: {e}. Using random initialization.")
         else:
@@ -120,8 +131,10 @@ class RLGenerator:
         return is_k_regular(self.graph, self.k)
 
     def _pick_action(self, mask: torch.Tensor) -> int:
+        from typing import cast as _cast
+
         with torch.no_grad():
-            logits, _ = self.model(self.obs)
+            logits, _ = _cast(tuple[torch.Tensor, torch.Tensor], self.model(self.obs))
 
         masked_logits = logits.masked_fill(~mask, -1e9)
         probs = torch.softmax(masked_logits, dim=0)
