@@ -7,6 +7,7 @@ import torch
 from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
 
 from ai.models.base import BaseGNN
+from ai.utils.device import configure_torch_device
 from ai.utils.r_neighborhood import apply_r_neighborhood
 
 # Model cache - maps model_id to loaded model
@@ -95,103 +96,82 @@ def predict_all_nodes(
             ...
         ]
     """
+    _ = configure_torch_device()
     model = load_degree_gnn(model_id)
 
-    # If model not available, return true degrees
     if model is None:
-        return [
+        raise RuntimeError("No trained model available for degree prediction")
+
+    # Convert NetworkX graph to PyTorch Geometric format
+    num_nodes = len(G.nodes())
+
+    if num_nodes == 0:
+        return []
+
+    # Create node ID mapping (handle non-sequential node IDs)
+    node_list: list[int] = sorted(G.nodes())
+    node_to_idx: dict[int, int] = {node: idx for idx, node in enumerate(node_list)}
+
+    # Build edge index
+    edge_index_list: list[list[int]] = []
+    for u, v in G.edges():
+        u_idx = node_to_idx[u]
+        v_idx = node_to_idx[v]
+        edge_index_list.append([u_idx, v_idx])
+        edge_index_list.append([v_idx, u_idx])
+
+    edge_index: torch.Tensor
+    if len(edge_index_list) == 0:
+        edge_index = torch.empty((2, 0), dtype=torch.long)
+    else:
+        edge_index = torch.tensor(edge_index_list, dtype=torch.long).t().contiguous()
+
+    # Node features: match training setup with rich features
+    # Feature 1: Normalized node index (0 to 1)
+    node_idx_feature = torch.arange(num_nodes, dtype=torch.float).unsqueeze(1) / max(
+        num_nodes - 1, 1
+    )
+
+    # Feature 2: Random embedding (deterministic with seed for consistency)
+    _ = torch.manual_seed(42)  # pyright: ignore[reportUnknownMemberType]
+    random_feature = torch.randn(num_nodes, 2)
+
+    # Feature 3: Clustering coefficient placeholder
+    _ = torch.manual_seed(42)  # pyright: ignore[reportUnknownMemberType]
+    clustering_feature = torch.rand(num_nodes, 1)
+
+    # Combine all features (must match training: 4 features)
+    x = torch.cat([node_idx_feature, random_feature, clustering_feature], dim=1)
+
+    # Create data object
+    data = Data(x=x, edge_index=edge_index)
+
+    # For loopy models, apply r-neighborhood transform
+    r_attr = cast(int | None, getattr(model, "r", None))
+    if r_attr is not None:
+        data = apply_r_neighborhood(data, r=r_attr)
+
+    # Predict with GNN
+    with torch.no_grad():
+        predictions = cast(torch.Tensor, model(data)).squeeze()
+
+        # Handle single node case
+        if num_nodes == 1:
+            predictions = predictions.unsqueeze(0)
+
+    # Build results for all nodes
+    results: list[dict[str, int | float]] = []
+    for node in node_list:
+        idx = node_to_idx[node]
+        predicted_degree = max(0.0, round(float(predictions[idx].item())))
+        true_degree = get_true_degree(G, node)
+
+        results.append(
             {
                 "node_id": node,
-                "true": get_true_degree(G, node),
-                "predicted": float(get_true_degree(G, node)),
+                "true": true_degree,
+                "predicted": predicted_degree,
             }
-            for node in sorted(G.nodes())
-        ]
+        )
 
-    try:
-        # Convert NetworkX graph to PyTorch Geometric format
-        num_nodes = len(G.nodes())
-
-        if num_nodes == 0:
-            return []
-
-        # Create node ID mapping (handle non-sequential node IDs)
-        node_list: list[int] = sorted(G.nodes())
-        node_to_idx: dict[int, int] = {node: idx for idx, node in enumerate(node_list)}
-
-        # Build edge index
-        edge_index_list: list[list[int]] = []
-        for u, v in G.edges():
-            u_idx = node_to_idx[u]
-            v_idx = node_to_idx[v]
-            edge_index_list.append([u_idx, v_idx])
-            edge_index_list.append([v_idx, u_idx])
-
-        edge_index: torch.Tensor
-        if len(edge_index_list) == 0:
-            edge_index = torch.empty((2, 0), dtype=torch.long)
-        else:
-            edge_index = (
-                torch.tensor(edge_index_list, dtype=torch.long).t().contiguous()
-            )
-
-        # Node features: match training setup with rich features
-        # Feature 1: Normalized node index (0 to 1)
-        node_idx_feature = torch.arange(num_nodes, dtype=torch.float).unsqueeze(
-            1
-        ) / max(num_nodes - 1, 1)
-
-        # Feature 2: Random embedding (deterministic with seed for consistency)
-        _ = torch.manual_seed(42)  # pyright: ignore[reportUnknownMemberType]
-        random_feature = torch.randn(num_nodes, 2)
-
-        # Feature 3: Clustering coefficient placeholder
-        _ = torch.manual_seed(42)  # pyright: ignore[reportUnknownMemberType]
-        clustering_feature = torch.rand(num_nodes, 1)
-
-        # Combine all features (must match training: 4 features)
-        x = torch.cat([node_idx_feature, random_feature, clustering_feature], dim=1)
-
-        # Create data object
-        data = Data(x=x, edge_index=edge_index)
-
-        # For loopy models, apply r-neighborhood transform
-        r_attr = cast(int | None, getattr(model, "r", None))
-        if r_attr is not None:
-            data = apply_r_neighborhood(data, r=r_attr)
-
-        # Predict with GNN
-        with torch.no_grad():
-            predictions = cast(torch.Tensor, model(data)).squeeze()
-
-            # Handle single node case
-            if num_nodes == 1:
-                predictions = predictions.unsqueeze(0)
-
-        # Build results for all nodes
-        results: list[dict[str, int | float]] = []
-        for node in node_list:
-            idx = node_to_idx[node]
-            predicted_degree = max(0.0, round(float(predictions[idx].item())))
-            true_degree = get_true_degree(G, node)
-
-            results.append(
-                {
-                    "node_id": node,
-                    "true": true_degree,
-                    "predicted": predicted_degree,
-                }
-            )
-
-        return results
-
-    except Exception as e:
-        print(f"Error in GNN prediction for all nodes: {e}")
-        return [
-            {
-                "node_id": node,
-                "true": get_true_degree(G, node),
-                "predicted": float(get_true_degree(G, node)),
-            }
-            for node in sorted(G.nodes())
-        ]
+    return results

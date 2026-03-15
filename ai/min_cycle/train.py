@@ -22,6 +22,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
 from ai.models import MODEL_CLASSES
 from ai.models.base import BaseGNN
+from ai.models.gps import GPS_GNN
 from ai.models.loopy import Loopy_GNN
 from ai.registry import save_model, model_exists, list_model_types
 from ai.min_cycle.functions.graph_service import get_min_cycle
@@ -185,12 +186,14 @@ def train_gnn(
     input_dim: int,
     force: bool = False,
     r: int = 3,
+    conv_type: str = "gin",
+    heads: int = 4,
 ) -> BaseGNN:
     """
     Main training function.
 
     Args:
-        model_type: Type of model ('gcn', 'sage', 'gin', 'loopy')
+        model_type: Type of model ('gcn', 'sage', 'gin', 'loopy', 'gps')
         model_name: Name for this trained model (e.g., 'v1', 'baseline')
         num_epochs: Number of training epochs
         hidden_dim: Hidden dimension size
@@ -203,6 +206,8 @@ def train_gnn(
         input_dim: Number of input features per node
         force: Overwrite existing model if exists
         r: r-neighborhood radius for Loopy GNN
+        conv_type: Inner conv type for GPS ("gcn", "sage", or "gin")
+        heads: Number of attention heads for GPS
 
     Returns:
         Trained model
@@ -246,6 +251,9 @@ def train_gnn(
         print(
             f"  - r-neighborhood: {r_for_training} (cycles up to {r_for_training + 2})"
         )
+    if model_type == "gps":
+        print(f"  - Conv Type: {conv_type}")
+        print(f"  - Attention Heads: {heads}")
     print("=" * 60)
 
     # Initialize model
@@ -258,6 +266,16 @@ def train_gnn(
             num_layers=num_layers,
             dropout=dropout,
             r=r,
+        )
+    elif model_type == "gps":
+        model = GPS_GNN(
+            input_dim=input_dim,
+            hidden_dim=hidden_dim,
+            output_dim=1,
+            num_layers=num_layers,
+            dropout=dropout,
+            conv_type=conv_type,
+            heads=heads,
         )
     else:
         model = model_class(
@@ -273,6 +291,19 @@ def train_gnn(
     best_mae: float = float("inf")
     best_model_state: dict[str, torch.Tensor] | None = None
     best_epoch: int = 0
+
+    # Build training info for checkpointing
+    training_info: dict[str, str | int | float] = {
+        "epochs": num_epochs,
+        "best_epoch": 0,
+        "learning_rate": lr,
+        "graphs_per_epoch": graphs_per_epoch,
+    }
+    if r_for_training is not None:
+        training_info["r"] = r_for_training
+    if model_type == "gps":
+        training_info["conv_type"] = conv_type
+        training_info["heads"] = heads
 
     # Training loop
     for epoch in range(1, num_epochs + 1):
@@ -312,6 +343,20 @@ def train_gnn(
                 best_epoch = epoch
                 print(f"  → New best! Acc: {best_accuracy:.2f}%, MAE: {best_mae:.4f}")
 
+                # Checkpoint: save immediately on new best
+                training_info["best_epoch"] = best_epoch
+                _ = save_model(
+                    model=model,
+                    task="min_cycle",
+                    model_id=model_id,
+                    metrics={
+                        "mse": round(best_mae**2, 4),
+                        "mae": round(best_mae, 4),
+                        "accuracy": round(best_accuracy, 2),
+                    },
+                    training_info=training_info,
+                )
+
     # Restore best model
     if best_model_state is not None:
         _ = model.load_state_dict(best_model_state)
@@ -327,23 +372,15 @@ def train_gnn(
     print(f"  Accuracy: {final_metrics['accuracy']:.2f}%")
     print("=" * 60)
 
-    # Save the best model using registry
-    training_info: dict[str, str | int | float] = {
-        "epochs": num_epochs,
-        "best_epoch": best_epoch,
-        "learning_rate": lr,
-        "graphs_per_epoch": graphs_per_epoch,
-    }
-    if r_for_training is not None:
-        training_info["r"] = r_for_training
-
+    # Final save with completed epoch count
+    training_info["best_epoch"] = best_epoch
     save_path: str = str(
         save_model(
             model=model,
             task="min_cycle",
             model_id=model_id,
             metrics={
-                "mse": round(best_mae**2, 4),  # Approximate MSE from MAE
+                "mse": round(best_mae**2, 4),
                 "mae": round(best_mae, 4),
                 "accuracy": round(best_accuracy, 2),
             },
@@ -387,6 +424,21 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=3,
         help="r-neighborhood radius for Loopy GNN (detects cycles up to r+2)",
+    )
+
+    # GPS-specific parameters
+    _ = parser.add_argument(
+        "--conv-type",
+        type=str,
+        default="gin",
+        choices=["gcn", "sage", "gin"],
+        help="Inner conv type for GPS model",
+    )
+    _ = parser.add_argument(
+        "--heads",
+        type=int,
+        default=4,
+        help="Number of attention heads for GPS model",
     )
 
     # Training parameters
@@ -470,8 +522,16 @@ if __name__ == "__main__":
     graphs_per_epoch_arg = cast(int, args.graphs_per_epoch)
     input_dim_arg = cast(int, args.input_dim)
     force_arg = cast(bool, args.force)
+    conv_type_arg = cast(str, args.conv_type)
+    heads_arg = cast(int, args.heads)
 
-    auto_extra = f"r{r_arg}" if model_arg == "loopy" else ""
+    auto_extra: str
+    if model_arg == "loopy":
+        auto_extra = f"r{r_arg}"
+    elif model_arg == "gps":
+        auto_extra = conv_type_arg
+    else:
+        auto_extra = ""
     resolved_name = name_arg or build_name(model_arg, extra=auto_extra)
 
     _ = train_gnn(
@@ -488,4 +548,6 @@ if __name__ == "__main__":
         input_dim=input_dim_arg,
         force=force_arg,
         r=r_arg,
+        conv_type=conv_type_arg,
+        heads=heads_arg,
     )

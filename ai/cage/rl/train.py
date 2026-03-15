@@ -1,6 +1,7 @@
 import argparse
 import copy
 import json
+import os
 import sys
 import time
 from collections import Counter
@@ -133,7 +134,7 @@ def train_ppo(
     value_coef = 0.5
     entropy_coef = 0.01
 
-    console.rule("Starting PPO Training")
+    console.print("Starting PPO Training")
     console.print(f"Model ID: {model_id}")
     cfg = Table(show_header=False)
     cfg.add_row("Model Type", model_type)
@@ -147,7 +148,7 @@ def train_ppo(
     cfg.add_row("Device", str(device))
     cfg.add_row("Input Dim", str(input_dim))
     console.print(cfg)
-    console.rule()
+    console.print("")
 
     obs_buffer: list[Data] = []
     action_buffer: list[int] = []
@@ -173,7 +174,6 @@ def train_ppo(
     obs = sample_obs
     current_ep_k = env.k
     current_ep_g = env.g
-    current_ep_nodes = env.num_nodes
 
     current_ep_reward = 0.0
     current_ep_len = 0
@@ -185,8 +185,7 @@ def train_ppo(
     fps = 0
     last_checkpoint_episode = 0
     last_live_log_time = start_time
-    initial = Table(show_header=False)
-    initial.add_row("status", "waiting for first live step")
+    initial = "waiting for first live step"
     live_view = Live(initial, console=console, refresh_per_second=8, transient=True)
     live_view.start()
 
@@ -251,27 +250,21 @@ def train_ppo(
                 ):
                     last_live_log_time = time.time()
                     done_reason = info.get("done_reason", "-")
-                    status = Table(show_header=False)
-                    status.add_row(
-                        "episode",
-                        f"{episode_idx + 1}  k={current_ep_k} g={current_ep_g} cap={current_ep_nodes} step={current_ep_len}",
-                    )
-                    status.add_row("action", f"{action_type}:{action_desc}")
-                    status.add_row(
-                        "reward/score",
-                        f"{reward:+.2f} / {float(info.get('episode_score', 0.0)):+.2f}",
-                    )
-                    status.add_row(
-                        "edges/active",
-                        f"{info.get('num_edges', 0)} / {info.get('active_nodes', 0)}",
-                    )
                     counts_line = ", ".join(
                         f"{k}: {v}"
                         for (k, v) in sorted(current_ep_action_counts.items())
                     )
-                    status.add_row("action counts", counts_line if counts_line else "-")
-                    status.add_row("done/reason", f"{done} / {done_reason}")
-                    live_view.update(status, refresh=True)
+                    status_text = (
+                        f"Episode {episode_idx + 1}, k={current_ep_k}, g={current_ep_g}, moores_bound={env.mb}:\n"
+                        f"  step: {current_ep_len}\n"
+                        f"  action: {action_type}:{action_desc}, reward: {reward:+.2f}\n"
+                        f"  score: {float(info.get('episode_score', 0.0)):+.2f}\n"
+                        f"  nodes: {info.get('active_nodes', 0)}\n"
+                        f"  edges: {info.get('num_edges', 0)}\n"
+                        f"  action_counts: {counts_line if counts_line else '-'}\n"
+                        f"  done: {1 if done else 0}, reason: {done_reason}\n"
+                    )
+                    live_view.update(status_text, refresh=True)
 
                 if done:
                     episode_rewards.append(current_ep_reward)
@@ -286,25 +279,21 @@ def train_ppo(
                     kg_stats[kg_key]["reward_sum"] += current_ep_reward
                     kg_stats[kg_key]["len_sum"] += current_ep_len
 
-                    status_str = (
-                        "SUCCESS" if bool(info.get("success", False)) else "FAIL"
-                    )
-                    summary = Table(show_header=False)
-                    summary.add_row("Episode", str(episode_idx))
-                    summary.add_row("Status", status_str)
-                    summary.add_row("k,g", f"{current_ep_k}, {current_ep_g}")
-                    summary.add_row("Capacity Nodes", str(current_ep_nodes))
-                    summary.add_row("Steps", str(current_ep_len))
-                    summary.add_row("Reward", f"{current_ep_reward:+.2f}")
-                    summary.add_row("Done Reason", str(info.get("done_reason", "-")))
                     counts_line = ", ".join(
                         f"{k}: {v}"
                         for (k, v) in sorted(current_ep_action_counts.items())
                     )
-                    summary.add_row(
-                        "Action Counts", counts_line if counts_line else "-"
+                    episode_text = (
+                        f"Episode {episode_idx}, k={current_ep_k}, g={current_ep_g}, moores_bound={env.mb}:\n"
+                        f"  step: {current_ep_len}\n"
+                        f"  action: {action_type}:{action_desc}, reward: {reward:+.2f}\n"
+                        f"  score: {float(info.get('episode_score', 0.0)):+.2f}\n"
+                        f"  nodes: {info.get('active_nodes', 0)}\n"
+                        f"  edges: {info.get('num_edges', 0)}\n"
+                        f"  action_counts: {counts_line if counts_line else '-'}\n"
+                        f"  done: 1, reason: {info.get('done_reason', '-')}\n"
                     )
-                    console.print(summary)
+                    console.print(episode_text)
 
                     current_ep_reward = 0.0
                     current_ep_len = 0
@@ -312,7 +301,6 @@ def train_ppo(
                     obs = env.reset()
                     current_ep_k = env.k
                     current_ep_g = env.g
-                    current_ep_nodes = env.num_nodes
 
             if not obs_buffer:
                 break
@@ -404,12 +392,17 @@ def train_ppo(
             elapsed = time.time() - start_time
             fps = int(global_step / elapsed) if elapsed > 0 else 0
 
-            rollout_tbl = Table(show_header=False)
-            rollout_tbl.add_row("Global Step", str(global_step))
-            rollout_tbl.add_row("Avg Reward (last 20 eps)", f"{avg_rew:.2f}")
-            rollout_tbl.add_row("Avg Length (last 20 eps)", f"{avg_len:.1f}")
-            rollout_tbl.add_row("FPS", str(fps))
-            console.print(rollout_tbl)
+            rollout_text = "\n".join(
+                [
+                    "Rollout:",
+                    f"  global step: {global_step}",
+                    f"  avg reward (last 20 eps): {avg_rew:.2f}",
+                    f"  avg length (last 20 eps): {avg_len:.1f}",
+                    f"  fps: {fps}",
+                    "",
+                ]
+            )
+            console.print(rollout_text)
 
             if kg_stats:
                 console.print("k,g stats: episodes/success/avg_rew/avg_len")
@@ -431,6 +424,7 @@ def train_ppo(
                 best_avg_reward = avg_rew
                 best_model_state = copy.deepcopy(agent.state_dict())
                 console.print(f"New best! Avg Reward: {best_avg_reward:.2f}")
+                _save_checkpoint(partial=True, avg_rew_value=avg_rew, step=global_step)
 
             checkpoint_due_by_episode = (
                 save_episodes > 0
@@ -468,9 +462,9 @@ def train_ppo(
         training_info=training_info,
     )
 
-    console.rule("Training Finished")
+    console.print("Training Finished")
     console.print(f"Model saved via registry to: {save_path}")
-    console.rule()
+    console.print("")
 
 
 if __name__ == "__main__":
@@ -498,7 +492,10 @@ if __name__ == "__main__":
         "--steps", type=int, default=100000, help="Total training steps"
     )
     _ = parser.add_argument(
-        "--hidden-dim", type=int, default=128, help="Hidden dimension"
+        "--hidden-dim",
+        type=int,
+        default=int(os.getenv("TRAINING_HIDDEN_DIM", 64)),
+        help="Hidden dimension",
     )
     _ = parser.add_argument(
         "--num-layers", type=int, default=4, help="Number of GNN layers"
@@ -539,7 +536,7 @@ if __name__ == "__main__":
     _ = parser.add_argument(
         "--save",
         type=int,
-        default=20,
+        default=5,
         help="Save checkpoint every N completed episodes (0 disables episode-based checkpointing).",
     )
     args = parser.parse_args()

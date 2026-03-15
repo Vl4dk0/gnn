@@ -15,6 +15,7 @@ from .gcn import GCN_GNN
 from .sage import SAGE_GNN
 from .gin import GIN_GNN
 from .loopy import Loopy_GNN
+from .gps import GPS_GNN
 
 # Model registry mapping
 MODEL_CLASSES = {
@@ -22,6 +23,7 @@ MODEL_CLASSES = {
     "sage": SAGE_GNN,
     "gin": GIN_GNN,
     "loopy": Loopy_GNN,
+    "gps": GPS_GNN,
 }
 
 __all__ = [
@@ -30,5 +32,6 @@ __all__ = [
     "SAGE_GNN",
     "GIN_GNN",
     "Loopy_GNN",
+    "GPS_GNN",
     "MODEL_CLASSES",
 ]

@@ -59,7 +59,9 @@ class CageConstructionEnv:
         self.g = g
         self.randomize_params = randomize_params
 
-        self.max_k_norm = 10
+        # Feature layout: degree bins + 4 scalar/context features.
+        # Keep degree bins at 4 so input_dim is 4 + 4 = 8.
+        self.max_k_norm = 4
         self.max_g_norm = 12
         self._update_bounds(n_min, n_max)
 

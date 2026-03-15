@@ -16,6 +16,8 @@ from typing import Required, TypedDict, cast
 import torch
 
 from .models import MODEL_CLASSES, BaseGNN
+from .models.gps import GPS_GNN
+from .models.loopy import Loopy_GNN
 from .utils.device import configure_torch_device
 
 
@@ -33,6 +35,9 @@ class _TrainingInfo(TypedDict, total=False):
     num_layers: int
     dropout: float
     r: int
+    conv_type: str
+    heads: int
+    shared: bool
     epochs: int
     best_epoch: int
     learning_rate: float
@@ -190,13 +195,41 @@ def load_model(task: str, model_id: str) -> BaseGNN:
 
     # Create model instance with training config
     training_config: _TrainingInfo = info.get("training", {})
-    model = model_class(
-        input_dim=training_config.get("input_dim", 1),
-        hidden_dim=training_config.get("hidden_dim", 64),
-        output_dim=training_config.get("output_dim", 1),
-        num_layers=training_config.get("num_layers", 4),
-        dropout=training_config.get("dropout", 0.2),
-    )
+    input_dim = int(training_config.get("input_dim", 1))
+    hidden_dim = int(training_config.get("hidden_dim", 64))
+    output_dim = int(training_config.get("output_dim", 1))
+    num_layers = int(training_config.get("num_layers", 4))
+    dropout = float(training_config.get("dropout", 0.2))
+
+    model: BaseGNN
+    if model_type == "loopy":
+        model = Loopy_GNN(
+            input_dim=input_dim,
+            hidden_dim=hidden_dim,
+            output_dim=output_dim,
+            num_layers=num_layers,
+            dropout=dropout,
+            r=int(training_config.get("r", 3)),
+            shared=bool(training_config.get("shared", True)),
+        )
+    elif model_type == "gps":
+        model = GPS_GNN(
+            input_dim=input_dim,
+            hidden_dim=hidden_dim,
+            output_dim=output_dim,
+            num_layers=num_layers,
+            dropout=dropout,
+            conv_type=str(training_config.get("conv_type", "gin")),
+            heads=int(training_config.get("heads", 4)),
+        )
+    else:
+        model = model_class(
+            input_dim=input_dim,
+            hidden_dim=hidden_dim,
+            output_dim=output_dim,
+            num_layers=num_layers,
+            dropout=dropout,
+        )
 
     # Load weights
     _ = model.load_state_dict(torch.load(weights_path, map_location=selected_device))  # pyright: ignore[reportAny]
