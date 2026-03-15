@@ -5,9 +5,9 @@ Blueprint for Cage Graph Generator API endpoints.
 import uuid
 import threading
 import time
-from typing import Any
-from collections.abc import Generator
+from typing import Protocol, TypedDict, Required, cast
 
+import networkx as nx
 from flask import Blueprint, jsonify, request, Response
 
 from ai.cage import (
@@ -25,12 +25,49 @@ from backend.utils.graph_utils import (
     moore_hoffman_upper_bound,
 )
 
+
+class _GeneratorProto(Protocol):
+    k: int
+    g: int
+    graph: nx.Graph[int]
+    step_count: int
+    is_complete: bool
+    success: bool
+
+    def step(self) -> None: ...
+    def elapsed_time(self) -> float: ...
+    def is_regular(self) -> bool: ...
+
+
+class _Session(TypedDict, total=False):
+    generator: Required[
+        RandomWalkGenerator | BruteforceGenerator | AStarGenerator | RLGenerator
+    ]
+    last_poll: Required[float]
+    thread: Required[threading.Thread]
+    stopped: Required[bool]
+    timed_out: bool
+
+
+class _GenerateRequest(TypedDict, total=False):
+    k: Required[int]
+    g: Required[int]
+    generator: str
+    model: str
+
+
+class _AnalyzeRequest(TypedDict, total=False):
+    k: Required[int]
+    g: Required[int]
+    edges: Required[list[list[int]]]
+
+
 # Create blueprint with /api/cage prefix
 cage_bp = Blueprint("cage", __name__, url_prefix="/api/cage")
 
 # Global state for active generation sessions
 # Structure: {session_id: {'generator': generator, 'last_poll': timestamp, 'thread': thread}}
-generation_sessions = {}
+generation_sessions: dict[str, _Session] = {}
 session_lock = threading.Lock()
 
 # Timeout in seconds - stop generation if not polled for this long
@@ -47,8 +84,7 @@ def _count_active_generations_locked() -> int:
     """Count currently running generation threads (lock must be held)."""
     active = 0
     for session in generation_sessions.values():
-        thread = session.get("thread")
-        if isinstance(thread, threading.Thread) and thread.is_alive():
+        if session["thread"].is_alive():
             active += 1
     return active
 
@@ -69,7 +105,7 @@ def run_generation(
                     print(f"Generation thread {session_id} - session removed, stopping")
                     break
 
-                session: dict[str, Any] = generation_sessions[session_id]
+                session: _Session = generation_sessions[session_id]
                 last_poll: float = session.get("last_poll", time.time())
 
                 # Stop if no polling for POLL_TIMEOUT seconds
@@ -118,16 +154,14 @@ def status() -> Response:
 @cage_bp.route("/generate", methods=["POST"])
 def generate() -> Response | tuple[Response, int]:
     """Start a new cage graph generation session in a background thread."""
-    data: dict[str, Any] | None = request.get_json()
+    data: _GenerateRequest | None = cast(_GenerateRequest | None, request.get_json())
 
     if not data or "k" not in data or "g" not in data:
         return jsonify({"error": "Missing k or g parameter"}), 400
 
-    k: int = int(data["k"])
-    g: int = int(data["g"])
-    generator_type: str = str(
-        data.get("generator", "randomwalk")
-    )  # Default to randomwalk
+    k: int = data["k"]
+    g: int = data["g"]
+    generator_type: str = data.get("generator", "randomwalk")
 
     # Validation
     if k < 2:
@@ -162,7 +196,7 @@ def generate() -> Response | tuple[Response, int]:
     elif generator_type == "astar":
         generator = AStarGenerator(k, g)
     elif generator_type == "rl":
-        model_type = data.get("model", "gin")
+        model_type: str = data.get("model", "gin")
         generator = RLGenerator(k, g, model_type=model_type)
     else:  # 'randomwalk' or default
         generator = RandomWalkGenerator(k, g)
@@ -217,17 +251,15 @@ def generate() -> Response | tuple[Response, int]:
 def get_status(session_id: str) -> Response | tuple[Response, int]:
     """Get current status of generation session (read-only, just observes)."""
     with session_lock:
-        session: dict[str, Any] | None = generation_sessions.get(session_id)
+        session: _Session | None = generation_sessions.get(session_id)
 
         if not session:
             return jsonify({"error": "Session not found"}), 404
 
         # Update last poll time to keep session alive
         session["last_poll"] = time.time()
-        generator: (
-            RandomWalkGenerator | BruteforceGenerator | AStarGenerator | RLGenerator
-        ) = session["generator"]
-        stopped: bool = session.get("stopped", False)
+        generator: _GeneratorProto = cast(_GeneratorProto, session["generator"])
+        stopped: bool = session["stopped"]
         timed_out: bool = session.get("timed_out", False)
 
     # Just read current state - don't execute steps (background thread handles that)
@@ -236,7 +268,7 @@ def get_status(session_id: str) -> Response | tuple[Response, int]:
         compute_girth(generator.graph)
         if len(generator.graph.edges()) > 0
         else float("inf")
-    )  # type: ignore
+    )
     girth_json = None if girth_val == float("inf") else girth_val
 
     return jsonify(
@@ -245,15 +277,15 @@ def get_status(session_id: str) -> Response | tuple[Response, int]:
             "k": generator.k,
             "g": generator.g,
             "step_count": generator.step_count,
-            "num_nodes": len(generator.graph.nodes()),  # type: ignore
-            "num_edges": len(generator.graph.edges()),  # type: ignore
+            "num_nodes": len(generator.graph.nodes()),
+            "num_edges": len(generator.graph.edges()),
             "girth": girth_json,  # Now properly converts inf to null
             "is_k_regular": generator.is_regular(),
             "is_complete": generator.is_complete,
             "success": generator.success,
             "stopped": stopped,
             "timed_out": timed_out,
-            "current_graph": graph_to_edge_list(generator.graph),  # type: ignore
+            "current_graph": graph_to_edge_list(generator.graph),
             "moore_bound": moore_bound(generator.k, generator.g),
             "elapsed_time": generator.elapsed_time(),
         }
@@ -274,34 +306,32 @@ def stop(session_id: str) -> Response | tuple[Response, int]:
 @cage_bp.route("/analyze", methods=["POST"])
 def analyze() -> Response | tuple[Response, int]:
     """Analyze if a provided graph is a valid cage."""
-    data: dict[str, Any] | None = request.get_json()
+    data: _AnalyzeRequest | None = cast(_AnalyzeRequest | None, request.get_json())
 
     if not data or "k" not in data or "g" not in data or "edges" not in data:
         return jsonify({"error": "Missing required parameters"}), 400
 
-    k: int = int(data["k"])
-    g: int = int(data["g"])
-    edges: Any = data["edges"]
+    k: int = data["k"]
+    g: int = data["g"]
+    edges: list[list[int]] = data["edges"]
 
     if k < 2 or g < 3:
         return jsonify({"error": "k must be >= 2 and g must be >= 3"}), 400
 
     # Build graph from edges
-    import networkx as nx
-
-    graph = nx.Graph()  # type: ignore
+    graph: nx.Graph[int] = nx.Graph()
     for edge in edges:
         if len(edge) == 2:
-            graph.add_edge(edge[0], edge[1])  # type: ignore
+            _ = graph.add_edge(edge[0], edge[1])
         elif len(edge) == 1:
-            graph.add_node(edge[0])  # type: ignore
+            graph.add_node(edge[0])
 
     # Analyze
-    num_nodes = len(graph.nodes())  # type: ignore
-    num_edges = len(graph.edges())  # type: ignore
-    current_girth = compute_girth(graph)  # type: ignore
-    is_regular = is_k_regular(graph, k)  # type: ignore
-    is_cage = is_valid_cage(graph, k, g)  # type: ignore
+    num_nodes = len(graph.nodes())
+    num_edges = len(graph.edges())
+    current_girth = compute_girth(graph)
+    is_regular = is_k_regular(graph, k)
+    is_cage = is_valid_cage(graph, k, g)
     mb = moore_bound(k, g)
 
     return jsonify(
@@ -329,7 +359,6 @@ def cleanup_old_sessions() -> None:
             # Find sessions that are stopped and haven't been polled recently
             to_remove: list[str] = []
             session_id: str
-            session: dict[str, Any]
             for session_id, session in generation_sessions.items():
                 if session.get("stopped", False):
                     # Remove stopped sessions after 30 seconds

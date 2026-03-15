@@ -1,16 +1,25 @@
-import os
-import sys
+from typing import TypedDict, cast
 
 from flask import Blueprint, jsonify, request
-
-# Add project root to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
 from ai.degree import predict_all_nodes
 from ai.registry import list_trained_models, get_best_model_id
 from backend.utils import parse_edge_list, generate_random_graph, graph_to_edge_list
 
 degree_bp = Blueprint("degree", __name__, url_prefix="/api/degree")
+
+
+class _GenerateRequest(TypedDict, total=False):
+    minNodes: int
+    maxNodes: int
+    minProb: float
+    maxProb: float
+    allowSelfLoops: bool
+
+
+class _AnalyzeRequest(TypedDict, total=False):
+    graph: str
+    model_id: str
 
 
 @degree_bp.route("/models", methods=["GET"])
@@ -66,14 +75,14 @@ def generate_random_graph_endpoint():
     }
     """
     try:
-        data = request.get_json() or {}
+        data: _GenerateRequest = cast(_GenerateRequest, request.get_json() or {})
 
         # Get parameters from request or use defaults
-        min_nodes = data.get("minNodes", 5)
-        max_nodes = data.get("maxNodes", 12)
-        min_prob = data.get("minProb", 0.15)
-        max_prob = data.get("maxProb", 0.60)
-        allow_self_loops = data.get("allowSelfLoops", True)
+        min_nodes: int = data.get("minNodes", 5)
+        max_nodes: int = data.get("maxNodes", 12)
+        min_prob: float = data.get("minProb", 0.15)
+        max_prob: float = data.get("maxProb", 0.60)
+        allow_self_loops: bool = data.get("allowSelfLoops", True)
 
         # Use centralized graph generation
         G = generate_random_graph(
@@ -114,13 +123,15 @@ def analyze_graph():
     }
     """
     try:
-        data = request.get_json()
+        data: _AnalyzeRequest | None = cast(_AnalyzeRequest | None, request.get_json())
 
         if not data:
             return jsonify({"error": "No data provided"}), 400
 
-        graph_str = data.get("graph")
-        model_id = data.get("model_id")  # Optional, will use best if not provided
+        graph_str: str | None = data.get("graph")
+        model_id: str | None = data.get(
+            "model_id"
+        )  # Optional, will use best if not provided
 
         if graph_str is None:
             return jsonify({"error": "Graph data is required"}), 400

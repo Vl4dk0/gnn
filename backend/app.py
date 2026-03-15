@@ -13,7 +13,7 @@ from ai.registry import list_trained_models
 _ = load_dotenv()
 
 
-def create_app():
+def create_app() -> Flask:
     # Determine the frontend directory path dynamically
     backend_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(backend_dir)

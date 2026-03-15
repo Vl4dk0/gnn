@@ -2,6 +2,7 @@
 
 import os
 import random
+from typing import cast
 
 import networkx as nx
 
@@ -20,7 +21,7 @@ def parse_edge_list(edge_list_str: str) -> nx.Graph[int]:
     Raises:
         ValueError: If edge format is invalid
     """
-    G = nx.Graph()
+    G: nx.Graph[int] = nx.Graph()
 
     lines = edge_list_str.strip().split("\n")
     for line_num, line in enumerate(lines, 1):
@@ -43,7 +44,7 @@ def parse_edge_list(edge_list_str: str) -> nx.Graph[int]:
             # Two numbers - edge
             try:
                 v1, v2 = int(parts[0]), int(parts[1])
-                G.add_edge(v1, v2)
+                _ = G.add_edge(v1, v2)
             except ValueError:
                 raise ValueError(
                     f"Line {line_num}: Invalid vertex format: '{line}'. Vertices must be integers."
@@ -90,15 +91,15 @@ def generate_random_graph(
     p: float = random.uniform(*p_range)
 
     # Generate random Erdős-Rényi graph (no multiple edges)
-    G: nx.Graph[int] = nx.erdos_renyi_graph(num_nodes, p)
+    G: nx.Graph[int] = nx.erdos_renyi_graph(num_nodes, p)  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
 
     # Add random self-loops
     i: int
     for i in range(num_nodes):
         if random.random() < self_loop_prob:
-            G.add_edge(i, i)
+            _ = G.add_edge(i, i)  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
 
-    return G
+    return G  # pyright: ignore[reportUnknownVariableType]
 
 
 def graph_to_edge_list(G: nx.Graph[int]) -> str:
@@ -130,11 +131,6 @@ def graph_to_edge_list(G: nx.Graph[int]) -> str:
         edge_list.append(f"{u} {v}")
 
     return "\n".join(edge_list)
-
-
-# ============================================================================
-# Cage Graph Utilities
-# ============================================================================
 
 
 def compute_girth(G: nx.Graph[int]) -> int | float:
@@ -231,13 +227,14 @@ def moore_bound(k: int, g: int) -> int:
     if k < 2 or g < 3:
         raise ValueError("k must be >= 2 and g must be >= 3")
 
+    sum_term: int
     if g % 2 == 1:  # Odd girth
         # N = 1 + k * sum_{i=0}^{(g-3)/2} (k-1)^i
-        sum_term: int = sum((k - 1) ** i for i in range((g - 3) // 2 + 1))
+        sum_term = sum((k - 1) ** i for i in range((g - 3) // 2 + 1))
         return 1 + k * sum_term
     else:  # Even girth
         # N = 2 * sum_{i=0}^{(g/2) - 1} (k-1)^i
-        sum_term: int = sum((k - 1) ** i for i in range(g // 2))
+        sum_term = sum((k - 1) ** i for i in range(g // 2))
         return 2 * sum_term
 
 
@@ -264,9 +261,9 @@ def moore_hoffman_upper_bound(k: int, g: int) -> int:
         raise ValueError("k must be >= 2 and g must be >= 3")
 
     if g % 2 == 1:  # Odd girth
-        return 2 * (k - 1) ** (g - 2)
+        return cast(int, 2 * (k - 1) ** (g - 2))
     else:  # Even girth
-        return 4 * (k - 1) ** (g - 3)
+        return cast(int, 4 * (k - 1) ** (g - 3))
 
 
 def is_valid_cage(G: nx.Graph[int], k: int, g: int) -> bool:
@@ -313,7 +310,7 @@ def can_add_edge_preserving_girth(
 
     try:
         # Find shortest path from u to v (excluding the direct edge)
-        path_length: float = nx.shortest_path_length(G, u, v)
+        path_length: float = nx.shortest_path_length(G, u, v)  # pyright: ignore[reportUnknownMemberType]
         # Adding edge would create cycle of length path_length + 1
         cycle_length: float = path_length + 1
         return cycle_length >= target_girth
