@@ -6,6 +6,7 @@ interface GraphCanvasProps {
   onReady: (editor: InteractiveGraphEditor | null) => void;
   onGraphChange?: (edgeList: string) => void;
   onAnalyzeRequest?: () => void;
+  canvasClassName?: string;
   children?: React.ReactNode;
 }
 
@@ -13,6 +14,7 @@ export const GraphCanvas = ({
   onReady,
   onGraphChange,
   onAnalyzeRequest,
+  canvasClassName = "rounded-[10px]",
   children
 }: GraphCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -51,7 +53,7 @@ export const GraphCanvas = ({
 
   return (
     <div className="relative flex h-full w-full items-center justify-center">
-      <canvas ref={canvasRef} className="h-full w-full touch-none rounded-[10px]" />
+      <canvas ref={canvasRef} className={`h-full w-full touch-none ${canvasClassName}`} />
       {children}
     </div>
   );

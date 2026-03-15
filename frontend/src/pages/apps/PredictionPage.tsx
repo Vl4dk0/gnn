@@ -1,20 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { GraphCanvas } from "../../components/graph/GraphCanvas";
-import { PredictionLegend } from "../../components/graph/PredictionLegend";
-import { GraphPageLayout } from "../../components/graph/GraphPageLayout";
-import { SettingsModal } from "../../components/graph/SettingsModal";
 import { GraphToolbar } from "../../components/graph/GraphToolbar";
+import { PredictionLegend } from "../../components/graph/PredictionLegend";
+import { SettingsModal } from "../../components/graph/SettingsModal";
 import { BackButton } from "../../components/ui/BackButton";
-import { ControlsSection } from "../../components/ui/ControlsSection";
 import { DualRangeSlider } from "../../components/ui/DualRangeSlider";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
 import { SecondaryButton } from "../../components/ui/SecondaryButton";
 import { SelectField } from "../../components/ui/SelectField";
 import { SettingGroup } from "../../components/ui/SettingGroup";
-import { TextAreaField } from "../../components/ui/TextAreaField";
 import { usePredictionGraph } from "../../hooks/usePredictionGraph";
-import { useSidebarDrawer } from "../../hooks/useSidebarDrawer";
 import type { DegreeMinCycleSettings } from "../../types/api";
 import type { PredictionTask } from "../../services/models";
 
@@ -22,33 +18,19 @@ interface PredictionPageProps {
   task: PredictionTask;
 }
 
-const defaultPlaceholder = `0 1
-0 2
-1 2
-1 3
-2 3
-4`;
-
 export const PredictionPage = ({ task }: PredictionPageProps) => {
-  const drawer = useSidebarDrawer();
   const {
-    graphInput,
     settings,
     settingsOpen,
     modelOptions,
     isGenerating,
-    isAnalyzing,
-    error,
-    controls,
     onEditorReady,
     onEditorGraphChange,
     onEditorAnalyzeRequest,
     setSettingsOpen,
     saveSettings,
     generateRandomGraph,
-    analyzeGraph,
-    clearCanvas,
-    onTextInputChange
+    clearCanvas
   } = usePredictionGraph(task);
 
   const [draftSettings, setDraftSettings] = useState<DegreeMinCycleSettings>(settings);
@@ -64,51 +46,30 @@ export const PredictionPage = ({ task }: PredictionPageProps) => {
   }, [draftSettings.maxProb, draftSettings.minProb]);
 
   return (
-    <GraphPageLayout
-      navOpen={drawer.isOpen}
-      onToggleNav={drawer.toggle}
-      onCloseNav={drawer.close}
-      sidebar={
-        <>
-          <div className="contents max-[900px]:flex max-[900px]:flex-col max-[900px]:gap-3">
-            <TextAreaField
-              id="graphInput"
-              label="Graph Input"
-              placeholder={defaultPlaceholder}
-              value={graphInput}
-              onChange={(event) => onTextInputChange(event.target.value)}
-            />
-
-            {error && (
-              <div className="rounded-md border border-[#8a3d3d] bg-[#2f1c1c] px-3 py-2 text-sm text-[#ffc9c9]">
-                {error}
-              </div>
-            )}
-
-            <ControlsSection />
-          </div>
-
-          <PrimaryButton
-            onClick={() => generateRandomGraph()}
-            disabled={isGenerating || isAnalyzing}
-          >
-            {controls.generateButtonLabel}
-          </PrimaryButton>
-
-          <PrimaryButton onClick={() => analyzeGraph()} disabled={isAnalyzing || isGenerating}>
-            {isAnalyzing ? "Analyzing..." : controls.analyzeButtonLabel}
-          </PrimaryButton>
-
-          <BackButton />
-        </>
-      }
-    >
+    <div className="relative h-dvh overflow-hidden bg-bg0">
       <GraphCanvas
         onReady={onEditorReady}
         onGraphChange={onEditorGraphChange}
         onAnalyzeRequest={onEditorAnalyzeRequest}
+        canvasClassName="rounded-none"
       >
         <PredictionLegend />
+        <BackButton
+          iconOnly
+          className="absolute left-4 top-4 z-20 max-[900px]:left-3 max-[900px]:top-3"
+        />
+
+        <div className="pointer-events-none absolute inset-x-0 bottom-6 z-20 flex justify-center px-4 max-[900px]:bottom-4">
+          <PrimaryButton
+            fullWidth={false}
+            className="pointer-events-auto min-w-[220px] rounded-full bg-bg1/92 px-7 py-3 text-sm tracking-[0.8px] backdrop-blur-sm hover:bg-bg2 max-[900px]:min-w-[200px]"
+            onClick={() => generateRandomGraph()}
+            disabled={isGenerating}
+          >
+            {isGenerating ? "Generating..." : "Generate Graph"}
+          </PrimaryButton>
+        </div>
+
         <GraphToolbar
           onOpenSettings={() => setSettingsOpen(true)}
           onClear={clearCanvas}
@@ -247,6 +208,6 @@ export const PredictionPage = ({ task }: PredictionPageProps) => {
           </SecondaryButton>
         </div>
       </SettingsModal>
-    </GraphPageLayout>
+    </div>
   );
 };

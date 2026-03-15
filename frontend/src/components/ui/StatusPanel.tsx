@@ -14,18 +14,18 @@ const formatGirth = (value: number | null) => {
 export const StatusPanel = ({ status, error, successMessage, stoppedByUser }: StatusPanelProps) => {
   if (error) {
     return (
-      <div className="rounded bg-[#a52] p-3 text-white">
+      <div className="rounded-xl bg-[#a52] p-3 text-sm text-white">
         <strong>Error:</strong> {error}
       </div>
     );
   }
 
   if (!status) {
-    return <div>Ready to generate</div>;
+    return <div className="text-sm text-textMuted">Ready to generate</div>;
   }
 
   return (
-    <div>
+    <div className="text-sm text-textMuted">
       <div className="mb-2">
         <strong>Target:</strong> ({status.k},{status.g})-cage
       </div>
@@ -46,19 +46,19 @@ export const StatusPanel = ({ status, error, successMessage, stoppedByUser }: St
       </div>
 
       {!status.is_complete && (
-        <div className="mt-3 text-textDim">
+        <div className="mt-3 text-sm text-textDim">
           ⏳ Generating... ({status.elapsed_time.toFixed(1)}s)
         </div>
       )}
 
       {stoppedByUser && (
-        <div className="mt-3 text-textDim">
+        <div className="mt-3 text-sm text-textDim">
           ⏹ Stopped by user ({status.elapsed_time.toFixed(1)}s)
         </div>
       )}
 
       {successMessage && (
-        <div className="mt-3 rounded bg-[#2a5] p-3 text-white">
+        <div className="mt-3 rounded-xl bg-[#2a5] p-3 text-sm text-white">
           <strong>✓</strong> {successMessage}
         </div>
       )}

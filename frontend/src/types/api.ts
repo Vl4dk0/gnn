@@ -6,6 +6,12 @@ export interface ModelMetrics {
   accuracy?: number;
   mae?: number;
   mse?: number;
+  avg_reward?: number;
+  fps?: number;
+}
+
+export interface ModelTrainingInfo {
+  model_type?: string;
 }
 
 export interface ModelInfo {
@@ -13,6 +19,7 @@ export interface ModelInfo {
   model_type: string;
   metrics?: ModelMetrics;
   created_at?: string;
+  training?: ModelTrainingInfo;
 }
 
 export interface ModelsResponse {
@@ -49,6 +56,7 @@ export type GeneratorType = "randomwalk" | "bruteforce" | "astar" | "rl";
 
 export interface CageSettings {
   generatorType: GeneratorType;
+  modelId: string | null;
   pollingInterval: number;
   enablePhysics: boolean;
 }

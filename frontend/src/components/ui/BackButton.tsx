@@ -1,6 +1,8 @@
 interface BackButtonProps {
   href?: string;
   label?: string;
+  className?: string;
+  iconOnly?: boolean;
 }
 
 const resolveBackHref = () => {
@@ -25,16 +27,43 @@ const resolveBackHref = () => {
   return "/";
 };
 
-export const BackButton = ({ href = "/", label = "Back" }: BackButtonProps) => {
+export const BackButton = ({
+  href = "/",
+  label = "Back",
+  className = "",
+  iconOnly = false
+}: BackButtonProps) => {
   const backHref = href === "/" ? resolveBackHref() : href;
 
   return (
     <a
       href={backHref}
-      className="mt-4 block w-full rounded-md bg-accent px-7 py-3.5 text-center text-base font-bold uppercase tracking-[1px] text-textMain no-underline shadow-card transition-all duration-300 hover:bg-accentHover hover:shadow-cardHover"
+      className={
+        iconOnly
+          ? `flex h-11 w-11 items-center justify-center rounded-full border border-line2 bg-bg1/92 text-textMain no-underline shadow-card backdrop-blur-sm transition-all duration-300 hover:border-textDim hover:bg-bg2 ${className}`
+          : `mt-4 block w-full rounded-md bg-accent px-7 py-3.5 text-center text-base font-bold uppercase tracking-[1px] text-textMain no-underline shadow-card transition-all duration-300 hover:bg-accentHover hover:shadow-cardHover ${className}`
+      }
       title={label}
+      aria-label={label}
     >
-      {label}
+      {iconOnly ? (
+        <svg
+          className="h-5 w-5"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M15 18L9 12L15 6"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      ) : (
+        label
+      )}
     </a>
   );
 };

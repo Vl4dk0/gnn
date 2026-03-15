@@ -16,6 +16,7 @@ from ai.cage import (
     AStarGenerator,
     RLGenerator,
 )
+from ai.registry import get_best_model_id, list_trained_models
 from backend.utils.graph_utils import (
     graph_to_edge_list,
     is_valid_cage,
@@ -54,6 +55,7 @@ class _GenerateRequest(TypedDict, total=False):
     g: Required[int]
     generator: str
     model: str
+    model_id: str
 
 
 class _AnalyzeRequest(TypedDict, total=False):
@@ -162,6 +164,8 @@ def generate() -> Response | tuple[Response, int]:
     k: int = data["k"]
     g: int = data["g"]
     generator_type: str = data.get("generator", "randomwalk")
+    requested_model_id: str | None = data.get("model_id")
+    requested_model_type: str = data.get("model", "gin")
 
     # Validation
     if k < 2:
@@ -196,8 +200,12 @@ def generate() -> Response | tuple[Response, int]:
     elif generator_type == "astar":
         generator = AStarGenerator(k, g)
     elif generator_type == "rl":
-        model_type: str = data.get("model", "gin")
-        generator = RLGenerator(k, g, model_type=model_type)
+        generator = RLGenerator(
+            k,
+            g,
+            model_type=requested_model_type,
+            model_id=requested_model_id,
+        )
     else:  # 'randomwalk' or default
         generator = RandomWalkGenerator(k, g)
 
@@ -245,6 +253,21 @@ def generate() -> Response | tuple[Response, int]:
             "upper_bound": moore_hoffman_upper_bound(k, g),
         }
     )
+
+
+@cage_bp.route("/models", methods=["GET"])
+def get_models() -> Response | tuple[Response, int]:
+    """Get list of available trained RL models for cage generation."""
+    try:
+        models = [
+            model
+            for model in list_trained_models("cage")
+            if model.get("model_type") == "actor_critic"
+        ]
+        default_model = get_best_model_id("cage")
+        return jsonify({"models": models, "default": default_model})
+    except Exception as e:
+        return jsonify({"error": f"Failed to list cage models: {str(e)}"}), 500
 
 
 @cage_bp.route("/status/<session_id>", methods=["GET"])

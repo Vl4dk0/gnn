@@ -1,11 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { GraphCanvas } from "../../components/graph/GraphCanvas";
-import { GraphPageLayout } from "../../components/graph/GraphPageLayout";
 import { GraphToolbar } from "../../components/graph/GraphToolbar";
 import { SettingsModal } from "../../components/graph/SettingsModal";
 import { BackButton } from "../../components/ui/BackButton";
-import { ControlsSection } from "../../components/ui/ControlsSection";
 import { InputField } from "../../components/ui/InputField";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
 import { SecondaryButton } from "../../components/ui/SecondaryButton";
@@ -14,12 +12,9 @@ import { SettingGroup } from "../../components/ui/SettingGroup";
 import { SingleRangeSlider } from "../../components/ui/SingleRangeSlider";
 import { StatusPanel } from "../../components/ui/StatusPanel";
 import { useCageGeneration } from "../../hooks/useCageGeneration";
-import { useSidebarDrawer } from "../../hooks/useSidebarDrawer";
 import type { CageSettings } from "../../types/api";
 
 export const CagePage = () => {
-  const drawer = useSidebarDrawer();
-
   const {
     degreeK,
     setDegreeK,
@@ -27,6 +22,7 @@ export const CagePage = () => {
     setGirthG,
     settings,
     settingsOpen,
+    modelOptions,
     setSettingsOpen,
     saveSettings,
     status,
@@ -44,15 +40,53 @@ export const CagePage = () => {
   } = useCageGeneration();
 
   const [draftSettings, setDraftSettings] = useState<CageSettings>(settings);
+  const [panelOpen, setPanelOpen] = useState(false);
+
+  useEffect(() => {
+    if (panelOpen) {
+      document.body.classList.add("touch-graph-lock");
+      return () => {
+        document.body.classList.remove("touch-graph-lock");
+      };
+    }
+
+    document.body.classList.remove("touch-graph-lock");
+  }, [panelOpen]);
+
+  const triggerSettings = () => {
+    setDraftSettings(settings);
+    setSettingsOpen(true);
+  };
+
+  const primaryLabel =
+    isMooreBoundOverLimit && currentMooreBound !== null
+      ? `${currentMooreBound} > ${mooreBoundLimit}`
+      : isGenerating
+        ? "Generating..."
+        : "Generate Cage";
 
   return (
-    <GraphPageLayout
-      navOpen={drawer.isOpen}
-      onToggleNav={drawer.toggle}
-      onCloseNav={drawer.close}
-      sidebar={
-        <>
-          <div className="contents max-[900px]:flex max-[900px]:flex-col max-[900px]:gap-3">
+    <div className="relative h-dvh overflow-hidden bg-bg0">
+      <GraphCanvas onReady={onEditorReady} canvasClassName="rounded-none">
+        <BackButton
+          iconOnly
+          className="absolute left-4 top-4 z-20 max-[900px]:left-3 max-[900px]:top-3"
+        />
+
+        <button
+          type="button"
+          className="absolute left-4 top-[68px] z-20 hidden min-w-[150px] rounded-xl border border-line2 bg-bg1/92 px-4 py-3 text-left shadow-card backdrop-blur-sm max-[900px]:flex"
+          onClick={() => setPanelOpen(true)}
+          aria-label="Open cage status and controls"
+        >
+          <span className="block text-sm font-semibold text-textMain">Status & Controls</span>
+          <span className="mt-1 block text-xs text-textMuted">
+            {isGenerating ? "Generation running" : "Ready to generate"}
+          </span>
+        </button>
+
+        <section className="absolute left-4 top-[68px] z-20 w-[344px] rounded-2xl border border-line2 bg-bg1/92 p-4 shadow-card backdrop-blur-md max-[900px]:hidden">
+          <div className="mt-4 grid grid-cols-2 gap-3">
             <InputField
               id="degreeK"
               label="Degree (k)"
@@ -60,9 +94,9 @@ export const CagePage = () => {
               min={2}
               max={10}
               value={degreeK}
+              className="py-2.5"
               onChange={(event) => setDegreeK(Number.parseInt(event.target.value, 10) || 0)}
             />
-
             <InputField
               id="girthG"
               label="Girth (g)"
@@ -70,31 +104,83 @@ export const CagePage = () => {
               min={3}
               max={10}
               value={girthG}
+              className="py-2.5"
               onChange={(event) => setGirthG(Number.parseInt(event.target.value, 10) || 0)}
             />
+          </div>
 
-            <PrimaryButton onClick={() => start()} disabled={isGenerating || isMooreBoundOverLimit}>
-              {isMooreBoundOverLimit && currentMooreBound !== null
-                ? `${currentMooreBound} > ${mooreBoundLimit}`
-                : isGenerating
-                  ? "Generating..."
-                  : "Generate Cage"}
-            </PrimaryButton>
-            {isMooreBoundOverLimit && (
-              <p className="mt-2 text-xs italic text-textDim">
-                *Moore's bound must be smaller than {mooreBoundLimit}
-              </p>
-            )}
+          {isMooreBoundOverLimit && (
+            <p className="mt-3 text-xs italic text-textDim">
+              Moore bound must stay below {mooreBoundLimit}.
+            </p>
+          )}
 
-            {isGenerating && (
-              <SecondaryButton onClick={() => stop()} fullWidth>
-                Stop
-              </SecondaryButton>
-            )}
+          <div className="mt-4 rounded-xl border border-line2 bg-bg2/75 p-3">
+            <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.8px] text-textDim">
+              Status
+            </div>
+            <StatusPanel
+              status={status}
+              error={error}
+              successMessage={successMessage}
+              stoppedByUser={stoppedByUser}
+            />
+          </div>
+        </section>
 
-            <div className="mt-5">
-              <label className="label-base mb-2 block">Status</label>
-              <div className="min-h-[100px] rounded-md border-2 border-line2 bg-bg1 p-3 text-[0.9em] text-textMuted">
+        {panelOpen && (
+          <div
+            className="absolute inset-0 z-30 hidden bg-black/70 p-3 backdrop-blur-sm max-[900px]:block"
+            onClick={(event) => {
+              if (event.target === event.currentTarget) {
+                setPanelOpen(false);
+              }
+            }}
+          >
+            <section className="absolute inset-x-3 top-[68px] rounded-2xl border border-line2 bg-bg1 p-4 shadow-card">
+              <div className="flex items-start justify-between gap-3">
+                <button
+                  type="button"
+                  className="ml-auto rounded-md border border-line2 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.8px] text-textMain"
+                  onClick={() => setPanelOpen(false)}
+                >
+                  Close
+                </button>
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <InputField
+                  id="degreeKMobile"
+                  label="Degree (k)"
+                  type="number"
+                  min={2}
+                  max={10}
+                  value={degreeK}
+                  className="py-2.5"
+                  onChange={(event) => setDegreeK(Number.parseInt(event.target.value, 10) || 0)}
+                />
+                <InputField
+                  id="girthGMobile"
+                  label="Girth (g)"
+                  type="number"
+                  min={3}
+                  max={10}
+                  value={girthG}
+                  className="py-2.5"
+                  onChange={(event) => setGirthG(Number.parseInt(event.target.value, 10) || 0)}
+                />
+              </div>
+
+              {isMooreBoundOverLimit && (
+                <p className="mt-3 text-xs italic text-textDim">
+                  Moore bound must stay below {mooreBoundLimit}.
+                </p>
+              )}
+
+              <div className="mt-4 rounded-xl border border-line2 bg-bg2/75 p-3">
+                <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.8px] text-textDim">
+                  Status
+                </div>
                 <StatusPanel
                   status={status}
                   error={error}
@@ -102,25 +188,39 @@ export const CagePage = () => {
                   stoppedByUser={stoppedByUser}
                 />
               </div>
-            </div>
 
-            <ControlsSection />
+            </section>
           </div>
+        )}
 
-          <BackButton />
-        </>
-      }
-    >
-      <GraphCanvas onReady={onEditorReady}>
         <GraphToolbar
-          onOpenSettings={() => {
-            setDraftSettings(settings);
-            setSettingsOpen(true);
-          }}
+          onOpenSettings={triggerSettings}
           onClear={clearCanvas}
           settingsTitle="Generation Settings"
           clearTitle="Clear Graph"
         />
+
+        <div className="pointer-events-none absolute inset-x-0 bottom-6 z-20 flex justify-center px-4 max-[900px]:bottom-4">
+          <div className="pointer-events-auto flex gap-3">
+            <PrimaryButton
+              fullWidth={false}
+              className="min-w-[220px] rounded-full bg-bg1/92 px-7 py-3 text-sm tracking-[0.8px] backdrop-blur-sm hover:bg-bg2 max-[900px]:min-w-[200px]"
+              onClick={() => start()}
+              disabled={isGenerating || isMooreBoundOverLimit}
+            >
+              {primaryLabel}
+            </PrimaryButton>
+            {isGenerating && (
+              <SecondaryButton
+                fullWidth={false}
+                className="rounded-full bg-bg1/92 px-6 py-3 text-sm tracking-[0.8px] backdrop-blur-sm hover:bg-bg2"
+                onClick={() => stop()}
+              >
+                Stop
+              </SecondaryButton>
+            )}
+          </div>
+        </div>
       </GraphCanvas>
 
       <SettingsModal
@@ -135,7 +235,9 @@ export const CagePage = () => {
           onChange={(event) => {
             setDraftSettings((current) => ({
               ...current,
-              generatorType: event.target.value as CageSettings["generatorType"]
+              generatorType: event.target.value as CageSettings["generatorType"],
+              modelId:
+                event.target.value === "rl" ? current.modelId : null
             }));
           }}
         >
@@ -144,6 +246,26 @@ export const CagePage = () => {
           <option value="astar">A* Search (Best-First, Optimal)</option>
           <option value="rl">RL Agent (GNN-Guided)</option>
         </SelectField>
+
+        {draftSettings.generatorType === "rl" && (
+          <SelectField
+            id="rlModelId"
+            label="RL Model"
+            value={draftSettings.modelId ?? ""}
+            onChange={(event) => {
+              setDraftSettings((current) => ({
+                ...current,
+                modelId: event.target.value || null
+              }));
+            }}
+          >
+            {modelOptions.map((option) => (
+              <option key={option.value || "auto"} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </SelectField>
+        )}
 
         <SettingGroup>
           <label className="label-base mb-2 block normal-case tracking-normal">
@@ -201,6 +323,6 @@ export const CagePage = () => {
           </SecondaryButton>
         </div>
       </SettingsModal>
-    </GraphPageLayout>
+    </div>
   );
 };

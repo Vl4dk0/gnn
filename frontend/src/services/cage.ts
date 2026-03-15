@@ -1,17 +1,28 @@
 import { fetchJson } from "../api/apiClient";
 import { getRuntimeConfig } from "../api/config";
-import type { CageGenerateResponse, CageStatusResponse, GeneratorType } from "../types/api";
+import type {
+  CageGenerateResponse,
+  CageStatusResponse,
+  GeneratorType,
+  ModelsResponse
+} from "../types/api";
 
 export const startCageGeneration = async (
   k: number,
   g: number,
-  generator: GeneratorType
+  generator: GeneratorType,
+  modelId?: string | null
 ): Promise<CageGenerateResponse> => {
   const runtime = getRuntimeConfig();
   return fetchJson<CageGenerateResponse>(`${runtime.cageUrl}/generate`, {
     method: "POST",
-    body: { k, g, generator }
+    body: { k, g, generator, ...(modelId ? { model_id: modelId } : {}) }
   });
+};
+
+export const fetchCageModels = async (): Promise<ModelsResponse> => {
+  const runtime = getRuntimeConfig();
+  return fetchJson<ModelsResponse>(`${runtime.cageUrl}/models`);
 };
 
 export const fetchCageStatus = async (sessionId: string): Promise<CageStatusResponse> => {

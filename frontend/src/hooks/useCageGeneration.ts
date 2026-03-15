@@ -1,18 +1,29 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { CageSettings, CageStatusResponse } from "../types/api";
-import { fetchCageStatus, startCageGeneration, stopCageGeneration } from "../services/cage";
+import {
+  fetchCageModels,
+  fetchCageStatus,
+  startCageGeneration,
+  stopCageGeneration
+} from "../services/cage";
 import { readStored, writeStored } from "../utils/storage";
 import { InteractiveGraphEditor } from "../graph/InteractiveGraphEditor";
 import { mooreBound, resolveMooreBoundLimit } from "../utils/mooreBound";
 
 const DEFAULT_SETTINGS: CageSettings = {
   generatorType: "randomwalk",
+  modelId: null,
   pollingInterval: 500,
   enablePhysics: true
 };
 
 const STORAGE_KEY = "cageGeneratorSettings";
+
+interface ModelOption {
+  value: string;
+  label: string;
+}
 
 const formatElapsed = (seconds: number): string => {
   if (seconds < 1) {
@@ -38,6 +49,9 @@ export const useCageGeneration = () => {
     readStored<CageSettings>(STORAGE_KEY, DEFAULT_SETTINGS)
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [modelOptions, setModelOptions] = useState<ModelOption[]>([
+    { value: "", label: "Loading RL models..." }
+  ]);
 
   const [status, setStatus] = useState<CageStatusResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -64,6 +78,29 @@ export const useCageGeneration = () => {
   useEffect(() => {
     latestSessionIdRef.current = sessionId;
   }, [sessionId]);
+
+  useEffect(() => {
+    const loadModels = async () => {
+      try {
+        const data = await fetchCageModels();
+        const options: ModelOption[] = [
+          {
+            value: "",
+            label: data.default ? `Best Available (${data.default})` : "Best Available"
+          },
+          ...data.models.map((model) => ({
+            value: model.model_id,
+            label: model.model_id
+          }))
+        ];
+        setModelOptions(options);
+      } catch {
+        setModelOptions([{ value: "", label: "Best Available" }]);
+      }
+    };
+
+    void loadModels();
+  }, []);
 
   useEffect(() => {
     if (!editorRef.current) return;
@@ -168,7 +205,12 @@ export const useCageGeneration = () => {
     setIsGenerating(true);
 
     try {
-      const result = await startCageGeneration(degreeK, girthG, settings.generatorType);
+      const result = await startCageGeneration(
+        degreeK,
+        girthG,
+        settings.generatorType,
+        settings.generatorType === "rl" ? settings.modelId : null
+      );
       setSessionId(result.session_id);
       await pollStatus(result.session_id);
     } catch (cause) {
@@ -183,7 +225,8 @@ export const useCageGeneration = () => {
     isMooreBoundOverLimit,
     mooreBoundLimit,
     pollStatus,
-    settings.generatorType
+    settings.generatorType,
+    settings.modelId
   ]);
 
   const stop = useCallback(async () => {
@@ -209,8 +252,12 @@ export const useCageGeneration = () => {
   }, []);
 
   const saveSettings = useCallback((nextSettings: CageSettings) => {
-    setSettings(nextSettings);
-    writeStored(STORAGE_KEY, nextSettings);
+    const safe: CageSettings = {
+      ...nextSettings,
+      modelId: nextSettings.generatorType === "rl" ? nextSettings.modelId : null
+    };
+    setSettings(safe);
+    writeStored(STORAGE_KEY, safe);
     setSettingsOpen(false);
   }, []);
 
@@ -221,6 +268,7 @@ export const useCageGeneration = () => {
     setGirthG,
     settings,
     settingsOpen,
+    modelOptions,
     setSettingsOpen,
     saveSettings,
     status,
