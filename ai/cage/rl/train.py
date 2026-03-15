@@ -26,6 +26,9 @@ from ai.models import MODEL_CLASSES
 from ai.models.base import BaseGNN
 from ai.registry import get_trained_dir, list_model_types, model_exists, save_model
 from ai.utils.device import configure_torch_device
+from dotenv import load_dotenv
+
+_ = load_dotenv()
 
 
 def compute_gae(

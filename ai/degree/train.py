@@ -8,6 +8,7 @@ Usage:
 """
 
 import argparse
+import copy
 import os
 import sys
 from pathlib import Path
@@ -295,6 +296,7 @@ def train_gnn(
 
     best_accuracy: float = 0
     best_mae: float = float("inf")
+    best_metrics: dict[str, float] | None = None
     best_model_state: dict[str, torch.Tensor] | None = None
     best_epoch: int = 0
 
@@ -341,22 +343,24 @@ def train_gnn(
             )
 
             if is_better:
+                best_metrics = metrics.copy()
                 best_accuracy = metrics["accuracy"]
                 best_mae = metrics["mae"]
                 best_model_state = cast(
-                    dict[str, torch.Tensor], model.state_dict().copy()
+                    dict[str, torch.Tensor], copy.deepcopy(model.state_dict())
                 )
                 best_epoch = epoch
                 print(f"  → New best! Acc: {best_accuracy:.2f}%, MAE: {best_mae:.4f}")
 
                 # Checkpoint: save immediately on new best
                 training_info["best_epoch"] = best_epoch
+                training_info["epochs"] = epoch
                 _ = save_model(
                     model=model,
                     task="degree",
                     model_id=model_id,
                     metrics={
-                        "mse": round(best_mae**2, 4),
+                        "mse": round(metrics["mse"], 4),
                         "mae": round(best_mae, 4),
                         "accuracy": round(best_accuracy, 2),
                     },
@@ -379,13 +383,14 @@ def train_gnn(
     print("=" * 60)
 
     # Final save with completed epoch count
+    training_info["epochs"] = num_epochs
     training_info["best_epoch"] = best_epoch
     save_path: Path = save_model(
         model=model,
         task="degree",
         model_id=model_id,
         metrics={
-            "mse": round(best_mae**2, 4),
+            "mse": round((best_metrics or final_metrics)["mse"], 4),
             "mae": round(best_mae, 4),
             "accuracy": round(best_accuracy, 2),
         },
