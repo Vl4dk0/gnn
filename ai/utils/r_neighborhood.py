@@ -8,12 +8,12 @@ of length <= r+2 that pass through v, represented as paths starting at v.
 
 import networkx as nx
 import torch
-from torch_geometric.data import Data
-from torch_geometric.utils import to_networkx
-from typing import Dict
+from typing import cast
+from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
+from torch_geometric.utils import to_networkx  # pyright: ignore[reportMissingTypeStubs, reportUnknownVariableType]
 
 
-def compute_r_neighborhood(G: nx.Graph, r: int = 3) -> Dict[str, torch.Tensor]:
+def compute_r_neighborhood(G: nx.Graph[int], r: int = 3) -> dict[str, torch.Tensor]:
     """
     Compute r-neighborhood for all nodes in graph G.
 
@@ -32,19 +32,21 @@ def compute_r_neighborhood(G: nx.Graph, r: int = 3) -> Dict[str, torch.Tensor]:
         where L ranges from 0 to r.
     """
     # Find all simple cycles up to length r+2
-    cycles = list(nx.simple_cycles(G, length_bound=r + 2))
+    cycles: list[list[int]] = list(nx.simple_cycles(G, length_bound=r + 2))
 
     # Compute all pairwise distances (for atomic type - distance from center)
-    distances = dict(nx.all_pairs_shortest_path_length(G))
+    distances = cast(
+        dict[int, dict[int, int]], dict(nx.all_pairs_shortest_path_length(G))
+    )
 
-    result = {}
+    result: dict[str, torch.Tensor] = {}
 
     for L in range(r + 1):
         path_length = L + 2  # Cycles of this length
 
         # Filter cycles of this length and generate all rotations
-        L_paths = []
-        L_atomic = []
+        L_paths: list[list[int]] = []
+        L_atomic: list[list[int]] = []
 
         for cycle in cycles:
             if len(cycle) == path_length:
@@ -87,7 +89,7 @@ def apply_r_neighborhood(data: Data, r: int = 3) -> Data:
         Modified Data object with loopy attributes added
     """
     # Convert to NetworkX (undirected for cycle detection)
-    G = to_networkx(data, to_undirected=True)
+    G = cast(nx.Graph[int], to_networkx(data, to_undirected=True))
 
     # Compute r-neighborhoods
     r_neigh = compute_r_neighborhood(G, r=r)
