@@ -89,7 +89,7 @@ def apply_r_neighborhood(data: Data, r: int = 3) -> Data:
         Modified Data object with loopy attributes added
     """
     # Convert to NetworkX (undirected for cycle detection)
-    G = cast(nx.Graph[int], to_networkx(data, to_undirected=True))
+    G: nx.Graph[int] = to_networkx(data, to_undirected=True)
 
     # Compute r-neighborhoods
     r_neigh = compute_r_neighborhood(G, r=r)
