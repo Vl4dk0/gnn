@@ -1,0 +1,24 @@
+{
+  "model_type": "gps",
+  "model_id": "gps_sage",
+  "task": "min_cycle",
+  "training": {
+    "input_dim": 4,
+    "hidden_dim": 32,
+    "output_dim": 1,
+    "num_layers": 4,
+    "dropout": 0.2,
+    "conv_type": "sage",
+    "heads": 4,
+    "epochs": 500,
+    "best_epoch": 1,
+    "learning_rate": 0.001,
+    "graphs_per_epoch": 50
+  },
+  "metrics": {
+    "mse": 3.7656,
+    "mae": 1.9405,
+    "accuracy": 29.01
+  },
+  "created_at": "2026-03-15T09:16:46.627105"
+}
