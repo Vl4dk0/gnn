@@ -25,7 +25,9 @@ class ActorCritic(nn.Module):
         input_dim: int = 5,
         hidden_dim: int = 64,
         num_layers: int = 3,
-        **kwargs: str | int | float | bool,
+        dropout: float = 0.0,
+        r: int = 3,
+        shared: bool = False,
     ):
         super().__init__()  # pyright: ignore[reportUnknownMemberType]
 
@@ -43,7 +45,7 @@ class ActorCritic(nn.Module):
             hidden_dim=hidden_dim,
             output_dim=hidden_dim,  # Node embeddings
             num_layers=num_layers,
-            **kwargs,  # pyright: ignore[reportArgumentType]
+            dropout=dropout,
         )
 
         # 2. Actor Head (Policy)
@@ -63,8 +65,10 @@ class ActorCritic(nn.Module):
             "input_dim": input_dim,
             "hidden_dim": hidden_dim,
             "num_layers": num_layers,
+            "dropout": dropout,
+            "r": r,
+            "shared": shared,
         }
-        self.config.update(kwargs)
 
     def get_config(self) -> dict[str, str | int | float | bool]:
         """Return model configuration for registry."""
@@ -74,7 +78,7 @@ class ActorCritic(nn.Module):
         """Return model name."""
         return "actor_critic"
 
-    @override  # type: ignore[misc]
+    @override
     def forward(self, data: Data) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Forward pass.

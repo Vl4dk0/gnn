@@ -71,10 +71,10 @@ class MCTSNode:
 
         # 1. Add Edge
         for i, u in enumerate(nodes):
-            if self.graph.degree(u) >= self.k:  # type: ignore
+            if self.graph.degree(u) >= self.k:
                 continue
             for v in nodes[i + 1 :]:
-                if self.graph.degree(v) >= self.k:  # type: ignore
+                if self.graph.degree(v) >= self.k:
                     continue
                 if not self.graph.has_edge(u, v):
                     if can_add_edge_preserving_girth(self.graph, u, v, self.g):
@@ -224,10 +224,10 @@ class MCTSGenerator:
             random.shuffle(nodes)
 
             for i, u in enumerate(nodes):
-                if curr_graph.degree(u) >= self.k:  # type: ignore
+                if curr_graph.degree(u) >= self.k:
                     continue
                 for v in nodes[i + 1 :]:
-                    if curr_graph.degree(v) >= self.k:  # type: ignore
+                    if curr_graph.degree(v) >= self.k:
                         continue
                     if not curr_graph.has_edge(u, v):
                         if can_add_edge_preserving_girth(curr_graph, u, v, self.g):

@@ -1,19 +1,19 @@
 """Graph service for degree prediction with model selection support."""
 
-import os
-from typing import Optional
+from typing import cast
 
 import networkx as nx
 import torch
-from torch_geometric.data import Data
+from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
 
+from ai.models.base import BaseGNN
 from ai.utils.r_neighborhood import apply_r_neighborhood
 
 # Model cache - maps model_id to loaded model
-_model_cache: dict = {}
+_model_cache: dict[str, BaseGNN] = {}
 
 
-def get_true_degree(G: nx.Graph, vertex: int) -> int:
+def get_true_degree(G: nx.Graph[int], vertex: int) -> int:
     """
     Get the true degree of a vertex in the graph.
     For graphs with self-loops, self-loops are counted twice.
@@ -31,10 +31,10 @@ def get_true_degree(G: nx.Graph, vertex: int) -> int:
     if vertex not in G.nodes():
         raise ValueError(f"Vertex {vertex} not found in graph")
 
-    return G.degree(vertex)  # type: ignore
+    return int(G.degree(vertex))
 
 
-def load_degree_gnn(model_id: Optional[str] = None):
+def load_degree_gnn(model_id: str | None = None) -> BaseGNN | None:
     """
     Load a trained GNN model by model_id.
 
@@ -74,7 +74,9 @@ def load_degree_gnn(model_id: Optional[str] = None):
         return None
 
 
-def predict_all_nodes(G: nx.Graph, model_id: Optional[str] = None) -> list[dict]:
+def predict_all_nodes(
+    G: nx.Graph[int], model_id: str | None = None
+) -> list[dict[str, int | float]]:
     """
     Predict the degree of all vertices in the graph using a trained GNN.
 
@@ -114,21 +116,24 @@ def predict_all_nodes(G: nx.Graph, model_id: Optional[str] = None) -> list[dict]
             return []
 
         # Create node ID mapping (handle non-sequential node IDs)
-        node_list = sorted(G.nodes())
-        node_to_idx = {node: idx for idx, node in enumerate(node_list)}
+        node_list: list[int] = sorted(G.nodes())
+        node_to_idx: dict[int, int] = {node: idx for idx, node in enumerate(node_list)}
 
         # Build edge index
-        edge_index = []
+        edge_index_list: list[list[int]] = []
         for u, v in G.edges():
             u_idx = node_to_idx[u]
             v_idx = node_to_idx[v]
-            edge_index.append([u_idx, v_idx])
-            edge_index.append([v_idx, u_idx])
+            edge_index_list.append([u_idx, v_idx])
+            edge_index_list.append([v_idx, u_idx])
 
-        if len(edge_index) == 0:
+        edge_index: torch.Tensor
+        if len(edge_index_list) == 0:
             edge_index = torch.empty((2, 0), dtype=torch.long)
         else:
-            edge_index = torch.tensor(edge_index, dtype=torch.long).t().contiguous()
+            edge_index = (
+                torch.tensor(edge_index_list, dtype=torch.long).t().contiguous()
+            )
 
         # Node features: match training setup with rich features
         # Feature 1: Normalized node index (0 to 1)
@@ -137,11 +142,11 @@ def predict_all_nodes(G: nx.Graph, model_id: Optional[str] = None) -> list[dict]
         ) / max(num_nodes - 1, 1)
 
         # Feature 2: Random embedding (deterministic with seed for consistency)
-        torch.manual_seed(42)
+        _ = torch.manual_seed(42)  # pyright: ignore[reportUnknownMemberType]
         random_feature = torch.randn(num_nodes, 2)
 
         # Feature 3: Clustering coefficient placeholder
-        torch.manual_seed(42)
+        _ = torch.manual_seed(42)  # pyright: ignore[reportUnknownMemberType]
         clustering_feature = torch.rand(num_nodes, 1)
 
         # Combine all features (must match training: 4 features)
@@ -151,22 +156,23 @@ def predict_all_nodes(G: nx.Graph, model_id: Optional[str] = None) -> list[dict]
         data = Data(x=x, edge_index=edge_index)
 
         # For loopy models, apply r-neighborhood transform
-        if hasattr(model, "r") and model.r is not None:
-            data = apply_r_neighborhood(data, r=model.r)
+        r_attr = cast(int | None, getattr(model, "r", None))
+        if r_attr is not None:
+            data = apply_r_neighborhood(data, r=r_attr)
 
         # Predict with GNN
         with torch.no_grad():
-            predictions = model(data).squeeze()
+            predictions = cast(torch.Tensor, model(data)).squeeze()
 
             # Handle single node case
             if num_nodes == 1:
                 predictions = predictions.unsqueeze(0)
 
         # Build results for all nodes
-        results = []
+        results: list[dict[str, int | float]] = []
         for node in node_list:
             idx = node_to_idx[node]
-            predicted_degree = max(0.0, round(predictions[idx].item()))
+            predicted_degree = max(0.0, round(float(predictions[idx].item())))
             true_degree = get_true_degree(G, node)
 
             results.append(

@@ -142,7 +142,7 @@ def run_single_test(
                 result.success = True
                 result.steps = step
                 result.final_n = gen.graph.number_of_nodes()
-                result.final_girth = compute_girth(gen.graph)  # type: ignore
+                result.final_girth = compute_girth(gen.graph)
                 result.time_seconds = time.time() - start_time
 
                 if verbose:
@@ -155,7 +155,7 @@ def run_single_test(
                         print(f"   ✓ Verified as valid ({test.k},{test.g})-cage")
                     else:
                         print("   ⚠️  WARNING: Failed validation check!")
-                        result.error = "Failed validation"  # type: ignore
+                        result.error = "Failed validation"
                         result.success = False
 
                 break
@@ -173,16 +173,16 @@ def run_single_test(
             # Max steps reached
             result.steps = max_steps
             result.final_n = gen.graph.number_of_nodes()
-            result.final_girth = compute_girth(gen.graph)  # type: ignore
+            result.final_girth = compute_girth(gen.graph)
             result.time_seconds = time.time() - start_time
-            result.error = f"Timeout at {max_steps} steps"  # type: ignore
+            result.error = f"Timeout at {max_steps} steps"
 
             if verbose:
                 print(f"\n❌ FAILED: Reached {max_steps} steps without success")
                 print(f"   Final state: n={result.final_n}, girth={result.final_girth}")
 
     except Exception as e:
-        result.error = str(e)  # type: ignore
+        result.error = str(e)
         result.time_seconds = time.time() - start_time
 
         if verbose:

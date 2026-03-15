@@ -2,11 +2,18 @@
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import TypedDict, override
 
-from torch_geometric.data import Data
+from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
+
+
+class _BaseGNNConfig(TypedDict, total=False):
+    input_dim: int
+    hidden_dim: int
+    output_dim: int
+    num_layers: int
+    dropout: float
 
 
 class BaseGNN(nn.Module, ABC):
@@ -18,6 +25,12 @@ class BaseGNN(nn.Module, ABC):
 
     This ensures any model can be used for any task (degree, min_cycle, etc.)
     """
+
+    input_dim: int
+    hidden_dim: int
+    output_dim: int
+    num_layers: int
+    dropout: float
 
     def __init__(
         self,
@@ -35,7 +48,7 @@ class BaseGNN(nn.Module, ABC):
             num_layers: Number of GNN layers
             dropout: Dropout probability
         """
-        super().__init__()
+        super().__init__()  # pyright: ignore[reportUnknownMemberType]
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
         self.output_dim = output_dim
@@ -43,6 +56,7 @@ class BaseGNN(nn.Module, ABC):
         self.dropout = dropout
 
     @abstractmethod
+    @override
     def forward(self, data: Data) -> torch.Tensor:
         """
         Forward pass for node-level prediction.
@@ -63,7 +77,7 @@ class BaseGNN(nn.Module, ABC):
         """Return the model type name for registry."""
         return cls.__name__.replace("_GNN", "").lower()
 
-    def get_config(self) -> dict:
+    def get_config(self) -> dict[str, str | int | float | bool]:
         """Return model configuration for saving."""
         return {
             "input_dim": self.input_dim,
@@ -74,6 +88,6 @@ class BaseGNN(nn.Module, ABC):
         }
 
     @classmethod
-    def from_config(cls, config: dict) -> "BaseGNN":
+    def from_config(cls, config: _BaseGNNConfig) -> "BaseGNN":
         """Create model instance from configuration."""
         return cls(**config)

@@ -77,7 +77,7 @@ class BruteforceGenerator:
         self.step_count += 1
 
         # Check if we've exceeded the upper bound
-        if self.graph.number_of_nodes() > self.upper_bound:  # type: ignore
+        if self.graph.number_of_nodes() > self.upper_bound:
             # This path is invalid - backtrack
             if self.search_stack:
                 _ = self.search_stack.pop()
@@ -157,12 +157,12 @@ class BruteforceGenerator:
 
         for i, u in enumerate(nodes):
             # Skip if u already has degree >= k
-            if graph.degree(u) >= self.k:  # type: ignore
+            if graph.degree(u) >= self.k:
                 continue
 
             for v in nodes[i + 1 :]:  # Only consider u < v to avoid duplicates
                 # Skip if v already has degree >= k
-                if graph.degree(v) >= self.k:  # type: ignore
+                if graph.degree(v) >= self.k:
                     continue
 
                 # Skip if edge already exists
@@ -183,7 +183,7 @@ class BruteforceGenerator:
 
     def _score_add_vertex(self, graph: nx.Graph[int]) -> float:
         """Score the action of adding a new vertex."""
-        num_nodes = len(graph.nodes())  # type: ignore
+        num_nodes = len(graph.nodes())
 
         # Prefer adding vertices if we're below Moore bound
         if num_nodes < self.mb:
@@ -208,8 +208,8 @@ class BruteforceGenerator:
         base_score = score_graph_quality(temp_graph, self.k, self.g)
 
         # Bonus: prefer edges that balance degree distribution
-        deg_u_after = temp_graph.degree(u)  # type: ignore
-        deg_v_after = temp_graph.degree(v)  # type: ignore
+        deg_u_after = temp_graph.degree(u)
+        deg_v_after = temp_graph.degree(v)
 
         # Bonus if both nodes get closer to k
         balance_bonus = 0.0

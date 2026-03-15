@@ -7,6 +7,7 @@ from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
 from ai.cage.rl.env import CageConstructionEnv
 from ai.cage.rl.model import ActorCritic
 from ai.registry import get_best_model_id, list_trained_models, load_model
+from ai.utils.device import configure_torch_device
 from backend.utils.graph_utils import (
     is_k_regular,
     moore_bound,
@@ -39,7 +40,7 @@ class RLGenerator:
         self.g = g
         self.mb = moore_bound(k, g)
         self.upper_bound = moore_hoffman_upper_bound(k, g)
-        self.device = torch.device("cpu")
+        self.device = torch.device(configure_torch_device())
 
         # Keep node capacity fixed for one generation run.
         self.num_nodes = self.mb + 2
@@ -83,7 +84,7 @@ class RLGenerator:
             )
             try:
                 loaded_weights = torch.load(model_path, map_location=self.device)  # pyright: ignore[reportAny]
-                _ = model.load_state_dict(loaded_weights)  # type: ignore[arg-type]  # pyright: ignore[reportAny]
+                _ = model.load_state_dict(loaded_weights)  # pyright: ignore[reportAny]
             except Exception as e:
                 print(
                     f"Failed to load model from {model_path}: {e}. Using random weights."
@@ -93,9 +94,9 @@ class RLGenerator:
         model_id: str | None = None
         models = list_trained_models("cage")
         for model_info in models:
-            if model_info.get("training", {}).get("model_type") == model_type:  # pyright: ignore[reportAny]
-                model_id = str(model_info["model_id"])  # pyright: ignore[reportAny]
-                avg_reward = model_info.get("metrics", {}).get("avg_reward", "N/A")  # pyright: ignore[reportAny]
+            if model_info.get("training", {}).get("model_type") == model_type:
+                model_id = str(model_info["model_id"])
+                avg_reward = model_info.get("metrics", {}).get("avg_reward", "N/A")
                 print(
                     f"Found best {model_type} model: {model_id} (Avg Reward: {avg_reward})"
                 )
@@ -108,7 +109,7 @@ class RLGenerator:
 
         if model_id:
             try:
-                loaded = load_model("cage", model_id, device="cpu")
+                loaded = load_model("cage", model_id)
                 if isinstance(loaded, ActorCritic):
                     print(f"Successfully loaded model {model_id} from registry.")
                     return loaded

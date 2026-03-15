@@ -11,8 +11,9 @@ Characteristics:
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.data import Data
-from torch_geometric.nn import SAGEConv
+from typing import cast, override
+from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
+from torch_geometric.nn import SAGEConv  # pyright: ignore[reportMissingTypeStubs]
 
 from .base import BaseGNN
 
@@ -28,6 +29,9 @@ class SAGE_GNN(BaseGNN):
     making it suitable for degree-related predictions.
     """
 
+    convs: nn.ModuleList
+    bns: nn.ModuleList
+
     def __init__(
         self,
         input_dim: int = 1,
@@ -42,28 +46,30 @@ class SAGE_GNN(BaseGNN):
         self.bns = nn.ModuleList()
 
         # First layer
-        self.convs.append(SAGEConv(input_dim, hidden_dim, aggr="add"))
-        self.bns.append(nn.BatchNorm1d(hidden_dim))
+        _ = self.convs.append(SAGEConv(input_dim, hidden_dim, aggr="add"))
+        _ = self.bns.append(nn.BatchNorm1d(hidden_dim))
 
         # Hidden layers
         for _ in range(num_layers - 2):
-            self.convs.append(SAGEConv(hidden_dim, hidden_dim, aggr="add"))
-            self.bns.append(nn.BatchNorm1d(hidden_dim))
+            _ = self.convs.append(SAGEConv(hidden_dim, hidden_dim, aggr="add"))
+            _ = self.bns.append(nn.BatchNorm1d(hidden_dim))
 
         # Output layer
-        self.convs.append(SAGEConv(hidden_dim, output_dim, aggr="add"))
+        _ = self.convs.append(SAGEConv(hidden_dim, output_dim, aggr="add"))
 
+    @override
     def forward(self, data: Data) -> torch.Tensor:
-        x, edge_index = data.x, data.edge_index
+        x = cast(torch.Tensor, data.x)
+        edge_index = cast(torch.Tensor, data.edge_index)
 
         # Hidden layers with activation, batch norm, dropout
         for i in range(self.num_layers - 1):
-            x = self.convs[i](x, edge_index)
-            x = self.bns[i](x)
+            x = cast(torch.Tensor, self.convs[i](x, edge_index))
+            x = cast(torch.Tensor, self.bns[i](x))
             x = F.relu(x)
             x = F.dropout(x, p=self.dropout, training=self.training)
 
         # Output layer (no activation, no dropout)
-        x = self.convs[-1](x, edge_index)
+        x = cast(torch.Tensor, self.convs[-1](x, edge_index))
 
         return x

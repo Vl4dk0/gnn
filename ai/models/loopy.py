@@ -7,13 +7,13 @@ It achieves this through modified message passing that considers r-neighborhoods
 (simple cycles passing through each node).
 """
 
-import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
-from torch_geometric.data import Data
-from torch_geometric.utils import scatter
+from typing import cast, override
+from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
+from torch_geometric.utils import scatter  # pyright: ignore[reportMissingTypeStubs]
 
 from .base import BaseGNN
 
@@ -34,6 +34,12 @@ class Loopy_GNN(BaseGNN):
         r: Neighborhood radius (cycles up to r+2 are detected)
         shared: Whether to share weights across path lengths
     """
+
+    r: int
+    shared: bool
+    input_proj: nn.Linear
+    loopy_layers: nn.ModuleList
+    output_proj: nn.Sequential
 
     def __init__(
         self,
@@ -73,6 +79,7 @@ class Loopy_GNN(BaseGNN):
             nn.Linear(hidden_dim, output_dim),
         )
 
+    @override
     def forward(self, data: Data) -> Tensor:
         x = data.x
         if x is None:
@@ -80,20 +87,21 @@ class Loopy_GNN(BaseGNN):
         x = x.float()
 
         # Input projection
-        x = self.input_proj(x)
+        x = cast(Tensor, self.input_proj(x))
 
         # Loopy layers
         for layer in self.loopy_layers:
-            x = layer(x, data)
+            x = cast(Tensor, layer(x, data))
             x = F.relu(x)
             x = F.dropout(x, p=self.dropout, training=self.training)
 
         # Output projection (node-level)
-        out = self.output_proj(x)
+        out = cast(Tensor, self.output_proj(x))
 
         return out.squeeze(-1)
 
-    def get_config(self) -> dict:
+    @override
+    def get_config(self) -> dict[str, str | int | float | bool]:
         config = super().get_config()
         config["r"] = self.r
         config["shared"] = self.shared
@@ -110,6 +118,15 @@ class LoopyLayer(nn.Module):
     3. Aggregates contributions back to center nodes
     """
 
+    r: int
+    shared: bool
+    in_channels: int
+    out_channels: int
+    eps: nn.Parameter
+    r_eps: nn.Parameter
+    path_convs: nn.ModuleList
+    final_mlp: "MLP"
+
     def __init__(
         self,
         in_channels: int,
@@ -117,7 +134,7 @@ class LoopyLayer(nn.Module):
         r: int = 3,
         shared: bool = True,
     ):
-        super().__init__()
+        super().__init__()  # pyright: ignore[reportUnknownMemberType]
         self.r = r
         self.shared = shared
         self.in_channels = in_channels
@@ -139,6 +156,7 @@ class LoopyLayer(nn.Module):
         # Final MLP
         self.final_mlp = MLP(in_channels, out_channels, num_layers=2)
 
+    @override
     def forward(self, x: Tensor, data: Data) -> Tensor:
         device = x.device
         r_contribution = torch.zeros_like(x)
@@ -148,12 +166,14 @@ class LoopyLayer(nn.Module):
             if key not in data:
                 continue
 
-            paths = data[key].to(device)  # (L+2, num_paths)
+            paths_raw: Tensor = cast(Tensor, data[key])
+            paths = paths_raw.to(device)  # (L+2, num_paths)
 
             if paths.shape[1] == 0:
                 continue
 
-            atomic_type = data[f"loopyA{L}"].to(device)  # (L+2, num_paths)
+            atomic_raw: Tensor = cast(Tensor, data[f"loopyA{L}"])
+            atomic_type = atomic_raw.to(device)  # (L+2, num_paths)
 
             # Get embeddings of nodes on paths (excluding center at index 0)
             path_embeddings = x[paths[1:]]  # (L+1, num_paths, hidden_dim)
@@ -171,20 +191,20 @@ class LoopyLayer(nn.Module):
                 contribution = path_embeddings.squeeze(0)  # (num_paths, hidden_dim)
             else:
                 # Process paths with GIN-style conv
-                contribution = conv(
-                    path_embeddings, path_atomic
+                contribution = cast(
+                    Tensor, conv(path_embeddings, path_atomic)
                 )  # (num_paths, hidden_dim)
 
             # Aggregate to center nodes
             center_nodes = paths[0]  # (num_paths,)
-            node_contribution = scatter(
+            node_contribution: Tensor = scatter(
                 contribution, center_nodes, dim=0, dim_size=x.size(0), reduce="sum"
             )
 
             r_contribution = r_contribution + (1 + self.r_eps[L]) * node_contribution
 
         # Final combination
-        out = self.final_mlp((1 + self.eps) * x + r_contribution)
+        out = cast(Tensor, self.final_mlp((1 + self.eps) * x + r_contribution))
 
         return out
 
@@ -197,8 +217,13 @@ class PathConv(nn.Module):
     This allows each node on the path to receive messages from its adjacent nodes.
     """
 
+    eps: nn.Parameter
+    distance_embedding: nn.Embedding
+    pre_transform: nn.Linear
+    mlp: "MLP"
+
     def __init__(self, in_channels: int, out_channels: int, max_distance: int = 4):
-        super().__init__()
+        super().__init__()  # pyright: ignore[reportUnknownMemberType]
         self.eps = nn.Parameter(torch.ones(1))
 
         # Embedding for atomic type (distance from center)
@@ -210,6 +235,7 @@ class PathConv(nn.Module):
         # Final MLP
         self.mlp = MLP(in_channels, out_channels, num_layers=2)
 
+    @override
     def forward(self, x: Tensor, atomic_type: Tensor) -> Tensor:
         """
         Process paths with GIN-style convolution.
@@ -222,16 +248,16 @@ class PathConv(nn.Module):
             (num_paths, hidden_dim) - aggregated path representation
         """
         # Concatenate with distance embedding
-        dist_emb = self.distance_embedding(
-            atomic_type
+        dist_emb = cast(
+            Tensor, self.distance_embedding(atomic_type)
         )  # (path_length, num_paths, hidden_dim)
-        x = self.pre_transform(torch.cat([x, dist_emb], dim=-1))
+        x = cast(Tensor, self.pre_transform(torch.cat([x, dist_emb], dim=-1)))
 
         # Propagate along path using 1D conv with kernel [1, 0, 1]
         x = self._path_propagate(x)
 
         # Apply MLP and sum over path
-        x = self.mlp((1 + self.eps) * x)
+        x = cast(Tensor, self.mlp((1 + self.eps) * x))
 
         return x.sum(dim=0)  # (num_paths, hidden_dim)
 
@@ -246,8 +272,6 @@ class PathConv(nn.Module):
         Returns:
             (path_length, num_paths, hidden_dim)
         """
-        path_length, num_paths, hidden_dim = x.shape
-
         # Simple implementation: manually gather from neighbors on path
         # For each position i, aggregate from i-1 and i+1 (with zero padding)
         x_padded = F.pad(x, (0, 0, 0, 0, 1, 1), mode="constant", value=0)
@@ -264,8 +288,12 @@ class PathConv(nn.Module):
 class MLP(nn.Module):
     """Simple MLP with batch normalization."""
 
+    num_layers: int
+    linears: nn.ModuleList
+    bns: nn.ModuleList
+
     def __init__(self, in_channels: int, out_channels: int, num_layers: int = 2):
-        super().__init__()
+        super().__init__()  # pyright: ignore[reportUnknownMemberType]
 
         self.num_layers = num_layers
         self.linears = nn.ModuleList()
@@ -273,33 +301,33 @@ class MLP(nn.Module):
 
         for i in range(num_layers):
             in_dim = in_channels if i == 0 else out_channels
-            self.linears.append(nn.Linear(in_dim, out_channels))
+            _ = self.linears.append(nn.Linear(in_dim, out_channels))
             if i < num_layers - 1:
-                self.bns.append(nn.BatchNorm1d(out_channels))
+                _ = self.bns.append(nn.BatchNorm1d(out_channels))
 
-    def reset_parameters(self):
+    def reset_parameters(self) -> None:
         for linear in self.linears:
-            linear.reset_parameters()
+            cast(nn.Linear, linear).reset_parameters()
         for bn in self.bns:
-            bn.reset_parameters()
+            cast(nn.BatchNorm1d, bn).reset_parameters()
 
+    @override
     def forward(self, x: Tensor) -> Tensor:
         # x can be (num_nodes, hidden) or (path_len, num_paths, hidden)
         # BatchNorm1d expects (batch, features) or (batch, features, seq_len)
-        original_shape = x.shape
 
         for i in range(self.num_layers):
-            x = self.linears[i](x)
+            x = cast(Tensor, self.linears[i](x))
             if i < self.num_layers - 1:
                 # Reshape for BatchNorm if needed
                 if x.dim() == 3:
                     # (path_len, num_paths, hidden) -> (path_len * num_paths, hidden)
                     path_len, num_paths, hidden = x.shape
                     x = x.reshape(-1, hidden)
-                    x = self.bns[i](x)
+                    x = cast(Tensor, self.bns[i](x))
                     x = x.reshape(path_len, num_paths, hidden)
                 else:
-                    x = self.bns[i](x)
+                    x = cast(Tensor, self.bns[i](x))
                 x = F.relu(x)
 
         return x

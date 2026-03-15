@@ -11,19 +11,23 @@ import argparse
 import os
 import sys
 from pathlib import Path
-from typing import Any
+from typing import cast
 
 import networkx as nx
 import torch
 import torch.nn.functional as F
 from dotenv import load_dotenv
-from torch_geometric.data import Data
+from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
 
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
 from ai.models import MODEL_CLASSES
+from ai.models.base import BaseGNN
+from ai.models.loopy import Loopy_GNN
 from ai.registry import save_model, model_exists, list_model_types
+from ai.utils.device import configure_torch_device
+from ai.utils.model_naming import build_name
 from ai.utils.r_neighborhood import apply_r_neighborhood
 from backend.utils import generate_random_graph
 
@@ -107,26 +111,27 @@ def generate_random_graph_data(
     return data
 
 
-def train_step(model: Any, optimizer: torch.optim.Optimizer, data: Data) -> float:
+def train_step(model: BaseGNN, optimizer: torch.optim.Optimizer, data: Data) -> float:
     """Train the model on a single graph."""
-    model.train()
+    _ = model.train()
     optimizer.zero_grad()
 
-    out: torch.Tensor = model(data).squeeze()
-    loss: torch.Tensor = F.mse_loss(out, data.y)  # type: ignore
+    out: torch.Tensor = cast(torch.Tensor, model(data)).squeeze()
+    y = cast(torch.Tensor, data.y)
+    loss: torch.Tensor = F.mse_loss(out, y)
 
-    _ = loss.backward()
+    _ = loss.backward()  # pyright: ignore[reportUnknownMemberType]
 
     # Gradient clipping to prevent exploding gradients
     _ = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
     optimizer.step()
 
-    return loss.item()
+    return cast(float, loss.item())
 
 
 def evaluate_model(
-    model: Any, num_test_graphs: int = 100, input_dim: int = 4, r: int | None = None
+    model: BaseGNN, num_test_graphs: int = 100, input_dim: int = 4, r: int | None = None
 ) -> dict[str, float]:
     """
     Evaluate the model on test graphs.
@@ -140,7 +145,7 @@ def evaluate_model(
     Returns:
         Dictionary with evaluation metrics (mse, mae, accuracy)
     """
-    model.eval()
+    _ = model.eval()
     total_loss: float = 0
     total_mae: float = 0
     total_correct: int = 0
@@ -149,18 +154,19 @@ def evaluate_model(
     with torch.no_grad():
         for _ in range(num_test_graphs):
             data: Data = generate_random_graph_data(input_dim=input_dim, r=r)
-            out: torch.Tensor = model(data).squeeze()
+            out: torch.Tensor = cast(torch.Tensor, model(data)).squeeze()
 
             predictions_rounded: torch.Tensor = torch.round(out)
 
-            loss: torch.Tensor = F.mse_loss(predictions_rounded, data.y)  # type: ignore[arg-type]
-            mae: torch.Tensor = F.l1_loss(predictions_rounded, data.y)  # type: ignore[arg-type]
-            correct: int = int((predictions_rounded == data.y).sum().item())
+            y = cast(torch.Tensor, data.y)
+            loss: torch.Tensor = F.mse_loss(predictions_rounded, y)
+            mae: torch.Tensor = F.l1_loss(predictions_rounded, y)
+            correct: int = cast(int, (predictions_rounded == y).sum().item())
 
             total_loss += loss.item()
             total_mae += mae.item()
             total_correct += correct
-            total_predictions += data.y.numel()  # type: ignore[union-attr]
+            total_predictions += y.numel()
 
     return {
         "mse": total_loss / num_test_graphs,
@@ -185,7 +191,7 @@ def train_gnn(
     input_dim: int,
     force: bool = False,
     r: int = 3,
-) -> Any:
+) -> BaseGNN:
     """
     Main training function.
 
@@ -210,12 +216,15 @@ def train_gnn(
     # Only use r for loopy models
     r_for_training: int | None = r if model_type == "loopy" else None
 
-    model_id: str = f"{model_type}_{model_name}"
+    if model_name == model_type or model_name.startswith(f"{model_type}_"):
+        model_id = model_name
+    else:
+        model_id = f"{model_type}_{model_name}"
 
     # Check if model already exists
     if model_exists("degree", model_id) and not force:
         print(f"Error: Model '{model_id}' already exists for task 'degree'.")
-        print(f"Use --force to overwrite, or choose a different --name.")
+        print("Use --force to overwrite, or choose a different --name.")
         sys.exit(1)
 
     # Get model class
@@ -224,13 +233,13 @@ def train_gnn(
         print(f"Available: {list_model_types()}")
         sys.exit(1)
 
-    model_class: type[Any] = MODEL_CLASSES[model_type]
+    model_class: type[BaseGNN] = MODEL_CLASSES[model_type]
 
     print("=" * 60)
     print(f"Training {model_type.upper()} for Degree Prediction")
     print(f"Model ID: {model_id}")
     print("=" * 60)
-    print(f"Configuration:")
+    print("Configuration:")
     print(f"  - Model Type: {model_type}")
     print(f"  - Epochs: {num_epochs}")
     print(f"  - Hidden Dim: {hidden_dim}")
@@ -246,14 +255,15 @@ def train_gnn(
     print("=" * 60)
 
     # Initialize model
+    model: BaseGNN
     if model_type == "loopy":
-        model = model_class(
+        model = cast(type[Loopy_GNN], model_class)(
             input_dim=input_dim,
             hidden_dim=hidden_dim,
             output_dim=1,
             num_layers=num_layers,
             dropout=dropout,
-            r=r_for_training,  # type: ignore[call-arg]
+            r=r,
         )
     else:
         model = model_class(
@@ -267,7 +277,7 @@ def train_gnn(
 
     best_accuracy: float = 0
     best_mae: float = float("inf")
-    best_model_state: dict[str, Any] | None = None
+    best_model_state: dict[str, torch.Tensor] | None = None
     best_epoch: int = 0
 
     # Training loop
@@ -302,7 +312,9 @@ def train_gnn(
             if is_better:
                 best_accuracy = metrics["accuracy"]
                 best_mae = metrics["mae"]
-                best_model_state = model.state_dict().copy()
+                best_model_state = cast(
+                    dict[str, torch.Tensor], model.state_dict().copy()
+                )
                 best_epoch = epoch
                 print(f"  → New best! Acc: {best_accuracy:.2f}%, MAE: {best_mae:.4f}")
 
@@ -322,7 +334,7 @@ def train_gnn(
     print("=" * 60)
 
     # Save the best model using registry
-    training_info: dict[str, Any] = {
+    training_info: dict[str, str | int | float | bool] = {
         "epochs": num_epochs,
         "best_epoch": best_epoch,
         "learning_rate": lr,
@@ -349,7 +361,7 @@ def train_gnn(
     return model
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Train a GNN model for degree prediction",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -368,8 +380,8 @@ def parse_args():
         "--name",
         "-n",
         type=str,
-        required=True,
-        help="Name for this model version (e.g., 'v1', 'baseline')",
+        default=None,
+        help="Optional model version name (if omitted, generated automatically)",
     )
 
     # Loopy-specific parameters
@@ -446,20 +458,37 @@ def parse_args():
 
 
 if __name__ == "__main__":
+    _ = configure_torch_device()
     args = parse_args()
+    model_arg = cast(str, args.model)
+    name_arg = cast(str | None, args.name)
+    r_arg = cast(int, args.r)
+    epochs_arg = cast(int, args.epochs)
+    hidden_dim_arg = cast(int, args.hidden_dim)
+    num_layers_arg = cast(int, args.num_layers)
+    dropout_arg = cast(float, args.dropout)
+    lr_arg = cast(float, args.lr)
+    print_every_arg = cast(int, args.print_every)
+    eval_every_arg = cast(int, args.eval_every)
+    graphs_per_epoch_arg = cast(int, args.graphs_per_epoch)
+    input_dim_arg = cast(int, args.input_dim)
+    force_arg = cast(bool, args.force)
+
+    auto_extra = f"r{r_arg}" if model_arg == "loopy" else ""
+    resolved_name = name_arg or build_name(model_arg, extra=auto_extra)
 
     _ = train_gnn(
-        model_type=args.model,
-        model_name=args.name,
-        num_epochs=args.epochs,
-        hidden_dim=args.hidden_dim,
-        num_layers=args.num_layers,
-        dropout=args.dropout,
-        lr=args.lr,
-        print_every=args.print_every,
-        eval_every=args.eval_every,
-        graphs_per_epoch=args.graphs_per_epoch,
-        input_dim=args.input_dim,
-        force=args.force,
-        r=args.r,
+        model_type=model_arg,
+        model_name=resolved_name,
+        num_epochs=epochs_arg,
+        hidden_dim=hidden_dim_arg,
+        num_layers=num_layers_arg,
+        dropout=dropout_arg,
+        lr=lr_arg,
+        print_every=print_every_arg,
+        eval_every=eval_every_arg,
+        graphs_per_epoch=graphs_per_epoch_arg,
+        input_dim=input_dim_arg,
+        force=force_arg,
+        r=r_arg,
     )

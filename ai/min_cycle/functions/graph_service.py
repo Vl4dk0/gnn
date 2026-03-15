@@ -1,16 +1,17 @@
 """Graph service for min_cycle prediction with model selection support."""
 
 import copy
-from typing import Any
+from typing import cast
 
 import networkx as nx
 import torch
-from torch_geometric.data import Data
+from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
 
+from ai.models.base import BaseGNN
 from ai.utils.r_neighborhood import apply_r_neighborhood
 
 # Model cache - maps model_id to loaded model
-_model_cache: dict[str, Any] = {}
+_model_cache: dict[str, BaseGNN] = {}
 
 
 def get_min_cycle(G: nx.Graph[int], vertex: int) -> int:
@@ -46,20 +47,20 @@ def get_min_cycle(G: nx.Graph[int], vertex: int) -> int:
         G.remove_edge(vertex, neigh)
 
         try:
-            path = nx.shortest_path(G, vertex, neigh)
+            path: list[int] = nx.shortest_path(G, vertex, neigh)  # pyright: ignore[reportUnknownMemberType]
             if ans is None:
                 ans = len(path)
             else:
                 ans = min(ans, len(path))
-        except:
+        except Exception:
             pass
 
-        G.add_edge(vertex, neigh)
+        _ = G.add_edge(vertex, neigh)
 
     return ans if ans is not None else 0
 
 
-def load_mincycle_gnn(model_id: str | None = None) -> Any:
+def load_mincycle_gnn(model_id: str | None = None) -> BaseGNN | None:
     """
     Load a trained GNN model by model_id.
 
@@ -120,7 +121,7 @@ def predict_all_nodes(
             ...
         ]
     """
-    model: Any = load_mincycle_gnn(model_id)
+    model = load_mincycle_gnn(model_id)
 
     _G: nx.Graph[int] = copy.deepcopy(G)
 
@@ -168,11 +169,11 @@ def predict_all_nodes(
         ).unsqueeze(1) / max(num_nodes - 1, 1)
 
         # Feature 2: Random embedding (deterministic with seed for consistency)
-        torch.manual_seed(42)
+        _ = torch.manual_seed(42)  # pyright: ignore[reportUnknownMemberType]
         random_feature: torch.Tensor = torch.randn(num_nodes, 2)
 
         # Feature 3: Clustering coefficient placeholder
-        torch.manual_seed(42)
+        _ = torch.manual_seed(42)  # pyright: ignore[reportUnknownMemberType]
         clustering_feature: torch.Tensor = torch.rand(num_nodes, 1)
 
         # Combine all features (must match training: 4 features)
@@ -184,13 +185,13 @@ def predict_all_nodes(
         data: Data = Data(x=x, edge_index=edge_index_tensor)
 
         # For loopy models, apply r-neighborhood transform
-        if hasattr(model, "r") and model.r is not None:
-            r_value: int = int(model.r)
-            data = apply_r_neighborhood(data, r=r_value)
+        r_attr = cast(int | None, getattr(model, "r", None))
+        if r_attr is not None:
+            data = apply_r_neighborhood(data, r=int(r_attr))
 
         # Predict with GNN
         with torch.no_grad():
-            predictions: torch.Tensor = model(data).squeeze()
+            predictions: torch.Tensor = cast(torch.Tensor, model(data)).squeeze()
 
             # Handle single node case
             if num_nodes == 1:

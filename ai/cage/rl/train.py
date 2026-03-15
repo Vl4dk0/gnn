@@ -1,16 +1,13 @@
 import argparse
 import copy
 import json
-import os
-import re
 import sys
 import time
 from collections import Counter
 from collections import deque
 from collections import defaultdict
-from collections.abc import Callable
 from pathlib import Path
-from typing import Protocol, cast, override
+from typing import cast
 
 import numpy as np
 import torch
@@ -18,38 +15,16 @@ import torch.optim as optim
 from torch.distributions import Categorical
 from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
 
-try:
-    from rich.console import Console
-    from rich.live import Live
-    from rich.table import Table
-except ModuleNotFoundError:
-    Console = None  # type: ignore[assignment]
-    Live = None  # type: ignore[assignment]
-    Table = None  # type: ignore[assignment]
-
-# Add project root to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../.."))
+from rich.console import Console
+from rich.live import Live
+from rich.table import Table
 
 from ai.cage.rl.env import CageConstructionEnv
 from ai.cage.rl.model import ActorCritic
 from ai.models import MODEL_CLASSES
 from ai.models.base import BaseGNN
 from ai.registry import get_trained_dir, list_model_types, model_exists, save_model
-
-
-class _TableProto(Protocol):
-    def add_row(self, *args: str) -> None: ...
-
-
-class _ConsoleProto(Protocol):
-    def rule(self, title: str = "") -> None: ...
-    def print(self, *args: object) -> None: ...
-
-
-class _LiveProto(Protocol):
-    def start(self) -> None: ...
-    def stop(self) -> None: ...
-    def update(self, renderable: object, *, refresh: bool = False) -> None: ...
+from ai.utils.device import configure_torch_device
 
 
 def compute_gae(
@@ -87,49 +62,9 @@ def train_ppo(
     save_episodes: int = 20,
 ) -> None:
     """Train Generalist PPO agent for cage generation."""
-    if torch.backends.mps.is_available():
-        device = "mps"
-    elif torch.cuda.is_available():
-        device = "cuda"
-    else:
-        device = "cpu"
+    device = configure_torch_device()
 
-    console: _ConsoleProto
-    table_factory: Callable[..., _TableProto]
-    live_factory: Callable[..., _LiveProto] | None
-
-    if Console is not None and Table is not None and Live is not None:
-        console = Console()  # type: ignore[assignment]
-        table_factory = Table  # type: ignore[assignment]
-        live_factory = Live  # type: ignore[assignment]  # pyright: ignore[reportAssignmentType]
-        use_rich_live = True
-    else:
-
-        class _FallbackConsole:
-            def rule(self, title: str = "") -> None:
-                print(re.sub(r"\[[^\]]+\]", "", title))
-
-            def print(self, *args: object) -> None:
-                cleaned = [re.sub(r"\[[^\]]+\]", "", str(a)) for a in args]
-                print(*cleaned)
-
-        class _FallbackTable:
-            def __init__(self, show_header: bool = False):
-                del show_header
-                self.rows: list[tuple[str, str]] = []
-
-            def add_row(self, *args: str) -> None:
-                if len(args) >= 2:
-                    self.rows.append((args[0], args[1]))
-
-            @override
-            def __str__(self) -> str:
-                return "\n".join(f"{k}: {v}" for (k, v) in self.rows)
-
-        console = _FallbackConsole()  # type: ignore[assignment]
-        table_factory = _FallbackTable
-        live_factory = None
-        use_rich_live = False
+    console = Console()
 
     model_id = f"{model_type}_{model_name}"
 
@@ -152,7 +87,7 @@ def train_ppo(
         hidden_dim=hidden_dim,
         num_layers=num_layers,
         dropout=dropout,
-    ).to(device)
+    )
 
     optimizer = optim.Adam(agent.parameters(), lr=lr)
     resumed = False
@@ -168,7 +103,7 @@ def train_ppo(
             )
         else:
             try:
-                _ = agent.load_state_dict(torch.load(weights_path, map_location=device))  # type: ignore[arg-type]  # pyright: ignore[reportAny]
+                _ = agent.load_state_dict(torch.load(weights_path, map_location=device))  # pyright: ignore[reportAny]
                 resumed = True
                 resume_path = weights_path
                 console.print(
@@ -200,7 +135,7 @@ def train_ppo(
 
     console.rule("Starting PPO Training")
     console.print(f"Model ID: {model_id}")
-    cfg = table_factory(show_header=False)
+    cfg = Table(show_header=False)
     cfg.add_row("Model Type", model_type)
     cfg.add_row("Steps", str(total_timesteps))
     cfg.add_row("Hidden Dim", str(hidden_dim))
@@ -235,7 +170,7 @@ def train_ppo(
     )
     episode_idx = 0
 
-    obs = sample_obs.to(device)
+    obs = sample_obs
     current_ep_k = env.k
     current_ep_g = env.g
     current_ep_nodes = env.num_nodes
@@ -250,14 +185,10 @@ def train_ppo(
     fps = 0
     last_checkpoint_episode = 0
     last_live_log_time = start_time
-    live_view: _LiveProto | None = None
-    if use_rich_live and live_factory is not None:
-        initial = table_factory(show_header=False)
-        initial.add_row("status", "waiting for first live step")
-        live_view = live_factory(
-            initial, console=console, refresh_per_second=8, transient=True
-        )
-        live_view.start()
+    initial = Table(show_header=False)
+    initial.add_row("status", "waiting for first live step")
+    live_view = Live(initial, console=console, refresh_per_second=8, transient=True)
+    live_view.start()
 
     def _save_checkpoint(partial: bool, avg_rew_value: float, step: int) -> None:
         training_info = {
@@ -285,26 +216,16 @@ def train_ppo(
     try:
         while global_step < total_timesteps:
             _ = agent.eval()
-            rollout_start_time = time.time()
 
             for i in range(update_interval):
                 if global_step >= total_timesteps:
                     break
 
-                if (i + 1) % 100 == 0 and live_view is None:
-                    elapsed = time.time() - rollout_start_time
-                    steps_per_sec = (i + 1) / elapsed if elapsed > 0 else 0.0
-                    print(
-                        f"  [Rollout] Collecting step {i + 1}/{update_interval} (Global: {global_step}) | Speed: {steps_per_sec:.1f} steps/s",
-                        end="\r",
-                    )
-
                 with torch.no_grad():
-                    mask = env.get_valid_action_mask().to(device)
+                    mask = env.get_valid_action_mask()
                     action, log_prob, value = agent.get_action(obs, action_mask=mask)
 
                 next_obs, reward, done, info = env.step(action)
-                next_obs = next_obs.to(device)
 
                 action_type = str(info.get("action_type", "unknown"))
                 edge = cast(list[int], info.get("edge", [0, 0]))
@@ -330,34 +251,27 @@ def train_ppo(
                 ):
                     last_live_log_time = time.time()
                     done_reason = info.get("done_reason", "-")
-                    if live_view is not None:
-                        status = table_factory(show_header=False)
-                        status.add_row(
-                            "episode",
-                            f"{episode_idx + 1}  k={current_ep_k} g={current_ep_g} cap={current_ep_nodes} step={current_ep_len}",
-                        )
-                        status.add_row("action", f"{action_type}:{action_desc}")
-                        status.add_row(
-                            "reward/score",
-                            f"{reward:+.2f} / {float(info.get('episode_score', 0.0)):+.2f}",
-                        )
-                        status.add_row(
-                            "edges/active",
-                            f"{info.get('num_edges', 0)} / {info.get('active_nodes', 0)}",
-                        )
-                        counts_line = ", ".join(
-                            f"{k}: {v}"
-                            for (k, v) in sorted(current_ep_action_counts.items())
-                        )
-                        status.add_row(
-                            "action counts", counts_line if counts_line else "-"
-                        )
-                        status.add_row("done/reason", f"{done} / {done_reason}")
-                        live_view.update(status, refresh=True)
-                    else:
-                        console.print(
-                            f"LIVE ep={episode_idx + 1} k={current_ep_k} g={current_ep_g} cap={current_ep_nodes} step={current_ep_len} action={action_type}:{action_desc} reward={reward:+.2f} score={float(info.get('episode_score', 0.0)):+.2f} edges={info.get('num_edges', 0)} active={info.get('active_nodes', 0)} done={done} reason={done_reason}"
-                        )
+                    status = Table(show_header=False)
+                    status.add_row(
+                        "episode",
+                        f"{episode_idx + 1}  k={current_ep_k} g={current_ep_g} cap={current_ep_nodes} step={current_ep_len}",
+                    )
+                    status.add_row("action", f"{action_type}:{action_desc}")
+                    status.add_row(
+                        "reward/score",
+                        f"{reward:+.2f} / {float(info.get('episode_score', 0.0)):+.2f}",
+                    )
+                    status.add_row(
+                        "edges/active",
+                        f"{info.get('num_edges', 0)} / {info.get('active_nodes', 0)}",
+                    )
+                    counts_line = ", ".join(
+                        f"{k}: {v}"
+                        for (k, v) in sorted(current_ep_action_counts.items())
+                    )
+                    status.add_row("action counts", counts_line if counts_line else "-")
+                    status.add_row("done/reason", f"{done} / {done_reason}")
+                    live_view.update(status, refresh=True)
 
                 if done:
                     episode_rewards.append(current_ep_reward)
@@ -375,7 +289,7 @@ def train_ppo(
                     status_str = (
                         "SUCCESS" if bool(info.get("success", False)) else "FAIL"
                     )
-                    summary = table_factory(show_header=False)
+                    summary = Table(show_header=False)
                     summary.add_row("Episode", str(episode_idx))
                     summary.add_row("Status", status_str)
                     summary.add_row("k,g", f"{current_ep_k}, {current_ep_g}")
@@ -395,7 +309,7 @@ def train_ppo(
                     current_ep_reward = 0.0
                     current_ep_len = 0
                     current_ep_action_counts = Counter()
-                    obs = env.reset().to(device)
+                    obs = env.reset()
                     current_ep_k = env.k
                     current_ep_g = env.g
                     current_ep_nodes = env.num_nodes
@@ -412,13 +326,13 @@ def train_ppo(
             values = value_buffer + [next_value_float]
             advantages = compute_gae(
                 reward_buffer, values, done_buffer, gamma, gae_lambda
-            ).to(device)
+            )
             returns = advantages + torch.tensor(value_buffer, device=device)
 
             advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
 
             b_actions = torch.tensor(action_buffer, device=device)
-            b_log_probs = torch.stack(log_prob_buffer).to(device)
+            b_log_probs = torch.stack(log_prob_buffer)
             b_returns = returns
             b_advantages = advantages
             b_masks = mask_buffer
@@ -435,8 +349,8 @@ def train_ppo(
 
                     optimizer.zero_grad()
 
-                    for _idx in mb_inds:  # pyright: ignore[reportAny]
-                        i = int(_idx)  # pyright: ignore[reportAny]
+                    for _idx in cast(list[int], mb_inds.tolist()):
+                        i = int(_idx)
                         data: Data = obs_buffer[i]
                         action_idx = b_actions[i]
                         old_log_prob = b_log_probs[i]
@@ -467,13 +381,13 @@ def train_ppo(
                             + value_coef * value_loss
                             - entropy_coef * entropy
                         )
-                        loss.backward()  # pyright: ignore[reportUnknownMemberType, reportUnusedCallResult]
+                        _ = loss.backward()  # pyright: ignore[reportUnknownMemberType]
 
                     for p in agent.parameters():
                         if p.grad is not None:
                             p.grad /= len(mb_inds)
 
-                    optimizer.step()  # pyright: ignore[reportUnknownMemberType, reportUnusedCallResult]
+                    _ = optimizer.step()  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
 
             obs_buffer = []
             action_buffer = []
@@ -490,7 +404,7 @@ def train_ppo(
             elapsed = time.time() - start_time
             fps = int(global_step / elapsed) if elapsed > 0 else 0
 
-            rollout_tbl = table_factory(show_header=False)
+            rollout_tbl = Table(show_header=False)
             rollout_tbl.add_row("Global Step", str(global_step))
             rollout_tbl.add_row("Avg Reward (last 20 eps)", f"{avg_rew:.2f}")
             rollout_tbl.add_row("Avg Length (last 20 eps)", f"{avg_len:.1f}")
@@ -526,8 +440,7 @@ def train_ppo(
                 _save_checkpoint(partial=True, avg_rew_value=avg_rew, step=global_step)
                 last_checkpoint_episode = episode_idx
     finally:
-        if live_view is not None:
-            live_view.stop()
+        live_view.stop()
 
     if best_model_state is not None:
         _ = agent.load_state_dict(best_model_state)

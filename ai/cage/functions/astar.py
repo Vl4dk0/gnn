@@ -182,12 +182,12 @@ class AStarGenerator:
         # Action 1: Add edges between existing vertices
         for i, u in enumerate(nodes):
             # Skip if u already has degree >= k
-            if graph.degree(u) >= self.k:  # type: ignore
+            if graph.degree(u) >= self.k:
                 continue
 
             for v in nodes[i + 1 :]:
                 # Skip if v already has degree >= k
-                if graph.degree(v) >= self.k:  # type: ignore
+                if graph.degree(v) >= self.k:
                     continue
 
                 # Skip if edge already exists
@@ -221,15 +221,15 @@ class AStarGenerator:
         2. Progress towards goal (how close to being k-regular)
         3. Efficiency (prefer smaller graphs if possible)
         """
-        num_nodes = len(graph.nodes())  # type: ignore
-        num_edges = len(graph.edges())  # type: ignore
+        num_nodes = len(graph.nodes())
+        num_edges = len(graph.edges())
 
         # Base quality score
         base_score = score_graph_quality(graph, self.k, self.g)
 
         # Progress towards k-regularity
         if num_nodes > 0:
-            regular_nodes = sum(1 for n in graph.nodes() if graph.degree(n) == self.k)  # type: ignore
+            regular_nodes = sum(1 for n in graph.nodes() if graph.degree(n) == self.k)
             regularity_progress = regular_nodes / num_nodes
         else:
             regularity_progress = 0.0
