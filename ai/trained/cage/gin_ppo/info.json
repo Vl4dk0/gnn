@@ -1,0 +1,26 @@
+{
+  "model_type": "actor_critic",
+  "model_id": "gin_ppo",
+  "task": "cage",
+  "training": {
+    "model_type": "gin",
+    "input_dim": 8,
+    "hidden_dim": 32,
+    "num_layers": 4,
+    "dropout": 0.2,
+    "r": 3,
+    "shared": false,
+    "steps": 100000,
+    "learning_rate": 0.0003,
+    "update_interval": 2048,
+    "randomize": true,
+    "resumed": false,
+    "checkpoint_step": 55296,
+    "partial": true
+  },
+  "metrics": {
+    "avg_reward": 55.43,
+    "fps": 16
+  },
+  "created_at": "2026-03-15T19:28:12.468071"
+}

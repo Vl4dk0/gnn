@@ -1,6 +1,6 @@
 {
-  "model_type": "gcn",
-  "model_id": "gcn",
+  "model_type": "loopy",
+  "model_id": "loopy_r3",
   "task": "degree",
   "training": {
     "input_dim": 4,
@@ -8,15 +8,17 @@
     "output_dim": 1,
     "num_layers": 4,
     "dropout": 0.2,
+    "r": 3,
+    "shared": true,
     "epochs": 500,
-    "best_epoch": 50,
+    "best_epoch": 450,
     "learning_rate": 0.001,
     "graphs_per_epoch": 50
   },
   "metrics": {
-    "mse": 3.0051,
-    "mae": 1.3045,
-    "accuracy": 23.94
+    "mse": 1141299.7368,
+    "mae": 147.0151,
+    "accuracy": 26.13
   },
-  "created_at": "2026-03-15T19:52:41.779231"
+  "created_at": "2026-03-15T20:21:14.826950"
 }
