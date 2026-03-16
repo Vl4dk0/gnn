@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 interface BackButtonProps {
   href?: string;
   label?: string;
@@ -36,8 +38,8 @@ export const BackButton = ({
   const backHref = href === "/" ? resolveBackHref() : href;
 
   return (
-    <a
-      href={backHref}
+    <Link
+      to={backHref}
       className={
         iconOnly
           ? `ui-surface-link flex h-11 w-11 items-center justify-center rounded-full border border-line2 bg-bg1/92 text-textMain no-underline shadow-card backdrop-blur-sm transition-all duration-300 ${className}`
@@ -64,6 +66,6 @@ export const BackButton = ({
       ) : (
         label
       )}
-    </a>
+    </Link>
   );
 };

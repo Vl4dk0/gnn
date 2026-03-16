@@ -1,19 +1,17 @@
+import { Link } from "react-router-dom";
 import { DocsCard, DocsHero } from "../../components/docs/DocsCard";
-import { DocsLayout } from "../../components/docs/DocsLayout";
 import { DocsNextButton } from "../../components/docs/DocsNextButton";
 import { MetricTable } from "../../components/docs/MetricTable";
 import { useDocsMetrics } from "../../hooks/useDocsMetrics";
-import { useFeatureFlags } from "../../hooks/useFeatureFlags";
 import { useHighlight } from "../../hooks/useHighlight";
 import { formatAccuracy, formatDate, formatMetric } from "../shared/format";
 
 export const DocsModuleDegreePage = () => {
-  const features = useFeatureFlags();
   const { degreeModels } = useDocsMetrics();
   useHighlight();
 
   return (
-    <DocsLayout currentPath="/docs/module-degree.html" featureActive={features}>
+    <>
       <DocsHero>
         <h1 className="mb-2.5 text-[clamp(1.7rem,3.1vw,2.4rem)] font-bold leading-[1.22] text-textMain">
           Degree prediction: first trust check
@@ -29,12 +27,12 @@ export const DocsModuleDegreePage = () => {
         <p className="text-base leading-[1.7] text-textMuted">
           Open the degree interactive graph editor and test predictions directly on custom graphs.
         </p>
-        <a
-          href="/degree/index.html"
+        <Link
+          to="/degree"
           className="ui-button-outline ui-surface-link mt-3"
         >
           Open degree editor
-        </a>
+        </Link>
       </DocsCard>
 
       <DocsCard>
@@ -108,9 +106,9 @@ optimizer.step()`}</code>
       </DocsCard>
 
       <div className="mt-10 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-5">
-        <DocsNextButton href="/docs/architecture.html" label="Architectures" direction="back" />
-        <DocsNextButton href="/docs/module-min-cycle.html" label="Cycle prediction" />
+        <DocsNextButton href="/docs/architecture" label="Architectures" direction="back" />
+        <DocsNextButton href="/docs/module-min-cycle" label="Cycle prediction" />
       </div>
-    </DocsLayout>
+    </>
   );
 };

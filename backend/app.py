@@ -70,8 +70,13 @@ def create_app() -> Flask:
 
     @app.route("/<path:path>")
     def serve_static(path: str):  # pyright: ignore[reportUnusedFunction]
-        """Serve static files (CSS, JS, etc.)."""
-        return send_from_directory(frontend_dir, path)
+        """Serve static files (CSS, JS, etc.) or fallback to SPA entry point."""
+        full_path = os.path.join(frontend_dir, path)
+        if os.path.exists(full_path) and os.path.isfile(full_path):
+            return send_from_directory(frontend_dir, path)
+
+        # SPA Fallback: serve index.html for unknown paths (client-side routing)
+        return send_from_directory(frontend_dir, "index.html")
 
     return app
 

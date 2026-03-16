@@ -1,19 +1,17 @@
+import { Link } from "react-router-dom";
 import { DocsCard, DocsHero } from "../../components/docs/DocsCard";
-import { DocsLayout } from "../../components/docs/DocsLayout";
 import { DocsNextButton } from "../../components/docs/DocsNextButton";
 import { MetricTable } from "../../components/docs/MetricTable";
 import { useDocsMetrics } from "../../hooks/useDocsMetrics";
-import { useFeatureFlags } from "../../hooks/useFeatureFlags";
 import { useHighlight } from "../../hooks/useHighlight";
 import { formatAccuracy, formatDate, formatMetric } from "../shared/format";
 
 export const DocsModuleMinCyclePage = () => {
-  const features = useFeatureFlags();
   const { cycleModels } = useDocsMetrics();
   useHighlight();
 
   return (
-    <DocsLayout currentPath="/docs/module-min-cycle.html" featureActive={features}>
+    <>
       <DocsHero>
         <h1 className="mb-2.5 text-[clamp(1.7rem,3.1vw,2.4rem)] font-bold leading-[1.22] text-textMain">
           Cycle prediction: moving from local to structural
@@ -30,12 +28,12 @@ export const DocsModuleMinCyclePage = () => {
           Open the cycle interactive graph editor and inspect min-cycle predictions on your own
           graphs.
         </p>
-        <a
-          href="/min_cycle/index.html"
+        <Link
+          to="/min_cycle"
           className="ui-button-outline ui-surface-link mt-3"
         >
           Open cycle editor
-        </a>
+        </Link>
       </DocsCard>
 
       <DocsCard>
@@ -109,12 +107,12 @@ optimizer.step()`}</code>
 
       <div className="mt-10 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-5">
         <DocsNextButton
-          href="/docs/module-degree.html"
+          href="/docs/module-degree"
           label="Degree prediction"
           direction="back"
         />
-        <DocsNextButton href="/docs/module-assessment.html" label="Assessment" />
+        <DocsNextButton href="/docs/module-assessment" label="Assessment" />
       </div>
-    </DocsLayout>
+    </>
   );
 };

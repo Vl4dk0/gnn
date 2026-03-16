@@ -5,13 +5,13 @@ export interface DocsItem {
 }
 
 export const DOCS_SEQUENCE: DocsItem[] = [
-  { href: "/docs/gnns.html", title: "How GNNs work", short: "GNNs" },
-  { href: "/docs/architecture.html", title: "Architectures", short: "Arch" },
-  { href: "/docs/module-degree.html", title: "Degree prediction", short: "Degree" },
-  { href: "/docs/module-min-cycle.html", title: "Cycle prediction", short: "Cycle" },
-  { href: "/docs/module-assessment.html", title: "Assessment", short: "Assess" },
-  { href: "/docs/module-cage.html", title: "Cage generation", short: "Cage" },
-  { href: "/docs/training.html", title: "Try it yourself", short: "Try" }
+  { href: "/docs/gnns", title: "How GNNs work", short: "GNNs" },
+  { href: "/docs/architecture", title: "Architectures", short: "Arch" },
+  { href: "/docs/module-degree", title: "Degree prediction", short: "Degree" },
+  { href: "/docs/module-min-cycle", title: "Cycle prediction", short: "Cycle" },
+  { href: "/docs/module-assessment", title: "Assessment", short: "Assess" },
+  { href: "/docs/module-cage", title: "Cage generation", short: "Cage" },
+  { href: "/docs/training", title: "Try it yourself", short: "Try" }
 ];
 
 export const getNextDocsItem = (currentHref: string): DocsItem | null => {

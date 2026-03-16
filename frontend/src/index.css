@@ -33,6 +33,30 @@
     overscroll-behavior: none;
   }
 
+  /* Custom scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-[#3a3a3a];
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-[#555555];
+  }
+
+  /* Firefox scrollbar support */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #3a3a3a transparent;
+  }
+
   button,
   input,
   textarea,

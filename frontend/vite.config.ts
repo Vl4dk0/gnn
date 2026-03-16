@@ -14,19 +14,10 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
+    // SPA build: single entry point
     rollupOptions: {
       input: {
-        overview: resolve(__dirname, "index.html"),
-        degree: resolve(__dirname, "degree/index.html"),
-        minCycle: resolve(__dirname, "min_cycle/index.html"),
-        cage: resolve(__dirname, "cage/index.html"),
-        docsGnns: resolve(__dirname, "docs/gnns.html"),
-        docsArchitecture: resolve(__dirname, "docs/architecture.html"),
-        docsDegree: resolve(__dirname, "docs/module-degree.html"),
-        docsMinCycle: resolve(__dirname, "docs/module-min-cycle.html"),
-        docsAssessment: resolve(__dirname, "docs/module-assessment.html"),
-        docsCage: resolve(__dirname, "docs/module-cage.html"),
-        docsTraining: resolve(__dirname, "docs/training.html")
+        main: resolve(__dirname, "index.html")
       }
     }
   }

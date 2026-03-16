@@ -1,5 +1,4 @@
 import { DocsCard, DocsHero } from "../components/docs/DocsCard";
-import { DocsLayout } from "../components/docs/DocsLayout";
 import { DocsNextButton } from "../components/docs/DocsNextButton";
 import { StoryCard } from "../components/docs/StoryCard";
 import { useFeatureFlags } from "../hooks/useFeatureFlags";
@@ -9,44 +8,37 @@ const THESIS_SUPERVISOR = "Ján Pastorek";
 
 const STORY_ITEMS = [
   {
-    href: "/docs/gnns.html",
-    index: "1",
+    href: "/docs/gnns",
     title: "How GNNs work",
     description: "Message passing, layers, node and edge features, and readout."
   },
   {
-    href: "/docs/architecture.html",
-    index: "2",
+    href: "/docs/architecture",
     title: "Architectures",
     description: "GCN, SAGE, GIN, and Loopy with what each one preserves or loses."
   },
   {
-    href: "/docs/module-degree.html",
-    index: "3",
+    href: "/docs/module-degree",
     title: "Degree prediction",
     description: "Why degree was the first check, how the loop works, and exact results."
   },
   {
-    href: "/docs/module-min-cycle.html",
-    index: "4",
+    href: "/docs/module-min-cycle",
     title: "Cycle prediction",
     description: "Node-level shortest-cycle labels, training behavior, and metrics."
   },
   {
-    href: "/docs/module-assessment.html",
-    index: "5",
+    href: "/docs/module-assessment",
     title: "Assessment",
     description: "Cross-task check of degree and min-cycle, with a dated snapshot."
   },
   {
-    href: "/docs/module-cage.html",
-    index: "6",
+    href: "/docs/module-cage",
     title: "Cage generation",
     description: "Why I started with A*, what failed in data design, and why PPO."
   },
   {
-    href: "/docs/training.html",
-    index: "7",
+    href: "/docs/training",
     title: "Try it yourself",
     description: "Minimal local tutorial for degree prediction with one architecture."
   }
@@ -56,7 +48,7 @@ export const OverviewPage = () => {
   const features = useFeatureFlags();
 
   return (
-    <DocsLayout currentPath="/" featureActive={features}>
+    <>
       <DocsHero>
         <h1 className="mb-2.5 text-[clamp(1.7rem,3.1vw,2.4rem)] font-bold leading-[1.22] text-textMain">
           Graph neural networks for algebraic graph theory
@@ -129,7 +121,6 @@ export const OverviewPage = () => {
           <StoryCard
             key={item.href}
             href={item.href}
-            index={item.index}
             title={item.title}
             description={item.description}
           />
@@ -137,8 +128,8 @@ export const OverviewPage = () => {
       </section>
 
       <div className="mt-6 flex items-center justify-end border-t border-line pt-5">
-        <DocsNextButton href="/docs/gnns.html" label="How GNNs work" />
+        <DocsNextButton href="/docs/gnns" label="How GNNs work" />
       </div>
-    </DocsLayout>
+    </>
   );
 };

@@ -1,5 +1,4 @@
 import { DocsCard, DocsHero } from "../../components/docs/DocsCard";
-import { DocsLayout } from "../../components/docs/DocsLayout";
 import { DocsNextButton } from "../../components/docs/DocsNextButton";
 import { useFeatureFlags } from "../../hooks/useFeatureFlags";
 import { useHighlight } from "../../hooks/useHighlight";
@@ -9,7 +8,7 @@ export const DocsTrainingPage = () => {
   useHighlight();
 
   return (
-    <DocsLayout currentPath="/docs/training.html" featureActive={features}>
+    <>
       <DocsHero>
         <h1 className="mb-2.5 text-[clamp(1.7rem,3.1vw,2.4rem)] font-bold leading-[1.22] text-textMain">
           Try it yourself: a minimal degree predictor
@@ -149,9 +148,9 @@ if __name__ == "__main__":
       </DocsCard>
 
       <div className="mt-10 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-5">
-        <DocsNextButton href="/docs/module-cage.html" label="Cage generation" direction="back" />
+        <DocsNextButton href="/docs/module-cage" label="Cage generation" direction="back" />
         <DocsNextButton href="/" label="Overview" />
       </div>
-    </DocsLayout>
+    </>
   );
 };

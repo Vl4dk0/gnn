@@ -1,5 +1,4 @@
 import { DocsCard, DocsHero } from "../../components/docs/DocsCard";
-import { DocsLayout } from "../../components/docs/DocsLayout";
 import { DocsNextButton } from "../../components/docs/DocsNextButton";
 import { MetricTable } from "../../components/docs/MetricTable";
 import { useDocsMetrics } from "../../hooks/useDocsMetrics";
@@ -13,7 +12,7 @@ export const DocsModuleAssessmentPage = () => {
   const unavailable = degreeModels === null && cycleModels === null;
 
   return (
-    <DocsLayout currentPath="/docs/module-assessment.html" featureActive={features}>
+    <>
       <DocsHero>
         <h1 className="mb-2.5 text-[clamp(1.7rem,3.1vw,2.4rem)] font-bold leading-[1.22] text-textMain">
           Assessment across degree and min-cycle
@@ -70,12 +69,12 @@ export const DocsModuleAssessmentPage = () => {
 
       <div className="mt-10 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-5">
         <DocsNextButton
-          href="/docs/module-min-cycle.html"
+          href="/docs/module-min-cycle"
           label="Cycle prediction"
           direction="back"
         />
-        <DocsNextButton href="/docs/module-cage.html" label="Cage generation" />
+        <DocsNextButton href="/docs/module-cage" label="Cage generation" />
       </div>
-    </DocsLayout>
+    </>
   );
 };

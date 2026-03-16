@@ -10,19 +10,19 @@ export interface ProjectLink {
 export const PROJECT_LINKS: ProjectLink[] = [
   {
     key: "degree",
-    href: "/degree/index.html",
+    href: "/degree",
     title: "Degree Predictor",
     description: "Predicting vertex degree"
   },
   {
     key: "min_cycle",
-    href: "/min_cycle/index.html",
+    href: "/min_cycle",
     title: "Cycle Predictor",
     description: "Smallest cycle containing vertex"
   },
   {
     key: "cage",
-    href: "/cage/index.html",
+    href: "/cage",
     title: "Cage Generator",
     description: "A* & PPO cage generation"
   }

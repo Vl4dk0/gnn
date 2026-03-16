@@ -69,7 +69,8 @@ export const CagePage = () => {
     <div className="relative h-dvh overflow-hidden bg-bg0">
       <GraphCanvas onReady={onEditorReady} canvasClassName="rounded-none">
         <BackButton
-          href="/docs/module-cage.html"
+          href="/docs/module-cage"
+          label="Back to Docs"
           iconOnly
           className="absolute left-4 top-4 z-20 max-[900px]:left-3 max-[900px]:top-3"
         />

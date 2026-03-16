@@ -1,5 +1,5 @@
+import { Link } from "react-router-dom";
 import { DocsCard, DocsHero } from "../../components/docs/DocsCard";
-import { DocsLayout } from "../../components/docs/DocsLayout";
 import { DocsNextButton } from "../../components/docs/DocsNextButton";
 import { useFeatureFlags } from "../../hooks/useFeatureFlags";
 import { useHighlight } from "../../hooks/useHighlight";
@@ -9,7 +9,7 @@ export const DocsModuleCagePage = () => {
   useHighlight();
 
   return (
-    <DocsLayout currentPath="/docs/module-cage.html" featureActive={features}>
+    <>
       <DocsHero>
         <h1 className="mb-2.5 text-[clamp(1.7rem,3.1vw,2.4rem)] font-bold leading-[1.22] text-textMain">
           Cage generation: the main objective
@@ -26,12 +26,12 @@ export const DocsModuleCagePage = () => {
           Open the cage interactive graph editor to generate candidate graphs and monitor session
           progress.
         </p>
-        <a
-          href="/cage/index.html"
+        <Link
+          to="/cage"
           className="ui-button-outline ui-surface-link mt-3"
         >
           Open cage editor
-        </a>
+        </Link>
       </DocsCard>
 
       <DocsCard>
@@ -112,9 +112,9 @@ SATISFY_BONUS = 0.1`}</code>
       </p>
 
       <div className="mt-10 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-5">
-        <DocsNextButton href="/docs/module-assessment.html" label="Assessment" direction="back" />
-        <DocsNextButton href="/docs/training.html" label="Try it yourself" />
+        <DocsNextButton href="/docs/module-assessment" label="Assessment" direction="back" />
+        <DocsNextButton href="/docs/training" label="Try it yourself" />
       </div>
-    </DocsLayout>
+    </>
   );
 };

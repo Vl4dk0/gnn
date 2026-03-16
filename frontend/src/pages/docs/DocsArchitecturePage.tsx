@@ -1,5 +1,4 @@
 import { DocsCard, DocsHero } from "../../components/docs/DocsCard";
-import { DocsLayout } from "../../components/docs/DocsLayout";
 import { DocsNextButton } from "../../components/docs/DocsNextButton";
 import { useFeatureFlags } from "../../hooks/useFeatureFlags";
 
@@ -7,7 +6,7 @@ export const DocsArchitecturePage = () => {
   const features = useFeatureFlags();
 
   return (
-    <DocsLayout currentPath="/docs/architecture.html" featureActive={features}>
+    <>
       <DocsHero>
         <h1 className="mb-2.5 text-[clamp(1.7rem,3.1vw,2.4rem)] font-bold leading-[1.22] text-textMain">
           Architectures used in this project
@@ -114,9 +113,9 @@ export const DocsArchitecturePage = () => {
       </p>
 
       <div className="mt-10 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-5">
-        <DocsNextButton href="/docs/gnns.html" label="How GNNs work" direction="back" />
-        <DocsNextButton href="/docs/module-degree.html" label="Degree prediction" />
+        <DocsNextButton href="/docs/gnns" label="How GNNs work" direction="back" />
+        <DocsNextButton href="/docs/module-degree" label="Degree prediction" />
       </div>
-    </DocsLayout>
+    </>
   );
 };
