@@ -66,7 +66,7 @@ export const CagePage = () => {
         : "Generate Cage";
 
   return (
-    <div className="relative h-dvh overflow-hidden bg-bg0">
+    <div className="relative h-dvh overflow-hidden bg-transparent">
       <GraphCanvas onReady={onEditorReady} canvasClassName="rounded-none">
         <BackButton
           href="/docs/module-cage"

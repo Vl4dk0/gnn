@@ -48,7 +48,7 @@ export const PredictionPage = ({ task }: PredictionPageProps) => {
   const backHref = task === "degree" ? "/docs/module-degree" : "/docs/module-min-cycle";
 
   return (
-    <div className="relative h-dvh overflow-hidden bg-bg0">
+    <div className="relative h-dvh overflow-hidden bg-transparent">
       <GraphCanvas
         onReady={onEditorReady}
         onGraphChange={onEditorGraphChange}

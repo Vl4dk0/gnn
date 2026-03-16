@@ -1,6 +1,7 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import * as d3 from "d3";
+import { AnimatePresence, motion } from "framer-motion";
 
 // Data Structure
 interface GraphNode extends d3.SimulationNodeDatum {
@@ -28,7 +29,7 @@ const INITIAL_NODES: GraphNode[] = [
   { id: "cycle", label: "Cycle", path: "/docs/module-min-cycle", group: "doc" },
   { id: "assess", label: "Assessment", path: "/docs/module-assessment", group: "doc" },
   { id: "cage", label: "Cage", path: "/docs/module-cage", group: "doc" },
-  { id: "train", label: "Try It", path: "/docs/training", group: "doc" },
+  { id: "train", label: "DIY", path: "/docs/training", group: "doc" },
   // Apps (Editors)
   { id: "app-degree", label: "Editor", path: "/degree", group: "app" },
   { id: "app-cycle", label: "Editor", path: "/min_cycle", group: "app" },
@@ -64,6 +65,8 @@ const INITIAL_LINKS: GraphLink[] = [
 ];
 
 export const SiteGraphNav = () => {
+  const [isOpen, setIsOpen] = useState(true);
+  const [isHovered, setIsHovered] = useState(false);
   const svgRef = useRef<SVGSVGElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -77,7 +80,7 @@ export const SiteGraphNav = () => {
   const simulationRef = useRef<d3.Simulation<GraphNode, GraphLink> | null>(null);
 
   useEffect(() => {
-    if (!svgRef.current) return;
+    if (!isOpen || !svgRef.current) return;
 
     const width = 300;
     const height = 600;
@@ -93,19 +96,18 @@ export const SiteGraphNav = () => {
 
     // Definitions for filters/gradients
     const defs = svg.append("defs");
-    
+
     // Glow filter
-    const filter = defs.append("filter")
+    const filter = defs
+      .append("filter")
       .attr("id", "glow")
       .attr("x", "-50%")
       .attr("y", "-50%")
       .attr("width", "200%")
       .attr("height", "200%");
-      
-    filter.append("feGaussianBlur")
-      .attr("stdDeviation", "2.5")
-      .attr("result", "coloredBlur");
-      
+
+    filter.append("feGaussianBlur").attr("stdDeviation", "2.5").attr("result", "coloredBlur");
+
     const feMerge = filter.append("feMerge");
     feMerge.append("feMergeNode").attr("in", "coloredBlur");
     feMerge.append("feMergeNode").attr("in", "SourceGraphic");
@@ -117,10 +119,10 @@ export const SiteGraphNav = () => {
     // Initialize positions: Root at top, others spread out
     nodes.forEach((n) => {
       if (n.id === "root") {
-        n.x = width * 0.3;
+        n.x = width * 0.3; // Back to left side
         n.y = 50;
       } else {
-        n.x = width * 0.3 + (Math.random() - 0.5) * 100;
+        n.x = width * 0.3 + (Math.random() - 0.5) * 80; // Moderate spread
         n.y = height / 2 + (Math.random() - 0.5) * 100;
       }
     });
@@ -128,28 +130,29 @@ export const SiteGraphNav = () => {
     // 3. Create Simulation
     const simulation = d3
       .forceSimulation<GraphNode, GraphLink>(nodes)
+      .alphaDecay(0.008) // 3x slower decay (default is ~0.0228) to prolong movement
       .force(
         "link",
         d3
           .forceLink<GraphNode, GraphLink>(links)
           .id((d) => d.id)
           .distance((d) => {
-             // Shorter links for apps
-             if ((d.target as GraphNode).group === "app") return 50;
-             // Variable length for star topology to spread them out vertically
-             const targetId = (d.target as GraphNode).id;
-             if (targetId === "gnns") return 60;
-             if (targetId === "arch") return 120;
-             if (targetId === "degree") return 180;
-             if (targetId === "cycle") return 240;
-             if (targetId === "assess") return 300;
-             if (targetId === "cage") return 360;
-             if (targetId === "train") return 420;
-             return 100;
-          }) 
+            // Shorter links for apps
+            if ((d.target as GraphNode).group === "app") return 60; // Increased from 50
+            // Variable length for star topology to spread them out vertically
+            const targetId = (d.target as GraphNode).id;
+            if (targetId === "gnns") return 60;
+            if (targetId === "arch") return 120;
+            if (targetId === "degree") return 180;
+            if (targetId === "cycle") return 240;
+            if (targetId === "assess") return 300;
+            if (targetId === "cage") return 360;
+            if (targetId === "train") return 420;
+            return 100;
+          })
       )
-      .force("charge", d3.forceManyBody().strength(-150)) // Slightly reduced repel to keep it contained
-      .force("center", d3.forceCenter(width * 0.3, height / 2).strength(0.005)) // Moved to left (0.3)
+      .force("charge", d3.forceManyBody().strength(-200)) // Increased repel to -200
+      .force("center", d3.forceCenter(width * 0.3, height / 2).strength(0.005)) // Centered at 0.3 (left side)
       .force(
         "y",
         d3
@@ -164,10 +167,10 @@ export const SiteGraphNav = () => {
             if (d.id === "assess") return 340;
             if (d.id === "cage") return 400;
             if (d.id === "train") return 460;
-            
+
             return height / 2;
           })
-          .strength((d: any) => d.group === "app" ? 0.02 : 0.1) // Very loose vertical constraint
+          .strength((d: any) => (d.group === "app" ? 0.02 : 0.1)) // Very loose vertical constraint
       )
       .force("x", d3.forceX(width * 0.3).strength(0.01)); // Weak pull to left (0.3)
 
@@ -176,13 +179,13 @@ export const SiteGraphNav = () => {
     // 4. Render Elements
     const link = svg
       .append("g")
-      .attr("stroke", "#555") 
-      .attr("stroke-opacity", 0.6) 
-      .attr("fill", "none") 
-      .selectAll("path") 
+      .attr("stroke", "#555")
+      .attr("stroke-opacity", 0.6)
+      .attr("fill", "none")
+      .selectAll("path")
       .data(links)
       .join("path")
-      .attr("stroke-width", 2); 
+      .attr("stroke-width", 2);
 
     const nodeGroup = svg
       .append("g")
@@ -192,23 +195,13 @@ export const SiteGraphNav = () => {
       .attr("cursor", "pointer")
       .call(d3.drag<any, any>().on("start", dragstarted).on("drag", dragged).on("end", dragended));
 
-    // Halo (subtle glow for active state)
-    nodeGroup
-      .append("circle")
-      .attr("class", "node-halo")
-      .attr("r", 16) 
-      .attr("fill", "none")
-      .attr("stroke", "#fff")
-      .attr("stroke-width", 1)
-      .attr("opacity", 0);
-
     // Main Node Circle
     nodeGroup
       .append("circle")
       .attr("class", "node-circle transition-all duration-300")
-      .attr("r", (d: any) => d.group === "app" ? 6 : 10) // Larger for docs to hold number
+      .attr("r", (d: any) => (d.group === "app" ? 8 : 12))
       .attr("fill", "#1a1a1a")
-      .attr("stroke", "#888") 
+      .attr("stroke", "#888")
       .attr("stroke-width", 2);
 
     // Number inside circle (for non-apps)
@@ -218,22 +211,25 @@ export const SiteGraphNav = () => {
       .text((d: any) => getPathNumber(d.path))
       .attr("text-anchor", "middle")
       .attr("dy", "0.35em") // Vertically center
-      .attr("font-size", "10px")
+      .attr("font-size", "11px")
       .attr("font-weight", "bold")
       .attr("fill", "#888")
       .attr("class", "node-number pointer-events-none select-none transition-all duration-300");
 
-    // Labels (Right of circle)
-    nodeGroup
+    // Labels (Beneath Node)
+    const labels = nodeGroup
       .append("text")
       .text((d: any) => d.label)
-      .attr("x", (d: any) => d.group === "app" ? 12 : 16)
-      .attr("y", 4)
+      .attr("class", "node-label select-none transition-all duration-300")
+      .attr("text-anchor", "middle") // Center align
+      .attr("x", 0)
+      .attr("y", (d: any) => (d.group === "app" ? 22 : 28)) // Position below node
       .attr("font-family", "inherit")
-      .attr("font-size", (d: any) => d.group === "app" ? "12px" : "14px")
-      .attr("fill", "#aaa") 
-      .attr("class", "node-label pointer-events-none select-none transition-all duration-300")
-      .style("opacity", 0.9); 
+      .attr("font-size", (d: any) => (d.group === "app" ? "10px" : "11px"))
+      .attr("font-weight", (d: any) => (d.group === "app" ? "400" : "500"))
+      .attr("letter-spacing", "0.02em")
+      .attr("fill", "#666") // Default dimmed
+      .style("text-shadow", "0 1px 4px rgba(0,0,0,0.8)"); // Ensure readability
 
     // Click Handler
     nodeGroup.on("click", (event: any, d: GraphNode) => {
@@ -246,8 +242,10 @@ export const SiteGraphNav = () => {
       .on("mouseenter", (event: any) => {
         const el = d3.select(event.currentTarget);
         el.select(".node-circle").attr("stroke", "#fff");
-        el.select(".node-label").attr("fill", "#fff").style("opacity", 1);
         el.select(".node-number").attr("fill", "#fff");
+
+        // Highlight label
+        el.select(".node-label").attr("fill", "#fff");
       })
       .on("mouseleave", (event: any, d: GraphNode) => {
         const normalize = (p: string) => p.replace(/\/$/, "") || "/";
@@ -256,12 +254,12 @@ export const SiteGraphNav = () => {
 
         if (!isActive) {
           const el = d3.select(event.currentTarget);
-          el.select(".node-circle")
-            .attr("fill", "#1a1a1a")
-            .attr("stroke", "#888");
+          el.select(".node-circle").attr("fill", "#1a1a1a").attr("stroke", "#888");
 
-          el.select(".node-label").attr("fill", "#aaa").style("opacity", 0.9);
           el.select(".node-number").attr("fill", "#888");
+
+          // Dim label
+          el.select(".node-label").attr("fill", "#666");
         }
       });
 
@@ -278,7 +276,7 @@ export const SiteGraphNav = () => {
         // Control points maintain vertical tangency at start/end
         const distY = Math.abs(y2 - y1);
         const smoothY = distY * 0.5; // Amount of vertical straightness before bending
-        
+
         // If nodes are very close vertically, add some minimum curve space
         const c1y = y1 + Math.max(smoothY, 20);
         const c2y = y2 - Math.max(smoothY, 20);
@@ -310,11 +308,11 @@ export const SiteGraphNav = () => {
     return () => {
       simulation.stop();
     };
-  }, []); // Run once on mount
+  }, [isOpen]); // Re-run when opened
 
   // 6. Update Styles based on Current Path (Active State)
   useEffect(() => {
-    if (!svgRef.current) return;
+    if (!isOpen || !svgRef.current) return;
 
     const svg = d3.select(svgRef.current);
     const normalize = (p: string) => p.replace(/\/$/, "") || "/";
@@ -327,22 +325,22 @@ export const SiteGraphNav = () => {
       .duration(300)
       .attr("fill", (d: any) => {
         const isActive = normalize(d.path) === current;
-        return isActive ? "#333" : "#1a1a1a"; 
+        return isActive ? "#333" : "#1a1a1a";
       })
       .attr("stroke", (d: any) => {
         const isActive = normalize(d.path) === current;
-        return isActive ? "#fff" : "#888"; 
+        return isActive ? "#fff" : "#888";
       })
       .attr("stroke-width", (d: any) => {
         const isActive = normalize(d.path) === current;
-        return isActive ? 2.5 : 2; 
+        return isActive ? 2.5 : 2;
       })
       .attr("r", (d: any) => {
         const isActive = normalize(d.path) === current;
-        if (d.group === "app") return isActive ? 8 : 6;
-        return isActive ? 12 : 10;
+        if (d.group === "app") return isActive ? 10 : 8;
+        return isActive ? 14 : 12;
       });
-      
+
     // Update Number Styles
     svg
       .selectAll<SVGTextElement, GraphNode>(".node-number")
@@ -354,18 +352,8 @@ export const SiteGraphNav = () => {
       });
 
     // Update Halo Styles
-    svg
-      .selectAll<SVGGElement, GraphNode>(".node-halo")
-      .transition()
-      .duration(300)
-      .attr("opacity", (d: any) => {
-        const isActive = normalize(d.path) === current;
-        return isActive ? 0.15 : 0; 
-      })
-      .attr("r", (d: any) => {
-        const isActive = normalize(d.path) === current;
-        return isActive ? 18 : 6;
-      });
+    // Halo removed per request
+    svg.selectAll(".node-halo").remove();
 
     // Update Label Styles
     svg
@@ -374,27 +362,85 @@ export const SiteGraphNav = () => {
       .duration(300)
       .attr("fill", (d: any) => {
         const isActive = normalize(d.path) === current;
-        return isActive ? "#fff" : "#aaa";
-      })
-      .attr("font-weight", (d: any) => {
-        const isActive = normalize(d.path) === current;
-        return isActive ? "600" : "400";
-      })
-      .style("opacity", (d: any) => {
-        const isActive = normalize(d.path) === current;
-        return isActive ? 1 : 0.9;
+        return isActive ? "#fff" : "#666";
       });
-      
-  }, [location.pathname]);
+  }, [location.pathname, isOpen]);
 
   return (
-    <div className="hidden min-[1380px]:block fixed right-10 top-1/2 -translate-y-1/2 z-50">
-      <div className="relative w-[300px] h-[600px]">
-        <svg
-          ref={svgRef}
-          className="w-full h-full drop-shadow-2xl"
-          style={{ overflow: "visible" }}
-        />
+    <div className="fixed right-10 top-1/2 z-50 hidden h-[600px] w-[300px] -translate-y-1/2 pointer-events-none min-[1380px]:block">
+      <div className="relative h-full w-full">
+        {/* Toggle Button - always visible, top-right of container */}
+        <div
+          className="absolute right-0 top-0 z-50 flex items-center gap-2 pointer-events-auto"
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+        >
+          <AnimatePresence>
+            {isHovered && (
+              <motion.div
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                transition={{ duration: 0.2 }}
+                className="whitespace-nowrap rounded-md border border-line2 bg-bg1/80 px-2 py-1 text-xs font-medium text-textMain shadow-sm backdrop-blur-sm"
+              >
+                {isOpen ? "Hide" : "Show"}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-line2 bg-bg1/40 text-textMuted shadow-sm backdrop-blur-sm transition-all hover:bg-bg2 hover:text-textMain focus:outline-none"
+            aria-label={isOpen ? "Hide Graph Navigation" : "Show Graph Navigation"}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={`transition-transform duration-300 ${!isOpen ? "rotate-90" : ""}`}
+            >
+              {isOpen ? (
+                // Minus (Minimize)
+                <line x1="5" y1="12" x2="19" y2="12" />
+              ) : (
+                // Simple Network (Expand)
+                <>
+                  <circle cx="18" cy="5" r="3" />
+                  <circle cx="6" cy="12" r="3" />
+                  <circle cx="18" cy="19" r="3" />
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                </>
+              )}
+            </svg>
+          </button>
+        </div>
+
+        {/* Graph Content */}
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+              className="absolute inset-0 pointer-events-auto"
+            >
+              <svg
+                ref={svgRef}
+                className="h-full w-full drop-shadow-2xl"
+                style={{ overflow: "visible" }}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

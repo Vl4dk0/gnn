@@ -1,6 +1,7 @@
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 
+import { BackgroundGraphTexture } from "./components/layout/BackgroundGraphTexture";
 import { SiteGraphNav } from "./components/layout/SiteGraphNav";
 import { DocsLayout } from "./components/docs/DocsLayout";
 import { OverviewPage } from "./pages/OverviewPage";
@@ -31,6 +32,7 @@ const AppRoutes = () => {
 
   return (
     <>
+      <BackgroundGraphTexture />
       <SiteGraphNav />
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>

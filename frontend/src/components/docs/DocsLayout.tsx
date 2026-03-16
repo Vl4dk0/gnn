@@ -68,7 +68,7 @@ export const DocsLayout = ({
   })();
 
   return (
-    <div className="h-dvh overflow-y-auto bg-bg1">
+    <div className="relative z-10 h-dvh overflow-y-auto">
       {/* Mobile Navigation (Bullets) */}
       <div className="sticky top-0 z-30 flex w-full items-center justify-center gap-1 border-b border-line bg-bg1/90 p-3 backdrop-blur md:hidden">
         {mobileTokens.map((token, i) => {
