@@ -194,7 +194,7 @@ export const PredictionPage = ({ task }: PredictionPageProps) => {
           ))}
         </SelectField>
 
-        <div className="mt-8 flex gap-5">
+        <div className="mt-8 flex items-center justify-start gap-5">
           <PrimaryButton
             fullWidth={false}
             className="max-w-[150px] flex-1 px-5 py-3 text-sm"
