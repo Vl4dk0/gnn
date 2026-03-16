@@ -1,13 +1,7 @@
 import type { PropsWithChildren } from "react";
+import { Link, useLocation } from "react-router-dom";
 
 import { DOCS_SEQUENCE } from "../../pages/shared/docsNav";
-import type { FeatureKey } from "../../types/app";
-import { SiteGraphNav } from "../layout/SiteGraphNav";
-
-interface DocsLayoutProps {
-  featureActive: Record<FeatureKey, boolean>;
-  currentPath: string;
-}
 
 interface NavItem {
   href: string;
@@ -19,10 +13,11 @@ type MobileNavToken =
   | { type: "ellipsis"; key: string };
 
 export const DocsLayout = ({
-  featureActive: _featureActive,
-  currentPath,
   children
-}: PropsWithChildren<DocsLayoutProps>) => {
+}: PropsWithChildren<unknown>) => {
+  const location = useLocation();
+  const currentPath = location.pathname;
+
   const navItems: NavItem[] = [{ href: "/", title: "Overview" }, ...DOCS_SEQUENCE];
   const currentIndex = Math.max(
     0,
@@ -74,10 +69,38 @@ export const DocsLayout = ({
 
   return (
     <div className="h-dvh overflow-y-auto bg-bg1">
+      {/* Mobile Navigation (Bullets) */}
+      <div className="sticky top-0 z-30 flex w-full items-center justify-center gap-1 border-b border-line bg-bg1/90 p-3 backdrop-blur md:hidden">
+        {mobileTokens.map((token, i) => {
+          const isLast = i === mobileTokens.length - 1;
+          const content =
+            token.type === "ellipsis" ? (
+              <span className="text-textDim">...</span>
+            ) : (
+              <Link
+                to={token.item.href}
+                className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition-colors ${
+                  token.item.href === currentPath
+                    ? "bg-textMain text-bg0 font-bold shadow-md"
+                    : "bg-bg2 text-textDim hover:bg-bg2/80 hover:text-textMuted"
+                }`}
+              >
+                {token.index}
+              </Link>
+            );
+
+          return (
+            <div key={token.type === "item" ? token.item.href : `ellipsis-${token.key}`} className="flex items-center gap-1">
+              {content}
+              {!isLast && <span className="text-[10px] text-line2">→</span>}
+            </div>
+          );
+        })}
+      </div>
+
       <main className="page mx-auto w-full max-w-[920px] p-10 pb-[60px] pt-12 max-[760px]:w-full max-[760px]:p-3 max-[760px]:pt-3">
         {children}
       </main>
-      <SiteGraphNav currentPath={currentPath} />
     </div>
   );
 };

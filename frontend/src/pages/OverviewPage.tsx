@@ -117,12 +117,13 @@ export const OverviewPage = () => {
       </DocsCard>
 
       <section className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-3.5">
-        {STORY_ITEMS.map((item) => (
+        {STORY_ITEMS.map((item, index) => (
           <StoryCard
             key={item.href}
             href={item.href}
             title={item.title}
             description={item.description}
+            number={index + 1}
           />
         ))}
       </section>

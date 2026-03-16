@@ -3,10 +3,6 @@ import type { Config } from "tailwindcss";
 const config: Config = {
   content: [
     "./index.html",
-    "./degree/index.html",
-    "./min_cycle/index.html",
-    "./cage/index.html",
-    "./docs/*.html",
     "./src/**/*.{ts,tsx}"
   ],
   theme: {
