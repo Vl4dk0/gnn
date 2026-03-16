@@ -9,7 +9,7 @@ export const DocsNextButton = ({ href, label, direction = "next" }: DocsNextButt
   return (
     <a
       href={href}
-      className="inline-block rounded-md bg-accent px-5 py-3 text-sm font-bold uppercase tracking-[0.8px] text-textMain no-underline shadow-card transition-all duration-300 hover:bg-accentHover hover:shadow-cardHover"
+      className="ui-button-solid ui-surface-link max-[900px]:mx-auto max-[900px]:flex max-[900px]:w-full max-[900px]:max-w-[540px] max-[900px]:justify-center max-[900px]:text-center"
     >
       {isNext ? `Next: ${label} →` : `← Back: ${label}`}
     </a>

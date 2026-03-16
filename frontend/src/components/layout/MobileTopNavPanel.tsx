@@ -26,9 +26,9 @@ export const MobileTopNavPanel = ({ featureActive }: MobileTopNavPanelProps) => 
                   event.preventDefault();
                 }
               }}
-              className={`min-w-fit shrink-0 rounded-md border px-3 py-2 text-xs font-semibold uppercase tracking-[0.6px] no-underline transition-colors ${
+              className={`ui-surface-link min-w-fit shrink-0 rounded-md border px-3 py-2 text-xs font-semibold uppercase tracking-[0.6px] no-underline transition-colors ${
                 active
-                  ? "border-line2 bg-bg1 text-textMain hover:border-textDim hover:bg-[#1e1e1e]"
+                  ? "border-line2 bg-bg1 text-textMain"
                   : "cursor-not-allowed border-[#333333] bg-[#161616] text-textDim opacity-70"
               }`}
               title={project.description}

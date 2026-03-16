@@ -69,23 +69,29 @@ export const CagePage = () => {
     <div className="relative h-dvh overflow-hidden bg-bg0">
       <GraphCanvas onReady={onEditorReady} canvasClassName="rounded-none">
         <BackButton
+          href="/docs/module-cage.html"
           iconOnly
           className="absolute left-4 top-4 z-20 max-[900px]:left-3 max-[900px]:top-3"
         />
 
         <button
           type="button"
-          className="absolute left-4 top-[68px] z-20 hidden min-w-[150px] rounded-xl border border-line2 bg-bg1/92 px-4 py-3 text-left shadow-card backdrop-blur-sm max-[900px]:flex"
+          className="absolute left-4 top-1/2 z-20 hidden min-w-[150px] -translate-y-1/2 rounded-xl border border-line2 bg-bg1/92 px-4 py-3 text-left shadow-card backdrop-blur-sm max-[900px]:left-3 max-[900px]:top-[68px] max-[900px]:min-w-[200px] max-[900px]:translate-y-0 max-[900px]:px-4 max-[900px]:py-3 max-[900px]:flex"
           onClick={() => setPanelOpen(true)}
-          aria-label="Open cage status and controls"
+          aria-label="Open cage config"
         >
-          <span className="block text-sm font-semibold text-textMain">Status & Controls</span>
-          <span className="mt-1 block text-xs text-textMuted">
+          <span className="hidden text-sm font-semibold leading-5 text-textMain min-[901px]:block">
+            Status & Controls
+          </span>
+          <span className="block text-sm font-semibold uppercase tracking-[0.8px] text-textMain max-[900px]:block min-[901px]:hidden">
+            Config
+          </span>
+          <span className="mt-1 block text-sm leading-5 text-textMuted max-[900px]:mt-0.5 max-[900px]:text-xs">
             {isGenerating ? "Generation running" : "Ready to generate"}
           </span>
         </button>
 
-        <section className="absolute left-4 top-[68px] z-20 w-[344px] rounded-2xl border border-line2 bg-bg1/92 p-4 shadow-card backdrop-blur-md max-[900px]:hidden">
+        <section className="absolute left-4 top-1/2 z-20 w-[344px] -translate-y-1/2 rounded-2xl border border-line2 bg-bg1/92 p-4 shadow-card backdrop-blur-md max-[900px]:hidden">
           <div className="mt-4 grid grid-cols-2 gap-3">
             <InputField
               id="degreeK"
@@ -137,11 +143,11 @@ export const CagePage = () => {
               }
             }}
           >
-            <section className="absolute inset-x-3 top-[68px] rounded-2xl border border-line2 bg-bg1 p-4 shadow-card">
+            <section className="absolute inset-x-3 top-[74px] rounded-2xl border border-line2 bg-bg1 p-4 shadow-card">
               <div className="flex items-start justify-between gap-3">
                 <button
                   type="button"
-                  className="ml-auto rounded-md border border-line2 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.8px] text-textMain"
+                  className="ui-action ml-auto rounded-md border border-line2 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.8px] text-textMain"
                   onClick={() => setPanelOpen(false)}
                 >
                   Close
@@ -204,7 +210,7 @@ export const CagePage = () => {
           <div className="pointer-events-auto flex gap-3">
             <PrimaryButton
               fullWidth={false}
-              className="min-w-[220px] rounded-full bg-bg1/92 px-7 py-3 text-sm tracking-[0.8px] backdrop-blur-sm hover:bg-bg2 max-[900px]:min-w-[200px]"
+              className="min-w-[220px] rounded-full bg-bg1/92 px-7 py-3 text-sm tracking-[0.8px] backdrop-blur-sm max-[900px]:min-w-[200px]"
               onClick={() => start()}
               disabled={isGenerating || isMooreBoundOverLimit}
             >
@@ -213,7 +219,7 @@ export const CagePage = () => {
             {isGenerating && (
               <SecondaryButton
                 fullWidth={false}
-                className="rounded-full bg-bg1/92 px-6 py-3 text-sm tracking-[0.8px] backdrop-blur-sm hover:bg-bg2"
+                className="rounded-full bg-bg1/92 px-6 py-3 text-sm tracking-[0.8px] backdrop-blur-sm"
                 onClick={() => stop()}
               >
                 Stop

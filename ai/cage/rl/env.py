@@ -3,12 +3,30 @@
 from __future__ import annotations
 
 import random
+from collections import deque
 
 import networkx as nx
 import torch
 from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
 
+from ai.utils.device import get_preferred_device
 from backend.utils.graph_utils import moore_bound
+
+# (k, g) pairs sorted by moore_bound ascending, filtered to mb <= 60, k >= 3
+PROGRESSIVE_PAIRS: list[tuple[int, int]] = [
+    (3, 5),  # mb=10
+    (3, 6),  # mb=14
+    (4, 5),  # mb=17
+    (3, 7),  # mb=22
+    (4, 6),  # mb=26
+    (5, 5),  # mb=26
+    (3, 8),  # mb=30
+    (6, 5),  # mb=37
+    (5, 6),  # mb=42
+    (3, 9),  # mb=46
+    (7, 5),  # mb=50
+    (4, 7),  # mb=53
+]
 
 
 class CageConstructionEnv:
@@ -21,12 +39,12 @@ class CageConstructionEnv:
       - if edge does not exist: try add
     """
 
-    SCORE_FLOOR: float = -20.0
-    SUCCESS_REWARD: float = 20.0
-    INVALID_PENALTY: float = -0.05
-    ADD_REWARD: float = 0.1
-    REMOVE_PENALTY: float = -0.2
-    SATISFY_BONUS: float = 0.1
+    SCORE_FLOOR: float = -20.0  # do not go beneath this
+    SUCCESS_REWARD: float = 50.0  # when found the correct thing
+    INVALID_PENALTY: float = -0.005  # if you make an invalid action
+    ADD_REWARD: float = 0.01  # add edge
+    REMOVE_PENALTY: float = -0.1  # remove edge
+    SATISFY_BONUS: float = 0.05  # if graph became k-regular or girth became correct
 
     k: int
     g: int
@@ -43,6 +61,14 @@ class CageConstructionEnv:
     graph: nx.Graph[int]
     current_step: int
     episode_score: float
+
+    # Progressive training state
+    pairs: list[tuple[int, int]]
+    unlocked: int
+    pair_history: dict[tuple[int, int], deque[bool]]
+    solve_window: int
+    solve_threshold: float
+    device: torch.device
 
     def __init__(
         self,
@@ -70,6 +96,15 @@ class CageConstructionEnv:
         self.graph = nx.Graph()
         self.current_step = 0
         self.episode_score = 0.0
+
+        self.device = torch.device(get_preferred_device())
+
+        # Progressive training
+        self.pairs = PROGRESSIVE_PAIRS
+        self.unlocked = 1
+        self.pair_history = {p: deque(maxlen=8) for p in self.pairs}
+        self.solve_window = 8
+        self.solve_threshold = 0.5
 
     def _update_bounds(
         self, n_min: int | None = None, n_max: int | None = None
@@ -147,23 +182,38 @@ class CageConstructionEnv:
             return False
         self.graph.remove_edge(u, v)
         split = self._active_component_count() > 1
+        below_floor = len(self._active_nodes()) < self.mb
         _ = self.graph.add_edge(u, v)
-        return not split
+        return not split and not below_floor
+
+    def report_result(self, success: bool) -> bool:
+        """Record episode outcome; return True if a new stage was unlocked."""
+        pair = (self.k, self.g)
+        if pair in self.pair_history:
+            self.pair_history[pair].append(success)
+        if self.unlocked < len(self.pairs):
+            newest = self.pairs[self.unlocked - 1]
+            history = self.pair_history[newest]
+            if (
+                len(history) >= self.solve_window
+                and sum(history) / len(history) >= self.solve_threshold
+            ):
+                self.unlocked += 1
+                return True
+        return False
 
     def reset(self, num_nodes: int | None = None) -> Data:
         """Reset environment and sample a new target when randomization is enabled."""
         if self.randomize_params:
-            while True:
-                k = random.randint(3, 7)
-                g = random.randint(5, 10)
-                try:
-                    mb = moore_bound(k, g)
-                    if mb <= 60:
-                        self.k = k
-                        self.g = g
-                        break
-                except ValueError:
-                    continue
+            pool = self.pairs[: self.unlocked]
+            if len(pool) == 1:
+                weights = [1.0]
+            else:
+                base = 1.0
+                weights = [base] * len(pool)
+                weights[-1] = 2.0 * base * (len(pool) - 1)
+            chosen = random.choices(pool, weights=weights, k=1)[0]
+            self.k, self.g = chosen
             self._update_bounds()
         else:
             self.k = self.default_k
@@ -183,7 +233,9 @@ class CageConstructionEnv:
         """Convert state to PyG Data."""
         active = self._active_nodes()
         input_dim = self.get_input_dim()
-        x = torch.zeros((self.num_nodes, input_dim), dtype=torch.float)
+        x = torch.zeros(
+            (self.num_nodes, input_dim), dtype=torch.float, device=self.device
+        )
 
         norm_k = self.k / self.max_k_norm
         norm_g = self.g / self.max_g_norm
@@ -199,10 +251,14 @@ class CageConstructionEnv:
 
         edges = list(self.graph.edges())
         if edges:
-            edge_index = torch.tensor(edges, dtype=torch.long).t().contiguous()
+            edge_index = (
+                torch.tensor(edges, dtype=torch.long, device=self.device)
+                .t()
+                .contiguous()
+            )
             edge_index = torch.cat([edge_index, edge_index.flip(0)], dim=1)
         else:
-            edge_index = torch.empty((2, 0), dtype=torch.long)
+            edge_index = torch.empty((2, 0), dtype=torch.long, device=self.device)
 
         return Data(x=x, edge_index=edge_index, num_nodes=self.num_nodes)
 
@@ -230,7 +286,7 @@ class CageConstructionEnv:
                     mask.append(self._can_remove_edge(u, v))
                 else:
                     mask.append(self._can_add_edge(u, v))
-        return torch.tensor(mask, dtype=torch.bool)
+        return torch.tensor(mask, dtype=torch.bool, device=self.device)
 
     def step(
         self, action_idx: int

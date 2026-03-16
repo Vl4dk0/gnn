@@ -6,7 +6,9 @@ interface DocsCardProps {
 
 export const DocsCard = ({ children, className = "" }: PropsWithChildren<DocsCardProps>) => {
   return (
-    <section className={`mb-4 rounded-[10px] border-2 border-line2 bg-bg2 p-[22px] ${className}`}>
+    <section
+      className={`ui-hover-outline mb-4 rounded-[10px] border-2 border-line2 bg-bg2 p-[22px] ${className}`}
+    >
       {children}
     </section>
   );
@@ -14,7 +16,9 @@ export const DocsCard = ({ children, className = "" }: PropsWithChildren<DocsCar
 
 export const DocsHero = ({ children, className = "" }: PropsWithChildren<DocsCardProps>) => {
   return (
-    <section className={`mb-4 rounded-[10px] border-2 border-line2 bg-bg2 p-[22px] ${className}`}>
+    <section
+      className={`ui-hover-outline mb-4 rounded-[10px] border-2 border-line2 bg-bg2 p-[22px] ${className}`}
+    >
       {children}
     </section>
   );

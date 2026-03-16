@@ -24,9 +24,9 @@ export const ProjectNavCard = ({
 
         onNavigate();
       }}
-      className={`block rounded-lg border-2 p-5 text-inherit no-underline transition-all duration-200 ${
+      className={`ui-surface-link block rounded-lg border-2 p-5 text-inherit no-underline transition-all duration-200 ${
         active
-          ? "cursor-pointer border-line bg-bg1 hover:border-textDim hover:bg-[#1e1e1e]"
+          ? "cursor-pointer border-line bg-bg1"
           : "cursor-not-allowed border-[#333333] bg-[#161616] opacity-60"
       }`}
     >

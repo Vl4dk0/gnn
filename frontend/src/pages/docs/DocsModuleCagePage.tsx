@@ -28,7 +28,7 @@ export const DocsModuleCagePage = () => {
         </p>
         <a
           href="/cage/index.html"
-          className="mt-3 inline-block rounded-md border border-line2 bg-bg1 px-4 py-2.5 text-sm font-semibold uppercase tracking-[0.7px] text-textMain no-underline transition-colors hover:border-textDim"
+          className="ui-button-outline ui-surface-link mt-3"
         >
           Open cage editor
         </a>

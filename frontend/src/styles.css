@@ -2,6 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+@keyframes soft-drift {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
 @layer base {
   * {
     @apply box-border;
@@ -49,7 +60,7 @@
   }
 
   .primary-action:hover {
-    @apply bg-accentHover shadow-cardHover;
+    @apply shadow-cardHover;
   }
 
   .primary-action:disabled {
@@ -57,16 +68,90 @@
     transform: none;
   }
 
-  .icon-button {
-    @apply absolute z-10 flex h-10 w-10 items-center justify-center border-none bg-transparent p-0 text-textMuted transition-all duration-300;
+  .ui-button-solid {
+    @apply inline-block rounded-md bg-accent px-6 py-3 text-sm font-bold uppercase tracking-[0.8px] text-textMain no-underline shadow-card;
   }
 
-  .icon-button:hover {
-    @apply scale-[1.02] bg-transparent;
+  .ui-button-outline {
+    @apply inline-block rounded-md border border-line2 bg-bg1 px-4 py-2.5 text-sm font-semibold uppercase tracking-[0.7px] text-textMain no-underline;
+  }
+
+  .ui-button-panel {
+    @apply inline-block rounded-md border border-line2 bg-bg2 px-3.5 py-2 text-[11px] font-semibold uppercase tracking-[0.7px] text-textMain no-underline;
+  }
+
+  .ui-hover-outline {
+    @apply transition-colors duration-200;
+  }
+
+  .icon-button {
+    @apply absolute z-10 flex h-11 w-11 items-center justify-center rounded-full border border-line2 p-0 text-textMuted shadow-card backdrop-blur-sm transition-all duration-300;
+    transition:
+      transform 420ms cubic-bezier(0.2, 0.9, 0.25, 1),
+      box-shadow 260ms ease-out,
+      background-color 260ms ease-out,
+      border-color 260ms ease-out;
   }
 
   .icon-button:focus {
-    @apply bg-transparent outline-none;
+    @apply outline-none;
+  }
+
+  .ui-action,
+  .ui-surface-link {
+    position: relative;
+    will-change: transform, box-shadow;
+    transition:
+      transform 420ms cubic-bezier(0.2, 0.9, 0.25, 1),
+      box-shadow 260ms ease-out,
+      background-color 260ms ease-out,
+      border-color 260ms ease-out;
+  }
+
+  .ui-action:disabled {
+    transform: none;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .icon-button:hover {
+      transform: scale(1.025);
+    }
+
+    .ui-action:hover,
+    .ui-surface-link:hover {
+      transform: scale(1.02);
+    }
+
+    .ui-hover-outline:hover {
+      @apply border-textDim;
+    }
+
+    .icon-button:hover:active {
+      transform: scale(0.9);
+      transition-duration: 120ms;
+    }
+
+    .ui-action:hover:active,
+    .ui-surface-link:hover:active {
+      transform: scale(0.92);
+      transition-duration: 120ms;
+    }
+  }
+
+  .icon-button:active {
+    transform: scale(0.9);
+    transition-duration: 120ms;
+  }
+
+  .ui-action:active,
+  .ui-surface-link:active {
+    transform: scale(0.92);
+    transition-duration: 120ms;
+  }
+
+  .ui-floating-panel {
+    animation:
+      soft-drift 5.5s ease-in-out 0.5s infinite;
   }
 
   .modal-overlay {

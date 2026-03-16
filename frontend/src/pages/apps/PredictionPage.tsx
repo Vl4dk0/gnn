@@ -45,6 +45,8 @@ export const PredictionPage = ({ task }: PredictionPageProps) => {
     return `${draftSettings.minProb.toFixed(2)} - ${draftSettings.maxProb.toFixed(2)}`;
   }, [draftSettings.maxProb, draftSettings.minProb]);
 
+  const backHref = task === "degree" ? "/docs/module-degree.html" : "/docs/module-min-cycle.html";
+
   return (
     <div className="relative h-dvh overflow-hidden bg-bg0">
       <GraphCanvas
@@ -55,6 +57,7 @@ export const PredictionPage = ({ task }: PredictionPageProps) => {
       >
         <PredictionLegend />
         <BackButton
+          href={backHref}
           iconOnly
           className="absolute left-4 top-4 z-20 max-[900px]:left-3 max-[900px]:top-3"
         />
@@ -62,11 +65,11 @@ export const PredictionPage = ({ task }: PredictionPageProps) => {
         <div className="pointer-events-none absolute inset-x-0 bottom-6 z-20 flex justify-center px-4 max-[900px]:bottom-4">
           <PrimaryButton
             fullWidth={false}
-            className="pointer-events-auto min-w-[220px] rounded-full bg-bg1/92 px-7 py-3 text-sm tracking-[0.8px] backdrop-blur-sm hover:bg-bg2 max-[900px]:min-w-[200px]"
+            className="pointer-events-auto min-w-[220px] rounded-full bg-bg1/92 px-7 py-3 text-sm tracking-[0.8px] backdrop-blur-sm max-[900px]:min-w-[200px]"
             onClick={() => generateRandomGraph()}
             disabled={isGenerating}
           >
-            {isGenerating ? "Generating..." : "Generate Graph"}
+            Generate
           </PrimaryButton>
         </div>
 

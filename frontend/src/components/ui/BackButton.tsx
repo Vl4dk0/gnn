@@ -40,8 +40,8 @@ export const BackButton = ({
       href={backHref}
       className={
         iconOnly
-          ? `flex h-11 w-11 items-center justify-center rounded-full border border-line2 bg-bg1/92 text-textMain no-underline shadow-card backdrop-blur-sm transition-all duration-300 hover:border-textDim hover:bg-bg2 ${className}`
-          : `mt-4 block w-full rounded-md bg-accent px-7 py-3.5 text-center text-base font-bold uppercase tracking-[1px] text-textMain no-underline shadow-card transition-all duration-300 hover:bg-accentHover hover:shadow-cardHover ${className}`
+          ? `ui-surface-link flex h-11 w-11 items-center justify-center rounded-full border border-line2 bg-bg1/92 text-textMain no-underline shadow-card backdrop-blur-sm transition-all duration-300 ${className}`
+          : `ui-surface-link mt-4 block w-full rounded-md bg-accent px-7 py-3.5 text-center text-base font-bold uppercase tracking-[1px] text-textMain no-underline shadow-card transition-all duration-300 hover:shadow-cardHover ${className}`
       }
       title={label}
       aria-label={label}

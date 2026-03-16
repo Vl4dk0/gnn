@@ -21,7 +21,7 @@ export const DocsLayout = ({
           <div className="mb-4 flex justify-end">
             <a
               href="/"
-              className="inline-block rounded-md bg-accent px-5 py-2.5 text-xs font-bold uppercase tracking-[0.8px] text-textMain no-underline shadow-card transition-all duration-300 hover:bg-accentHover hover:shadow-cardHover"
+              className="ui-button-solid ui-surface-link px-5 py-3 text-xs"
             >
               Overview
             </a>

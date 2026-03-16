@@ -6,7 +6,7 @@ from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
 
 from ai.cage.rl.env import CageConstructionEnv
 from ai.cage.rl.model import ActorCritic
-from ai.registry import get_best_model_id, list_trained_models, load_model
+from ai.registry import get_best_model_id, list_trained_models
 from ai.utils.device import configure_torch_device
 from backend.utils.graph_utils import (
     is_k_regular,
@@ -34,7 +34,12 @@ class RLGenerator:
     obs: Data
 
     def __init__(
-        self, k: int, g: int, model_type: str = "gin", model_path: str | None = None
+        self,
+        k: int,
+        g: int,
+        model_type: str = "gin",
+        model_path: str | None = None,
+        model_id: str | None = None,
     ):
         self.k = k
         self.g = g
@@ -66,6 +71,7 @@ class RLGenerator:
             model_type=model_type,
             model_path=model_path,
             input_dim=input_dim,
+            model_id=model_id,
         )
         _ = self.model.eval()
 
@@ -75,7 +81,11 @@ class RLGenerator:
         self.start_time = 0.0
 
     def _load_actor_critic(
-        self, model_type: str, model_path: str | None, input_dim: int
+        self,
+        model_type: str,
+        model_path: str | None,
+        input_dim: int,
+        model_id: str | None,
     ) -> ActorCritic:
         if model_path:
             print(f"Loading RL model from specific path: {model_path}")
@@ -91,33 +101,79 @@ class RLGenerator:
                 )
             return model
 
-        model_id: str | None = None
+        selected_model_id = model_id
         models = list_trained_models("cage")
-        for model_info in models:
-            if model_info.get("training", {}).get("model_type") == model_type:
-                model_id = str(model_info["model_id"])
-                avg_reward = model_info.get("metrics", {}).get("avg_reward", "N/A")
+        selected_model_info = None
+
+        if selected_model_id is not None:
+            selected_model_info = next(
+                (
+                    info
+                    for info in models
+                    if str(info.get("model_id", "")) == selected_model_id
+                ),
+                None,
+            )
+            if selected_model_info is None:
                 print(
-                    f"Found best {model_type} model: {model_id} (Avg Reward: {avg_reward})"
+                    f"Requested RL model '{selected_model_id}' was not found. Falling back."
                 )
-                break
 
-        if model_id is None:
-            model_id = get_best_model_id("cage")
-            if model_id:
-                print(f"No {model_type} model found. Using best available: {model_id}")
+        if selected_model_info is None:
+            for model_info in models:
+                if model_info.get("training", {}).get("model_type") == model_type:
+                    selected_model_info = model_info
+                    selected_model_id = str(model_info["model_id"])
+                    avg_reward = model_info.get("metrics", {}).get("avg_reward", "N/A")
+                    print(
+                        f"Found best {model_type} model: {selected_model_id} (Avg Reward: {avg_reward})"
+                    )
+                    break
 
-        if model_id:
+        if selected_model_info is None:
+            best_model_id = get_best_model_id("cage")
+            if best_model_id:
+                selected_model_id = best_model_id
+                selected_model_info = next(
+                    (
+                        info
+                        for info in models
+                        if str(info.get("model_id", "")) == best_model_id
+                    ),
+                    None,
+                )
+                print(
+                    f"No {model_type} model found. Using best available: {best_model_id}"
+                )
+
+        if selected_model_info is not None and selected_model_id is not None:
             try:
-                loaded = load_model("cage", model_id)
-                if isinstance(loaded, ActorCritic):
-                    print(f"Successfully loaded model {model_id} from registry.")
-                    return loaded
-                print(
-                    f"Model {model_id} is not an ActorCritic. Using random initialization."
+                training = selected_model_info.get("training", {})
+                resolved_model_type = str(training.get("model_type", model_type))
+                hidden_dim = int(training.get("hidden_dim", 128))
+                num_layers = int(training.get("num_layers", 3))
+                dropout = float(training.get("dropout", 0.0))
+                r = int(training.get("r", 3))
+                shared = bool(training.get("shared", False))
+                weights_path = str(selected_model_info["weights_path"])
+
+                model = ActorCritic(
+                    model_type=resolved_model_type,
+                    input_dim=input_dim,
+                    hidden_dim=hidden_dim,
+                    num_layers=num_layers,
+                    dropout=dropout,
+                    r=r,
+                    shared=shared,
                 )
+                loaded_weights = torch.load(weights_path, map_location=self.device)  # pyright: ignore[reportAny]
+                _ = model.load_state_dict(loaded_weights)  # pyright: ignore[reportAny]
+                print(f"Successfully loaded RL model {selected_model_id}.")
+                return model
             except Exception as e:
-                print(f"Error loading from registry: {e}. Using random initialization.")
+                print(
+                    f"Error loading RL model {selected_model_id}: {e}. Using random initialization."
+                )
         else:
             print("No trained models found in registry. Using random initialization.")
 

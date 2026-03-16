@@ -22,7 +22,7 @@ export const GraphToolbar = ({
         aria-label={settingsTitle}
       >
         <svg
-          className="h-10 w-10 fill-textMuted"
+          className="h-6 w-6 fill-textMuted"
           viewBox="0 0 45.973 45.973"
           xmlns="http://www.w3.org/2000/svg"
         >
@@ -37,7 +37,7 @@ export const GraphToolbar = ({
         aria-label={clearTitle}
       >
         <svg
-          className="h-10 w-10"
+          className="h-6 w-6"
           viewBox="0 0 24 24"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"

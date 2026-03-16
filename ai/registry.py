@@ -128,11 +128,16 @@ def list_trained_models(task: str) -> list[_ModelInfo]:
         info["weights_path"] = str(weights_path)
         models.append(info)
 
-    # Sort by accuracy (descending)
-    models.sort(
-        key=lambda x: x.get("metrics", {}).get("accuracy", 0),
-        reverse=True,
-    )
+    if task == "cage":
+        models.sort(
+            key=lambda x: x.get("metrics", {}).get("avg_reward", float("-inf")),
+            reverse=True,
+        )
+    else:
+        models.sort(
+            key=lambda x: x.get("metrics", {}).get("accuracy", 0),
+            reverse=True,
+        )
 
     return models
 

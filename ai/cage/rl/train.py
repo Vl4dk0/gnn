@@ -61,8 +61,8 @@ def train_ppo(
     update_interval: int,
     force: bool = False,
     randomize: bool = True,
-    episode_steps: int = 1000,
-    log_seconds: float = 5.0,
+    episode_steps: int = 2000,
+    log_seconds: float = 3.0,
     save_episodes: int = 20,
 ) -> None:
     """Train Generalist PPO agent for cage generation."""
@@ -298,6 +298,13 @@ def train_ppo(
                     )
                     console.print(episode_text)
 
+                    success = bool(info.get("success", False))
+                    unlocked_new = env.report_result(success)
+                    if unlocked_new:
+                        console.print(
+                            f"[green]Progressive:[/] unlocked stage {env.unlocked}/{len(env.pairs)} → {env.pairs[env.unlocked - 1]}"
+                        )
+
                     current_ep_reward = 0.0
                     current_ep_len = 0
                     current_ep_action_counts = Counter()
@@ -516,7 +523,7 @@ if __name__ == "__main__":
     _ = parser.add_argument(
         "--episode-steps",
         type=int,
-        default=1000,
+        default=2000,
         help="Maximum steps per episode before done_reason=max_steps.",
     )
     _ = parser.add_argument(
@@ -533,7 +540,7 @@ if __name__ == "__main__":
     _ = parser.add_argument(
         "--log",
         type=float,
-        default=5.0,
+        default=3.0,
         help="Update live logs every N seconds (0 disables).",
     )
     _ = parser.add_argument(

@@ -15,7 +15,7 @@ const DEFAULT_SETTINGS: DegreeMinCycleSettings = {
   minProb: 0.15,
   maxProb: 0.6,
   allowSelfLoops: true,
-  enablePhysics: false,
+  enablePhysics: true,
   modelId: null
 };
 

@@ -31,13 +31,13 @@ export const DocsTopPanel = ({ featureActive, currentPath }: DocsTopPanelProps) 
             <button
               type="button"
               onClick={() => setMobileToolsOpen((open) => !open)}
-              className="hidden rounded-md border border-line2 bg-bg2 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.7px] text-textMain max-[760px]:inline-block"
+              className="ui-button-panel ui-action hidden px-2.5 py-1 text-[10px] max-[760px]:inline-block"
             >
               {mobileToolsOpen ? "Hide tools" : "Tools"}
             </button>
             <a
               href="/"
-              className="rounded-md border border-line2 bg-bg2 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.7px] text-textMain no-underline transition-colors hover:border-textDim"
+              className="ui-button-panel ui-surface-link"
             >
               Overview
             </a>
@@ -54,10 +54,10 @@ export const DocsTopPanel = ({ featureActive, currentPath }: DocsTopPanelProps) 
                 onClick={(event) => {
                   if (!active) event.preventDefault();
                 }}
-                className={`rounded-md border px-3 py-2 text-inherit no-underline transition-colors ${
+                className={`ui-button-panel ui-surface-link rounded-md px-3 py-2 text-inherit ${
                   active
-                    ? "border-line2 bg-bg2 text-textMain hover:border-textDim"
-                    : "cursor-not-allowed border-[#333333] bg-[#161616] text-textDim opacity-65"
+                    ? "border-line2 bg-bg2 text-textMain"
+                  : "cursor-not-allowed border-[#333333] bg-[#161616] text-textDim opacity-65"
                 }`}
               >
                 <p className="text-sm font-bold leading-tight">{project.title}</p>
@@ -83,9 +83,9 @@ export const DocsTopPanel = ({ featureActive, currentPath }: DocsTopPanelProps) 
                   onClick={(event) => {
                     if (!active) event.preventDefault();
                   }}
-                  className={`block rounded-md border px-3 py-2 text-inherit no-underline transition-colors ${
+                  className={`ui-button-panel ui-surface-link block rounded-md px-3 py-2 text-inherit ${
                     active
-                      ? "border-line2 bg-bg2 text-textMain hover:border-textDim"
+                      ? "border-line2 bg-bg2 text-textMain"
                       : "cursor-not-allowed border-[#333333] bg-[#161616] text-textDim opacity-65"
                   }`}
                 >
