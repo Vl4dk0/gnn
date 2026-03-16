@@ -5,6 +5,7 @@ from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
 from typing import cast, override
 
 from ai.models import MODEL_CLASSES
+from ai.models.gps import GPS_GNN
 
 
 class ActorCritic(nn.Module):
@@ -28,6 +29,8 @@ class ActorCritic(nn.Module):
         dropout: float = 0.0,
         r: int = 3,
         shared: bool = False,
+        conv_type: str = "gin",
+        heads: int = 4,
     ):
         super().__init__()  # pyright: ignore[reportUnknownMemberType]
 
@@ -35,18 +38,28 @@ class ActorCritic(nn.Module):
         if model_type not in MODEL_CLASSES:
             raise ValueError(f"Unknown model type: {model_type}")
 
-        gnn_class = MODEL_CLASSES[model_type]
-
         # We use the GNN to get node embeddings (output_dim=hidden_dim)
         # We override the output_dim of the base class to be hidden_dim
         # because we don't want a scalar prediction yet
-        self.gnn = gnn_class(
-            input_dim=input_dim,
-            hidden_dim=hidden_dim,
-            output_dim=hidden_dim,  # Node embeddings
-            num_layers=num_layers,
-            dropout=dropout,
-        )
+        if model_type == "gps":
+            self.gnn = GPS_GNN(
+                input_dim=input_dim,
+                hidden_dim=hidden_dim,
+                output_dim=hidden_dim,
+                num_layers=num_layers,
+                dropout=dropout,
+                conv_type=conv_type,
+                heads=heads,
+            )
+        else:
+            gnn_class = MODEL_CLASSES[model_type]
+            self.gnn = gnn_class(
+                input_dim=input_dim,
+                hidden_dim=hidden_dim,
+                output_dim=hidden_dim,  # Node embeddings
+                num_layers=num_layers,
+                dropout=dropout,
+            )
 
         # 2. Actor Head (Policy)
         # Computes compatibility score between two nodes to form an edge
@@ -69,6 +82,9 @@ class ActorCritic(nn.Module):
             "r": r,
             "shared": shared,
         }
+        if model_type == "gps":
+            self.config["conv_type"] = conv_type
+            self.config["heads"] = heads
 
     def get_config(self) -> dict[str, str | int | float | bool]:
         """Return model configuration for registry."""

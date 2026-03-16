@@ -64,6 +64,8 @@ def train_ppo(
     episode_steps: int = 2000,
     log_seconds: float = 3.0,
     save_episodes: int = 20,
+    conv_type: str = "gin",
+    heads: int = 4,
 ) -> None:
     """Train Generalist PPO agent for cage generation."""
     device = configure_torch_device()
@@ -91,6 +93,8 @@ def train_ppo(
         hidden_dim=hidden_dim,
         num_layers=num_layers,
         dropout=dropout,
+        conv_type=conv_type,
+        heads=heads,
     )
 
     optimizer = optim.Adam(agent.parameters(), lr=lr)
@@ -150,6 +154,9 @@ def train_ppo(
     cfg.add_row("Episode Steps", str(episode_steps))
     cfg.add_row("Device", str(device))
     cfg.add_row("Input Dim", str(input_dim))
+    if model_type == "gps":
+        cfg.add_row("Conv Type", conv_type)
+        cfg.add_row("Attention Heads", str(heads))
     console.print(cfg)
     console.print("")
 
@@ -193,7 +200,7 @@ def train_ppo(
     live_view.start()
 
     def _save_checkpoint(partial: bool, avg_rew_value: float, step: int) -> None:
-        training_info = {
+        training_info: dict[str, str | int | float | bool | None] = {
             "steps": total_timesteps,
             "learning_rate": lr,
             "update_interval": update_interval,
@@ -203,6 +210,9 @@ def train_ppo(
             "checkpoint_step": step,
             "partial": partial,
         }
+        if model_type == "gps":
+            training_info["conv_type"] = conv_type
+            training_info["heads"] = heads
         save_path = save_model(
             model=cast(BaseGNN, cast(object, agent)),
             task="cage",
@@ -449,7 +459,7 @@ def train_ppo(
     if best_model_state is not None:
         _ = agent.load_state_dict(best_model_state)
 
-    training_info = {
+    training_info: dict[str, str | int | float | bool | None] = {
         "steps": total_timesteps,
         "learning_rate": lr,
         "update_interval": update_interval,
@@ -460,6 +470,9 @@ def train_ppo(
         "checkpoint_step": global_step,
         "partial": False,
     }
+    if model_type == "gps":
+        training_info["conv_type"] = conv_type
+        training_info["heads"] = heads
 
     save_path = save_model(
         model=cast(BaseGNN, cast(object, agent)),
@@ -499,7 +512,7 @@ if __name__ == "__main__":
     )
 
     _ = parser.add_argument(
-        "--steps", type=int, default=100000, help="Total training steps"
+        "--steps", type=int, default=200000, help="Total training steps"
     )
     _ = parser.add_argument(
         "--hidden-dim",
@@ -527,6 +540,19 @@ if __name__ == "__main__":
         help="Maximum steps per episode before done_reason=max_steps.",
     )
     _ = parser.add_argument(
+        "--conv-type",
+        type=str,
+        default="gin",
+        choices=["gcn", "sage", "gin"],
+        help="Inner conv type for GPS model",
+    )
+    _ = parser.add_argument(
+        "--heads",
+        type=int,
+        default=4,
+        help="Number of attention heads for GPS model",
+    )
+    _ = parser.add_argument(
         "--no-random",
         action="store_true",
         help="Disable curriculum randomization",
@@ -550,10 +576,19 @@ if __name__ == "__main__":
         help="Save checkpoint every N completed episodes (0 disables episode-based checkpointing).",
     )
     args = parser.parse_args()
-    run_name: str = cast(str, args.name) or "ppo"
+    model_arg = cast(str, args.model)
+    conv_type_arg = cast(str, args.conv_type)
+    heads_arg = cast(int, args.heads)
+
+    if cast(str | None, args.name) is not None:
+        run_name = cast(str, args.name)
+    elif model_arg == "gps":
+        run_name = f"{conv_type_arg}_ppo"
+    else:
+        run_name = "ppo"
 
     train_ppo(
-        model_type=cast(str, args.model),
+        model_type=model_arg,
         model_name=run_name,
         total_timesteps=cast(int, args.steps),
         hidden_dim=cast(int, args.hidden_dim),
@@ -566,4 +601,6 @@ if __name__ == "__main__":
         episode_steps=cast(int, args.episode_steps),
         log_seconds=cast(float, args.log),
         save_episodes=cast(int, args.save),
+        conv_type=conv_type_arg,
+        heads=heads_arg,
     )

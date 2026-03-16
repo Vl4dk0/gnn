@@ -206,12 +206,9 @@ class CageConstructionEnv:
         """Reset environment and sample a new target when randomization is enabled."""
         if self.randomize_params:
             pool = self.pairs[: self.unlocked]
-            if len(pool) == 1:
-                weights = [1.0]
-            else:
-                base = 1.0
-                weights = [base] * len(pool)
-                weights[-1] = 2.0 * base * (len(pool) - 1)
+            weights = [1.0]
+            for _ in range(len(pool) - 1):
+                weights.append(3.0 * sum(weights))
             chosen = random.choices(pool, weights=weights, k=1)[0]
             self.k, self.g = chosen
             self._update_bounds()
