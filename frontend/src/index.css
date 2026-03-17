@@ -57,11 +57,12 @@
     scrollbar-color: #3a3a3a transparent;
   }
 
-  button,
-  input,
-  textarea,
-  select {
-    font: inherit;
+  code {
+    @apply rounded bg-bg2 px-1.5 py-0.5 font-mono text-[0.9em] text-textMain ui-hover-outline border border-line2 shadow-sm;
+  }
+
+  ul {
+    @apply list-inside list-disc pl-5;
   }
 }
 
@@ -174,8 +175,7 @@
   }
 
   .ui-floating-panel {
-    animation:
-      soft-drift 5.5s ease-in-out 0.5s infinite;
+    animation: soft-drift 5.5s ease-in-out 0.5s infinite;
   }
 
   .modal-overlay {

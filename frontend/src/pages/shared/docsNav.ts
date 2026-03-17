@@ -8,10 +8,10 @@ export const DOCS_SEQUENCE: DocsItem[] = [
   { href: "/docs/gnns", title: "How GNNs work", short: "GNNs" },
   { href: "/docs/architecture", title: "Architectures", short: "Arch" },
   { href: "/docs/module-degree", title: "Degree prediction", short: "Degree" },
-  { href: "/docs/module-min-cycle", title: "Cycle prediction", short: "Cycle" },
+  { href: "/docs/module-min-cycle", title: "Minimum-cycle prediction", short: "Cycle" },
   { href: "/docs/module-assessment", title: "Assessment", short: "Assess" },
   { href: "/docs/module-cage", title: "Cage generation", short: "Cage" },
-  { href: "/docs/training", title: "Try it yourself", short: "Try" }
+  { href: "/docs/training", title: "Do It Yourself", short: "DIY" }
 ];
 
 export const getNextDocsItem = (currentHref: string): DocsItem | null => {

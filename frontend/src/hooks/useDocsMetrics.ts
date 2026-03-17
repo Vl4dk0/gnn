@@ -60,11 +60,22 @@ export const useDocsMetrics = () => {
       a.localeCompare(b)
     );
 
-    return ids.map((id) => ({
-      modelId: id,
-      degreeAccuracy: degreeMap.get(id)?.accuracy ?? null,
-      minCycleAccuracy: cycleMap.get(id)?.accuracy ?? null
-    }));
+    return ids.map((id) => {
+      const degreeAcc = degreeMap.get(id)?.accuracy ?? null;
+      const cycleAcc = cycleMap.get(id)?.accuracy ?? null;
+      
+      let averageAccuracy: number | null = null;
+      if (degreeAcc !== null && cycleAcc !== null) {
+        averageAccuracy = (degreeAcc + cycleAcc) / 2;
+      }
+
+      return {
+        modelId: id,
+        degreeAccuracy: degreeAcc,
+        minCycleAccuracy: cycleAcc,
+        averageAccuracy
+      };
+    });
   }, [degreeModels, cycleModels]);
 
   return {

@@ -12,18 +12,18 @@ export const PROJECT_LINKS: ProjectLink[] = [
     key: "degree",
     href: "/degree",
     title: "Degree Predictor",
-    description: "Predicting vertex degree"
+    description: "Interactive node-degree prediction"
   },
   {
     key: "min_cycle",
     href: "/min_cycle",
     title: "Cycle Predictor",
-    description: "Smallest cycle containing vertex"
+    description: "Interactive shortest-cycle prediction"
   },
   {
     key: "cage",
     href: "/cage",
     title: "Cage Generator",
-    description: "A* & PPO cage generation"
+    description: "Experimental search and PPO generation"
   }
 ];

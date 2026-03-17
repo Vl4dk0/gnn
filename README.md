@@ -1,88 +1,159 @@
 # GNN Experimentation Platform
 
-Graph Neural Network training and visualization system for node-level prediction tasks.
+This repository explores whether graph neural networks can learn structural signals that are useful
+for algebraic graph theory, with cage generation as the long-term objective.
 
-## Setup
+The project combines three layers:
+
+- Interactive frontend pages for graph editing and model inspection
+- Backend APIs for graph generation, inference, and cage-generation sessions
+- Training code for node-level prediction tasks that act as trust checks before generation
+
+The current story of the repository is intentional:
+
+- Degree prediction tests whether a model can recover a simple local graph property
+- Minimum-cycle prediction tests whether the same model can retain more structural information
+- Cage generation is the experimental destination, not a finished claim
+
+## Repository Highlights
+
+- `frontend/`: static UI and docs pages
+- `backend/`: Flask app and API routes
+- `ai/models/`: GCN, GraphSAGE, GIN, GPS, and Loopy model implementations
+- `ai/degree/train.py`: degree-prediction training entry point
+- `ai/min_cycle/train.py`: minimum-cycle training entry point
+- `ai/cage/`: search and reinforcement-learning experiments for generation
+- `ai/trained/`: saved weights and metadata used by the app
+
+## Getting Started
+
+Requirements:
+
+- Python 3.14+
+- `uv`
+
+Install dependencies:
 
 ```bash
-# Install dependencies (requires Python 3.14+)
 uv sync
-
-# Configure environment (optional)
-cp .env.example .env
 ```
 
-## Running the Server
+Run the app:
 
 ```bash
 python run.py
 ```
 
-Server starts at `http://localhost:5555` (default port).
+By default the server starts at [http://localhost:5555](http://localhost:5555).
 
-Available pages:
-- `/` - Landing page
-- `/degree` - Degree prediction
-- `/min_cycle` - Min cycle prediction
-- `/cage` - Cage graph generator
-- `/docs/index.html` - Project notes (static multi-page write-up)
+## What to Open First
+
+- `/` for the project overview and written docs
+- `/degree` for interactive degree prediction
+- `/min_cycle` for interactive minimum-cycle prediction
+- `/cage` for experimental cage generation
 
 ## Training Models
 
-### Degree Prediction
+Degree prediction:
 
 ```bash
-python -m ai.degree.train --model gcn --name v1 --epochs 5000
-python -m ai.degree.train --model sage --name v1 --epochs 5000
-python -m ai.degree.train --model gin --name v1 --epochs 5000
-python -m ai.degree.train --model loopy --name r3_v1 --r 3 --epochs 5000
+uv run python -m ai.degree.train --model gcn --epochs 5000
+uv run python -m ai.degree.train --model sage --epochs 5000
+uv run python -m ai.degree.train --model gin --epochs 5000
+uv run python -m ai.degree.train --model loopy --r 3 --epochs 5000
 ```
 
-### Min Cycle Prediction
+Minimum-cycle prediction:
 
 ```bash
-python -m ai.min_cycle.train --model gcn --name v1 --epochs 5000
-python -m ai.min_cycle.train --model sage --name v1 --epochs 5000
-python -m ai.min_cycle.train --model gin --name v1 --epochs 5000
-python -m ai.min_cycle.train --model loopy --name r3_v1 --r 3 --epochs 5000
+uv run python -m ai.min_cycle.train --model gcn --epochs 5000
+uv run python -m ai.min_cycle.train --model sage --epochs 5000
+uv run python -m ai.min_cycle.train --model gin --epochs 5000
+uv run python -m ai.min_cycle.train --model loopy --r 3 --epochs 5000
 ```
 
-### Training Options
+Common options:
 
-```bash
---model      Model type: gcn, sage, gin, loopy
---name       Model version name (e.g., v1, baseline)
---epochs     Number of training epochs (default: 5000)
---r          r-neighborhood radius for Loopy GNN (default: 3)
---force      Overwrite existing model
+```text
+--model      Model type
+--epochs     Number of training epochs
+--r          r-neighborhood radius for Loopy
+--force      Overwrite an existing saved model
 ```
 
-Trained models are saved to `ai/trained/<task>/<model>_<name>/`.
+Trained models are saved under `ai/trained/<task>/...` together with metadata such as metrics and
+creation time. The frontend docs pages read those metadata through the backend and render the live
+results tables from them.
 
-## Model Architecture
+## Models in Scope
 
-All models extend `BaseGNN` and support the same interface:
+- `gcn`: baseline graph convolution with normalized aggregation
+- `sage`: GraphSAGE with additive aggregation
+- `gin`: sum-aggregation architecture with stronger structural discrimination
+- `gps`: hybrid graph transformer style model available in the codebase
+- `loopy`: cycle-sensitive architecture using additional r-neighborhood structure
 
-- **GCN**: Graph Convolutional Network (baseline)
-- **SAGE**: GraphSAGE with sum aggregation
-- **GIN**: Graph Isomorphism Network (most expressive for 1-WL)
-- **Loopy**: r-ℓMPNN for cycle counting (detects cycles up to length r+2)
+Not every model family is necessarily used the same way on every page, but they all live in the
+same training and loading framework.
 
-## API Endpoints
+## Backend API Summary
 
-### Degree Prediction
-- `POST /api/degree/generate` - Generate random graph
-- `POST /api/degree/analyze` - Predict node degrees
-- `GET /api/degree/models` - List available models
+Degree routes:
 
-### Min Cycle Prediction
-- `POST /api/min_cycle/generate` - Generate random graph
-- `POST /api/min_cycle/analyze` - Predict minimum cycles
-- `GET /api/min_cycle/models` - List available models
+- `POST /api/degree/generate`
+- `POST /api/degree/analyze`
+- `GET /api/degree/models`
 
-### Cage Generator
-- `POST /api/cage/generate` - Start cage generation (k, g, generator)
-- `GET /api/cage/status/<id>` - Poll generation status
-- `POST /api/cage/stop/<id>` - Stop generation session
+Minimum-cycle routes:
 
-**Note:** Cage generation threads auto-terminate after 5 seconds of no polling.
+- `POST /api/min_cycle/generate`
+- `POST /api/min_cycle/analyze`
+- `GET /api/min_cycle/models`
+
+Cage routes:
+
+- `POST /api/cage/generate`
+- `GET /api/cage/status/<id>`
+- `POST /api/cage/stop/<id>`
+
+Config route:
+
+- `GET /api/config`
+
+## What Is Stable and What Is Exploratory
+
+Stable:
+
+- Interactive degree and minimum-cycle prediction
+- Model loading from `ai/trained`
+- Docs pages that summarize the project and expose live metrics
+
+Exploratory:
+
+- Cage generation heuristics
+- Reinforcement-learning based graph construction
+- Any claim that learned guidance already solves cage construction
+
+## Development Notes
+
+- Prefer small, targeted changes over broad refactors
+- Do not run long training jobs as validation
+- For touched Python files, run `basedpyright` before reporting completion
+- The repo may contain user work in progress; do not overwrite unrelated changes
+
+## Related Files
+
+- `backend/app.py`
+- `backend/routes/`
+- `backend/utils/graph_utils.py`
+- `frontend/src/pages/OverviewPage.tsx`
+- `frontend/src/pages/docs/`
+- `ai/registry.py`
+
+## Current Position of the Project
+
+This repository already works well as a compact experimentation platform for comparing GNN
+architectures on graph-property prediction tasks. The most open part of the work is still cage
+generation, which is exactly why the docs frame it as ongoing research rather than a completed
+result.

@@ -290,7 +290,6 @@ def train_gnn(
 
     best_accuracy: float = 0.0
     best_mae: float = float("inf")
-    best_metrics: dict[str, float] | None = None
     best_model_state: dict[str, torch.Tensor] | None = None
     best_epoch: int = 0
 
@@ -337,7 +336,6 @@ def train_gnn(
             )
 
             if is_better:
-                best_metrics = metrics.copy()
                 best_accuracy = metrics["accuracy"]
                 best_mae = metrics["mae"]
                 best_model_state = cast(
@@ -385,9 +383,9 @@ def train_gnn(
             task="min_cycle",
             model_id=model_id,
             metrics={
-                "mse": round((best_metrics or final_metrics)["mse"], 4),
-                "mae": round(best_mae, 4),
-                "accuracy": round(best_accuracy, 2),
+                "mse": round(final_metrics["mse"], 4),
+                "mae": round(final_metrics["mae"], 4),
+                "accuracy": round(final_metrics["accuracy"], 2),
             },
             training_info=training_info,
         )

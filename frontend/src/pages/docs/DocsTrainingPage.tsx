@@ -1,41 +1,37 @@
 import { DocsCard, DocsHero } from "../../components/docs/DocsCard";
+import { DocsLayout } from "../../components/docs/DocsLayout";
 import { DocsNextButton } from "../../components/docs/DocsNextButton";
-import { useFeatureFlags } from "../../hooks/useFeatureFlags";
 import { useHighlight } from "../../hooks/useHighlight";
 
 export const DocsTrainingPage = () => {
-  const features = useFeatureFlags();
   useHighlight();
 
   return (
-    <>
+    <DocsLayout>
       <DocsHero>
         <h1 className="mb-2.5 text-[clamp(1.7rem,3.1vw,2.4rem)] font-bold leading-[1.22] text-textMain">
-          Try it yourself: a minimal degree predictor
+          Do It Yourself
         </h1>
         <p className="text-base leading-[1.7] text-textMuted">
-          This is a compact local tutorial without API or UI. It trains one GNN for node-degree
-          regression on random graphs, then prints how many node predictions are exactly correct.
+          This is a minimal standalone example. Create three files in a clean folder, install the
+          dependencies, train a small GNN on random graphs, and then evaluate the exact-node
+          accuracy.
         </p>
       </DocsHero>
 
       <DocsCard>
-        <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">
-          <code>requirements.txt</code>
-        </h2>
-        <pre className="mt-2.5 overflow-x-auto rounded-lg border-2 border-line2 bg-bg1 p-3.5">
-          <code className="language-plaintext">{`torch
+        <pre className="mt-2.5 overflow-x-auto rounded-lg border-2 border-line2 bg-bg1 p-1.5">
+          <code className="language-plaintext">{`# requirements.txt
+torch
 torch-geometric
 networkx`}</code>
         </pre>
       </DocsCard>
 
       <DocsCard>
-        <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">
-          <code>train.py</code>
-        </h2>
-        <pre className="mt-2.5 overflow-x-auto rounded-lg border-2 border-line2 bg-bg1 p-3.5">
-          <code className="language-python">{`import random
+        <pre className="mt-2.5 overflow-x-auto rounded-lg border-2 border-line2 bg-bg1 p-1.5">
+          <code className="language-python">{`# train.py
+import random
 import torch
 import torch.nn.functional as F
 import networkx as nx
@@ -107,11 +103,9 @@ if __name__ == "__main__":
       </DocsCard>
 
       <DocsCard>
-        <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">
-          <code>main.py</code>
-        </h2>
-        <pre className="mt-2.5 overflow-x-auto rounded-lg border-2 border-line2 bg-bg1 p-3.5">
-          <code className="language-python">{`import torch
+        <pre className="mt-2.5 overflow-x-auto rounded-lg border-2 border-line2 bg-bg1 p-1.5">
+          <code className="language-python">{`# main.py
+import torch
 from train import DegreeSAGE, make_graph
 
 
@@ -142,7 +136,7 @@ if __name__ == "__main__":
       <DocsCard>
         <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">What to try next</h2>
         <p className="text-base leading-[1.7] text-textMuted">
-          Once this works, swap the label from degree to min-cycle, keep the same structure, and
+          Once this works, swap the label from degree to minimum-cycle, keep the same structure, and
           compare how accuracy changes across architectures.
         </p>
       </DocsCard>
@@ -151,6 +145,6 @@ if __name__ == "__main__":
         <DocsNextButton href="/docs/module-cage" label="Cage generation" direction="back" />
         <DocsNextButton href="/" label="Overview" />
       </div>
-    </>
+    </DocsLayout>
   );
 };

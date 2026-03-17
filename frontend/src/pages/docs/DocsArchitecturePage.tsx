@@ -1,60 +1,74 @@
 import { DocsCard, DocsHero } from "../../components/docs/DocsCard";
+import { DocsLayout } from "../../components/docs/DocsLayout";
 import { DocsNextButton } from "../../components/docs/DocsNextButton";
-import { useFeatureFlags } from "../../hooks/useFeatureFlags";
 
 export const DocsArchitecturePage = () => {
-  const features = useFeatureFlags();
-
   return (
-    <>
+    <DocsLayout>
       <DocsHero>
         <h1 className="mb-2.5 text-[clamp(1.7rem,3.1vw,2.4rem)] font-bold leading-[1.22] text-textMain">
-          Architectures used in this project
+          Model Architectures
         </h1>
         <p className="text-base leading-[1.7] text-textMuted">
-          Architecture choice matters because it changes the exact update rule: how neighbor signals
-          are aggregated, how self-information is mixed in, and what structural distinctions survive
-          through depth.
+          Architecture choice matters because it changes the message passing{" "}
+          <code>update rule</code>: how neighbor signals are aggregated, how self-information is
+          mixed in, and which structural distinctions survive.
         </p>
       </DocsHero>
 
       <DocsCard>
-        <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">GCN</h2>
+        <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">
+          GCN - Graph Convolution Network
+        </h2>
         <p className="text-base leading-[1.7] text-textMuted">
-          GCN uses degree-normalized aggregation. This usually gives stable optimization and smooth
-          representations, but normalization can dampen raw counting signals.
+          GCN uses degree-normalized aggregation. It is a strong baseline because it is stable and
+          simple, but normalization can dampen raw counting signals.
         </p>
       </DocsCard>
 
       <DocsCard>
-        <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">GraphSAGE</h2>
+        <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">
+          GraphSAGE - Sampling and Aggregation
+        </h2>
         <p className="text-base leading-[1.7] text-textMuted">
-          GraphSAGE was designed as an inductive sample-and-aggregate architecture. In this project,
-          the
-          <code> SAGEConv</code> layers use <code>aggr="add"</code>, which helped preserve
-          count-like signals.
+          GraphSAGE was designed as an inductive sample-and-aggregate architecture. By learning
+          aggregator functions rather than fixed node embeddings, it generalizes to unseen nodes in
+          dynamic graphs.
         </p>
       </DocsCard>
 
       <DocsCard>
-        <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">GIN</h2>
+        <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">
+          GIN - Graph Isomorphism Network
+        </h2>
         <p className="text-base leading-[1.7] text-textMuted">
-          GIN also uses sum aggregation and then applies an MLP with a learnable self-weight term.
-          It is one of the strongest 1-WL-style architectures for structural discrimination.
+          GIN uses sum aggregation and then applies an MLP with a learnable self-weight term. It is
+          one of the strongest 1-WL-style architectures for structural discrimination.
         </p>
       </DocsCard>
 
       <DocsCard>
-        <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">Loopy (r-lMPNN style)</h2>
+        <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">
+          GPS - General, Powerful, Scalable
+        </h2>
+        <p className="text-base leading-[1.7] text-textMuted">
+          GPS is a graph transformer recipe that combines local message passing with global
+          attention. The idea is to keep convolution-style locality while adding a global context
+          channel that scales to larger graphs.
+        </p>
+      </DocsCard>
+
+      <DocsCard>
+        <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">Loopy</h2>
         <p className="text-base leading-[1.7] text-textMuted">
           Loopy adds a second structural channel on top of ordinary message passing by incorporating
-          r-neighborhood path/cycle information. This improves cycle sensitivity for this project’s
-          target tasks.
+          r-neighborhood path and cycle information. This improves cycle sensitivity for the
+          minimum-cycle task.
         </p>
       </DocsCard>
 
       <DocsCard>
-        <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">Primary Sources</h2>
+        <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">Primary sources</h2>
         <ol className="ml-5 mt-1.5 list-decimal space-y-2 text-textMuted">
           <li>
             Kipf and Welling, GCN:
@@ -78,6 +92,16 @@ export const DocsArchitecturePage = () => {
             </a>
           </li>
           <li>
+            Rampasek et al., GraphGPS:
+            <a
+              className="text-textMain"
+              href="https://proceedings.neurips.cc/paper_files/paper/2022/hash/6c1f4b5a7d7d5d8a9a7b4a9f99cc5a0a-Abstract-Conference.html"
+            >
+              {" "}
+              NeurIPS 2022
+            </a>
+          </li>
+          <li>
             Paolino et al., Weisfeiler and Leman Go Loopy:
             <a className="text-textMain" href="https://openreview.net/forum?id=9O2sVnEHor">
               {" "}
@@ -87,35 +111,10 @@ export const DocsArchitecturePage = () => {
         </ol>
       </DocsCard>
 
-      <p className="mt-4 text-sm text-[#aaaaaa]">
-        Code references:
-        <a className="text-textMain" href="https://github.com/Vl4dk0/gnn/tree/main/ai/models">
-          {" "}
-          ai/models
-        </a>
-        ,
-        <a
-          className="text-textMain"
-          href="https://github.com/Vl4dk0/gnn/blob/main/ai/models/loopy.py"
-        >
-          {" "}
-          ai/models/loopy.py
-        </a>
-        ,
-        <a
-          className="text-textMain"
-          href="https://github.com/Vl4dk0/gnn/blob/main/ai/utils/r_neighborhood.py"
-        >
-          {" "}
-          ai/utils/r_neighborhood.py
-        </a>
-        .
-      </p>
-
       <div className="mt-10 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-5">
         <DocsNextButton href="/docs/gnns" label="How GNNs work" direction="back" />
         <DocsNextButton href="/docs/module-degree" label="Degree prediction" />
       </div>
-    </>
+    </DocsLayout>
   );
 };
