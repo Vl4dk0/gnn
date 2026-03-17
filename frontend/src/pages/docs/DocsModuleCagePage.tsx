@@ -128,6 +128,20 @@ for succ_graph in successors:
           filtering out a large portion of invalid actions.
         </p>
         <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
+          I started training by giving the model <code>random</code> k and g values and gave it{" "}
+          <code>5000</code> steps to find a solution. That turned out to take too long{" "}
+          <code>without</code> any significant <code>learning signal</code>. So I switched to
+          <code>curriculum</code> learning, starting with easier tasks. I <code>ordered</code> (k,g)
+          pairs by <code>moores bound</code> and started off by giving the model <code>2000</code>{" "}
+          steps to find a solution for the first pair. Only once it achieved at least{" "}
+          <code>50%</code> success rate on last 8 episodes, I allowed next pair to be sampled. The
+          sample rate is always <code>3:1</code> in favor of the new pair. The <code>1</code> in{" "}
+          <code>3:1</code> represents all previous pairs mixed. So after <code>4</code> pairs are
+          unlocked, there is <code>75%</code> chance to get 4th pair, <code>18.75%</code> chance to
+          get 3rd pair, <code>~4.7%</code> change to get 2nd pair and <code>~1.6%</code> chance to
+          get the 1st pair.
+        </p>
+        <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
           The final reward structure is as follows:
         </p>
         <pre className="mt-2.5 overflow-x-auto rounded-lg border-2 border-line2 bg-bg1 p-1.5">
@@ -144,12 +158,16 @@ SATISFY_BONUS: float = 0.05  # if graph became k-regular or girth became correct
       </DocsCard>
 
       <DocsCard>
-        <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">
-          Current status and limitation
-        </h2>
         <p className="text-base leading-[1.7] text-textMuted">
-          This part of the work is exploratory. It contains working code for search and RL
-          experiments, but it should not be read as a finished construction engine.
+          Currenlty, the PPO-based approach is still being trained, results so far are promising. An
+          RL-agent is able to find small <code>(3,5)</code> and <code>(3,6)</code> graphs fast and
+          consistently.
+        </p>
+        <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
+          I will start training the model for speed, reducing its number of steps to find a
+          solution, once it can reliably find solutions for all <code>(k,g)</code> pairs with
+          moore's bound up to
+          <code>30</code>.
         </p>
       </DocsCard>
 

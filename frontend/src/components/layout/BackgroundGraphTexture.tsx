@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 
 export const BackgroundGraphTexture = () => {
   // Use a unique ID for the pattern to avoid conflicts
@@ -6,16 +6,16 @@ export const BackgroundGraphTexture = () => {
 
   // Generate the pattern content once
   // We'll create a tile that repeats seamlesssly
-    const tileContent = useMemo(() => {
+  const tileContent = useMemo(() => {
     const tileSize = 400; // 400x400 tile
-    const fontSize = 10;
+    const fontSize = 11;
     const lineHeight = 20; // Vertical spacing
     const colWidth = 50; // Horizontal spacing
-    
+
     const rows = Math.ceil(tileSize / lineHeight);
     const cols = Math.ceil(tileSize / colWidth);
-    
-    const words = ["GRAPH", "NTWRK", "NEURL"];
+
+    const words = ["GRAPH", "NEURL", "NTWRK"];
     const elements = [];
 
     for (let r = 0; r < rows; r++) {
@@ -23,11 +23,11 @@ export const BackgroundGraphTexture = () => {
         // Strict grid, no randomness
         const x = c * colWidth;
         const y = r * lineHeight;
-        
+
         // Deterministic word choice based on position to create a pattern
         const wordIndex = (r + c) % words.length;
         const word = words[wordIndex];
-        
+
         elements.push(
           <text
             key={`${r}-${c}`}
@@ -38,19 +38,19 @@ export const BackgroundGraphTexture = () => {
             fontFamily="monospace"
             dominantBaseline="middle"
             textAnchor="middle"
-            opacity={0.5} // Increased visibility
+            opacity={0.66} // Increased visibility
           >
             {word}
           </text>
         );
       }
     }
-    
+
     return { elements, tileSize };
   }, []);
 
   return (
-    <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden select-none opacity-[0.05]">
+    <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden select-none opacity-[0.08]">
       <svg width="100%" height="100%">
         <defs>
           <pattern
