@@ -91,6 +91,7 @@ class GPS_GNN(BaseGNN):
             return GCNConv(dim, dim)
         if self.conv_type == "sage":
             return SAGEConv(dim, dim, aggr="add")
+
         # default: gin
         mlp = nn.Sequential(
             nn.Linear(dim, dim),
