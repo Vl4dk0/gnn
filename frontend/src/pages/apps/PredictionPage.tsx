@@ -59,7 +59,7 @@ export const PredictionPage = ({ task }: PredictionPageProps) => {
         <BackButton
           href={backHref}
           iconOnly
-          className="absolute left-4 top-4 z-20 max-[900px]:left-3 max-[900px]:top-3"
+          className="absolute left-5 top-5 z-20"
         />
 
         <div className="pointer-events-none absolute inset-x-0 bottom-6 z-20 flex justify-center px-4 max-[900px]:bottom-4">

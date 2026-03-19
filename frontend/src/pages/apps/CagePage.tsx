@@ -72,12 +72,12 @@ export const CagePage = () => {
           href="/docs/module-cage"
           label="Back to Docs"
           iconOnly
-          className="absolute left-4 top-4 z-20 max-[900px]:left-3 max-[900px]:top-3"
+          className="absolute left-5 top-5 z-20"
         />
 
         <button
           type="button"
-          className="absolute left-4 top-1/2 z-20 hidden min-w-[150px] -translate-y-1/2 rounded-xl border border-line2 bg-bg1/92 px-4 py-3 text-left shadow-card backdrop-blur-sm max-[900px]:left-3 max-[900px]:top-[68px] max-[900px]:min-w-[200px] max-[900px]:translate-y-0 max-[900px]:px-4 max-[900px]:py-3 max-[900px]:flex"
+          className="absolute left-4 top-1/2 z-20 hidden min-w-[150px] -translate-y-1/2 rounded-xl border border-line2 bg-bg1/92 px-4 py-3 text-left shadow-card backdrop-blur-sm max-[900px]:left-5 max-[900px]:top-[72px] max-[900px]:min-w-0 max-[900px]:translate-y-0 max-[900px]:px-4 max-[900px]:py-3 max-[900px]:block"
           onClick={() => setPanelOpen(true)}
           aria-label="Open cage config"
         >
@@ -92,7 +92,7 @@ export const CagePage = () => {
           </span>
         </button>
 
-        <section className="absolute left-4 top-1/2 z-20 w-[344px] -translate-y-1/2 rounded-2xl border border-line2 bg-bg1/92 p-4 shadow-card backdrop-blur-md max-[900px]:hidden">
+        <section className="absolute left-5 top-1/2 z-20 w-[344px] -translate-y-1/2 rounded-2xl border border-line2 bg-bg1/92 p-4 shadow-card backdrop-blur-md max-[900px]:hidden">
           <div className="mt-4 grid grid-cols-2 gap-3">
             <InputField
               id="degreeK"
@@ -144,7 +144,7 @@ export const CagePage = () => {
               }
             }}
           >
-            <section className="absolute inset-x-3 top-[74px] rounded-2xl border border-line2 bg-bg1 p-4 shadow-card">
+            <section className="absolute inset-x-5 top-[72px] rounded-2xl border border-line2 bg-bg1 p-4 shadow-card">
               <div className="flex items-start justify-between gap-3">
                 <button
                   type="button"

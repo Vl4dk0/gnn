@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 import { DocsCard, DocsHero } from "../../components/docs/DocsCard";
 import { DocsLayout } from "../../components/docs/DocsLayout";
 import { DocsNextButton } from "../../components/docs/DocsNextButton";
@@ -53,9 +55,9 @@ export const DocsModuleMinCyclePage = () => {
           Draw a graph with cycles, or generate a random one, and see if the models can correctly
           identify the length of the shortest cycle.
         </p>
-        <a href="/min-cycle" className="ui-button-outline ui-surface-link mt-3">
+        <Link to="/min_cycle" className="ui-button-outline ui-surface-link mt-3">
           Open min-cycle editor
-        </a>
+        </Link>
       </DocsCard>
 
       <DocsCard>
