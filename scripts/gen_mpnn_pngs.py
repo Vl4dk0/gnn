@@ -4,6 +4,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 
+import math
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyArrowPatch
 from pathlib import Path
@@ -92,16 +93,27 @@ def _draw_edge(ax, p1, p2, color=EDGE_COLOR, lw=EDGE_LW):
     ax.plot([p1[0], p2[0]], [p1[1], p2[1]], color=color, lw=lw, zorder=1)
 
 
-def _draw_arrow(ax, start, end, color=ARROW_COLOR, lw=3.5, shrink_a=18, shrink_b=18):
+def _draw_arrow(
+    ax, start, end, color=ARROW_COLOR, lw=2, radius_a=0.28, radius_b=0.28, gap=0.06
+):
+    """Draw arrow from edge of circle A to edge of circle B, with a gap."""
+    dx = end[0] - start[0]
+    dy = end[1] - start[1]
+    dist = math.hypot(dx, dy)
+    ux, uy = dx / dist, dy / dist
+    x0 = start[0] + ux * (radius_a + gap)
+    y0 = start[1] + uy * (radius_a + gap)
+    x1 = end[0] - ux * (radius_b + gap)
+    y1 = end[1] - uy * (radius_b + gap)
     arrow = FancyArrowPatch(
-        start,
-        end,
-        arrowstyle="->,head_width=8,head_length=6",
+        (x0, y0),
+        (x1, y1),
+        arrowstyle="->,head_width=5,head_length=4",
         color=color,
         lw=lw,
         zorder=3,
-        shrinkA=shrink_a,
-        shrinkB=shrink_b,
+        shrinkA=0,
+        shrinkB=0,
         mutation_scale=1,
     )
     ax.add_patch(arrow)
@@ -124,9 +136,7 @@ def step1():
 def step2():
     fig, ax = _make_fig()
     for name, pos in NEIGHBORS.items():
-        _draw_edge(ax, CENTER, pos)
-    for name, pos in NEIGHBORS.items():
-        _draw_arrow(ax, pos, CENTER, shrink_a=20, shrink_b=24)
+        _draw_arrow(ax, pos, CENTER, radius_a=0.28, radius_b=0.32, gap=0.08)
     _draw_node(ax, CENTER, "v", radius=0.32, is_center=True)
     for name, pos in NEIGHBORS.items():
         _draw_node(ax, pos, name, None)
@@ -208,10 +218,10 @@ def step3():
 
     # arrows from messages to aggregator
     for y in msg_ys:
-        _draw_arrow(ax, (msg_x, y), agg_pos, shrink_a=16, shrink_b=32)
+        _draw_arrow(ax, (msg_x, y), agg_pos, radius_a=0.22, radius_b=0.45, gap=0.08)
 
     # arrow from aggregator to output
-    _draw_arrow(ax, agg_pos, out_pos, shrink_a=32, shrink_b=26)
+    _draw_arrow(ax, agg_pos, out_pos, radius_a=0.45, radius_b=0.35, gap=0.08)
 
     ax.set_xlim(-2.4, 2.5)
     ax.set_ylim(-1.7, 1.7)
@@ -268,7 +278,7 @@ def step4():
 
     # big arrow between clusters
     _draw_arrow(
-        ax, (offset_l + 0.4, 0), (offset_r - 0.4, 0), lw=4, shrink_a=6, shrink_b=6
+        ax, (offset_l, 0), (offset_r, 0), lw=2.5, radius_a=0.28, radius_b=0.28, gap=0.08
     )
 
     ax.set_xlim(-2.7, 2.7)
