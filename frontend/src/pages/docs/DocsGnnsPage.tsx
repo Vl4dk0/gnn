@@ -77,13 +77,19 @@ export const DocsGnnsPage = () => {
       <DocsCard>
         <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">One layer, step by step</h2>
         <div className="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-4 max-[760px]:grid-cols-1">
-          {[1, 2, 3, 4].map((index) => (
-            <figure key={index} className="rounded-[10px] p-0">
+          {[
+            { step: 1, caption: "Each node holds a hidden state (feature vector). Here v = 0.30 and its neighbors w₁–w₄ hold their own values." },
+            { step: 2, caption: "Every neighbor sends a message to v along its edge. Messages are computed from the sender's current hidden state." },
+            { step: 3, caption: "All incoming messages are aggregated (Σ) and combined with v's own state via an update function U to produce the new hidden state hᵗ⁺¹." },
+            { step: 4, caption: "After one full layer, every node has updated its state. Stacking more layers lets each node see further into the graph." },
+          ].map(({ step, caption }) => (
+            <figure key={step} className="rounded-[10px] p-0">
               <img
-                src={`/static/mpnn-step-${index}.svg`}
-                alt={`Message-passing step ${index}`}
+                src={`/static/mpnn-step-${step}.png`}
+                alt={`Message-passing step ${step}`}
                 className="block w-full rounded-[10px]"
               />
+              <figcaption className="mt-2 text-sm text-textSub">{caption}</figcaption>
             </figure>
           ))}
         </div>
