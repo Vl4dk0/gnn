@@ -4,4 +4,4 @@
   A tento Search by nasiel, ze existuje mensi k,g-graf. Toto sa da neskor rozvinut na nejaky argument, ze tento pristup sa da celkovo pouzit na hladanie protiprikladov pri problemoch,
   kde vieme hned povedat, ci je to ten protipriklad, ale zostrojit ten protipriklad je netrivialne.
 4. matematici generuju grafy dost slabo a cudne, stylom: pridam vrchol, odoberiem vrchol, pridam podstrom, odoberiem podstrom, ... Mozno neuronove siete toto vedia robit lepsie ako bruteforce. Napriklad taky AlphaFold toto zvladol. Deterministickymi sposobmi sa nepodarilo najst tie proteiny, ale GNN to zvladlo.
-5. One layer, step by step - absolutne zly obrazok, treba prerobit idealne v nejakom naprogramovanom niecom a nie ze AI vygeneruje priamo .svg
+5. Bolo by dobre ist v tom how GNNs work cez kazdy parameter a povedat, ze ako to ovplyvnuje to GNN
