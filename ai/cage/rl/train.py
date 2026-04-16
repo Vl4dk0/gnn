@@ -71,6 +71,7 @@ def train_ppo(
     device = configure_torch_device()
 
     console = Console()
+    is_tty = sys.stdout.isatty()
 
     model_id = f"{model_type}_{model_name}"
 
@@ -197,7 +198,8 @@ def train_ppo(
     last_live_log_time = start_time
     initial = "waiting for first live step"
     live_view = Live(initial, console=console, refresh_per_second=8, transient=True)
-    live_view.start()
+    if is_tty:
+        live_view.start()
 
     def _save_checkpoint(partial: bool, avg_rew_value: float, step: int) -> None:
         training_info: dict[str, str | int | float | bool | None] = {
@@ -258,7 +260,8 @@ def train_ppo(
                 current_ep_len += 1
 
                 if (
-                    log_seconds > 0
+                    is_tty
+                    and log_seconds > 0
                     and (time.time() - last_live_log_time) >= log_seconds
                 ):
                     last_live_log_time = time.time()
@@ -292,21 +295,22 @@ def train_ppo(
                     kg_stats[kg_key]["reward_sum"] += current_ep_reward
                     kg_stats[kg_key]["len_sum"] += current_ep_len
 
-                    counts_line = ", ".join(
-                        f"{k}: {v}"
-                        for (k, v) in sorted(current_ep_action_counts.items())
-                    )
-                    episode_text = (
-                        f"Episode {episode_idx}, k={current_ep_k}, g={current_ep_g}, moores_bound={env.mb}:\n"
-                        f"  step: {current_ep_len}\n"
-                        f"  action: {action_type}:{action_desc}, reward: {reward:+.2f}\n"
-                        f"  score: {float(info.get('episode_score', 0.0)):+.2f}\n"
-                        f"  nodes: {info.get('active_nodes', 0)}\n"
-                        f"  edges: {info.get('num_edges', 0)}\n"
-                        f"  action_counts: {counts_line if counts_line else '-'}\n"
-                        f"  done: 1, reason: {info.get('done_reason', '-')}\n"
-                    )
-                    console.print(episode_text)
+                    if is_tty:
+                        counts_line = ", ".join(
+                            f"{k}: {v}"
+                            for (k, v) in sorted(current_ep_action_counts.items())
+                        )
+                        episode_text = (
+                            f"Episode {episode_idx}, k={current_ep_k}, g={current_ep_g}, moores_bound={env.mb}:\n"
+                            f"  step: {current_ep_len}\n"
+                            f"  action: {action_type}:{action_desc}, reward: {reward:+.2f}\n"
+                            f"  score: {float(info.get('episode_score', 0.0)):+.2f}\n"
+                            f"  nodes: {info.get('active_nodes', 0)}\n"
+                            f"  edges: {info.get('num_edges', 0)}\n"
+                            f"  action_counts: {counts_line if counts_line else '-'}\n"
+                            f"  done: 1, reason: {info.get('done_reason', '-')}\n"
+                        )
+                        console.print(episode_text)
 
                     success = bool(info.get("success", False))
                     unlocked_new = env.report_result(success)
@@ -454,7 +458,8 @@ def train_ppo(
                 _save_checkpoint(partial=True, avg_rew_value=avg_rew, step=global_step)
                 last_checkpoint_episode = episode_idx
     finally:
-        live_view.stop()
+        if is_tty:
+            live_view.stop()
 
     if best_model_state is not None:
         _ = agent.load_state_dict(best_model_state)
