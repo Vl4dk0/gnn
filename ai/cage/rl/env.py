@@ -43,7 +43,7 @@ class CageConstructionEnv:
     SUCCESS_REWARD: float = 50.0  # when found the correct thing
     INVALID_PENALTY: float = -0.005  # if you make an invalid action
     ADD_REWARD: float = 0.01  # add edge
-    REMOVE_PENALTY: float = -0.1  # remove edge
+    REMOVE_PENALTY: float = -0.02  # remove edge
     SATISFY_BONUS: float = 0.05  # if graph became k-regular or girth became correct
 
     k: int
@@ -61,6 +61,7 @@ class CageConstructionEnv:
     graph: nx.Graph[int]
     current_step: int
     episode_score: float
+    _prev_potential: float
 
     # Progressive training state
     pairs: list[tuple[int, int]]
@@ -96,6 +97,7 @@ class CageConstructionEnv:
         self.graph = nx.Graph()
         self.current_step = 0
         self.episode_score = 0.0
+        self._prev_potential = 0.0
 
         self.device = torch.device(get_preferred_device())
 
@@ -156,6 +158,18 @@ class CageConstructionEnv:
         if not cycles:
             return True
         return min(len(c) for c in cycles) >= self.g
+
+    def _potential(self) -> float:
+        """Potential function measuring cage construction progress."""
+        active = self._active_nodes()
+        if not active:
+            return 0.0
+        target_edges = (self.k * self.mb) / 2
+        num_edges = self.graph.number_of_edges()
+        regularity_sum = sum(min(self.graph.degree(n), self.k) / self.k for n in active)
+        regularity_score = regularity_sum / self.mb
+        edge_score = min(num_edges / max(1.0, target_edges), 1.0)
+        return 5.0 * (0.6 * regularity_score + 0.4 * edge_score)
 
     def _can_add_by_active_rule(self, u: int, v: int) -> bool:
         active = self._active_nodes()
@@ -222,6 +236,7 @@ class CageConstructionEnv:
         )
         self.current_step = 0
         self.episode_score = 0.0
+        self._prev_potential = 0.0
         self.graph = nx.Graph()
         self.graph.add_nodes_from(range(self.num_nodes))
         return self._get_obs()
@@ -329,6 +344,11 @@ class CageConstructionEnv:
                 reward += self.INVALID_PENALTY
                 info["action_type"] = "edge_invalid_add"
                 info["done_reason"] = "add_rule_or_constraint"
+
+        # Potential-based reward shaping (Ng et al., 1999)
+        new_potential = self._potential()
+        reward += 0.99 * new_potential - self._prev_potential
+        self._prev_potential = new_potential
 
         girth_ok = self._is_girth_satisfied_active()
         is_k_regular = self._is_k_regular_active()

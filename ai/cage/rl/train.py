@@ -26,6 +26,7 @@ from ai.models import MODEL_CLASSES
 from ai.models.base import BaseGNN
 from ai.registry import get_trained_dir, list_model_types, model_exists, save_model
 from ai.utils.device import configure_torch_device
+from ai.utils.r_neighborhood import apply_r_neighborhood
 from dotenv import load_dotenv
 
 _ = load_dotenv()
@@ -61,11 +62,13 @@ def train_ppo(
     update_interval: int,
     force: bool = False,
     randomize: bool = True,
-    episode_steps: int = 2000,
+    episode_steps: int = 500,
     log_seconds: float = 3.0,
     save_episodes: int = 20,
     conv_type: str = "gin",
     heads: int = 4,
+    r: int = 3,
+    entropy_coef: float = 0.05,
 ) -> None:
     """Train Generalist PPO agent for cage generation."""
     device = configure_torch_device()
@@ -74,6 +77,7 @@ def train_ppo(
     is_tty = sys.stdout.isatty()
 
     model_id = f"{model_type}_{model_name}"
+    r_for_obs: int | None = r if model_type == "loopy" else None
 
     env = CageConstructionEnv(
         k=3, g=5, max_steps=episode_steps, randomize_params=randomize
@@ -82,6 +86,8 @@ def train_ppo(
     if sample_obs.x is None:
         raise RuntimeError("Environment observation is missing node features.")
     input_dim = int(sample_obs.x.size(1))
+    if r_for_obs is not None:
+        sample_obs = apply_r_neighborhood(sample_obs, r=r_for_obs)
 
     if model_type not in MODEL_CLASSES:
         print(f"Error: Unknown model type '{model_type}'.")
@@ -96,6 +102,7 @@ def train_ppo(
         dropout=dropout,
         conv_type=conv_type,
         heads=heads,
+        r=r,
     )
 
     optimizer = optim.Adam(agent.parameters(), lr=lr)
@@ -140,7 +147,6 @@ def train_ppo(
     gae_lambda = 0.95
     clip_epsilon = 0.2
     value_coef = 0.5
-    entropy_coef = 0.01
 
     console.print("Starting PPO Training")
     console.print(f"Model ID: {model_id}")
@@ -151,6 +157,7 @@ def train_ppo(
     cfg.add_row("Num Layers", str(num_layers))
     cfg.add_row("Dropout", str(dropout))
     cfg.add_row("Learning Rate", str(lr))
+    cfg.add_row("Entropy Coef", str(entropy_coef))
     cfg.add_row("Randomize Curriculum", str(randomize))
     cfg.add_row("Episode Steps", str(episode_steps))
     cfg.add_row("Device", str(device))
@@ -240,6 +247,8 @@ def train_ppo(
                     action, log_prob, value = agent.get_action(obs, action_mask=mask)
 
                 next_obs, reward, done, info = env.step(action)
+                if r_for_obs is not None:
+                    next_obs = apply_r_neighborhood(next_obs, r=r_for_obs)
 
                 action_type = str(info.get("action_type", "unknown"))
                 edge = cast(list[int], info.get("edge", [0, 0]))
@@ -323,6 +332,8 @@ def train_ppo(
                     current_ep_len = 0
                     current_ep_action_counts = Counter()
                     obs = env.reset()
+                    if r_for_obs is not None:
+                        obs = apply_r_neighborhood(obs, r=r_for_obs)
                     current_ep_k = env.k
                     current_ep_g = env.g
 
@@ -541,8 +552,20 @@ if __name__ == "__main__":
     _ = parser.add_argument(
         "--episode-steps",
         type=int,
-        default=2000,
+        default=500,
         help="Maximum steps per episode before done_reason=max_steps.",
+    )
+    _ = parser.add_argument(
+        "--entropy-coef",
+        type=float,
+        default=0.05,
+        help="Entropy coefficient for PPO (higher = more exploration)",
+    )
+    _ = parser.add_argument(
+        "--r",
+        type=int,
+        default=3,
+        help="r-neighborhood radius for Loopy GNN (detects cycles up to r+2)",
     )
     _ = parser.add_argument(
         "--conv-type",
@@ -584,11 +607,14 @@ if __name__ == "__main__":
     model_arg = cast(str, args.model)
     conv_type_arg = cast(str, args.conv_type)
     heads_arg = cast(int, args.heads)
+    r_arg = cast(int, args.r)
 
     if cast(str | None, args.name) is not None:
         run_name = cast(str, args.name)
     elif model_arg == "gps":
         run_name = f"{conv_type_arg}_ppo"
+    elif model_arg == "loopy":
+        run_name = f"r{r_arg}_ppo"
     else:
         run_name = "ppo"
 
@@ -608,4 +634,6 @@ if __name__ == "__main__":
         save_episodes=cast(int, args.save),
         conv_type=conv_type_arg,
         heads=heads_arg,
+        r=r_arg,
+        entropy_coef=cast(float, args.entropy_coef),
     )

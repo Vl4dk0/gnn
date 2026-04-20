@@ -6,6 +6,7 @@ from typing import cast, override
 
 from ai.models import MODEL_CLASSES
 from ai.models.gps import GPS_GNN
+from ai.models.loopy import Loopy_GNN
 
 
 class ActorCritic(nn.Module):
@@ -50,6 +51,16 @@ class ActorCritic(nn.Module):
                 dropout=dropout,
                 conv_type=conv_type,
                 heads=heads,
+            )
+        elif model_type == "loopy":
+            self.gnn = Loopy_GNN(
+                input_dim=input_dim,
+                hidden_dim=hidden_dim,
+                output_dim=hidden_dim,
+                num_layers=num_layers,
+                dropout=dropout,
+                r=r,
+                shared=shared,
             )
         else:
             gnn_class = MODEL_CLASSES[model_type]

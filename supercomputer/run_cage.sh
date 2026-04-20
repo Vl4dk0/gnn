@@ -14,4 +14,5 @@ source .activate_scratch
 
 cd ~/gnn
 
-uv run python -m ai.cage.rl.train --model gin --hidden-dim 128 --num-layers 6 --steps 500000 --name h128_l6_ppo
+uv run python -m ai.cage.rl.train --model gin --hidden-dim 64 --num-layers 4 --steps 300000 --name shaped_ppo && \
+	uv run python -m ai.cage.rl.train --model loopy --hidden-dim 32 --num-layers 4 --steps 300000 --r 3
