@@ -1,0 +1,26 @@
+{
+  "model_type": "actor_critic",
+  "model_id": "loopy_loopy_r3_h64_ppo",
+  "task": "cage",
+  "training": {
+    "model_type": "loopy",
+    "input_dim": 8,
+    "hidden_dim": 64,
+    "num_layers": 4,
+    "dropout": 0.2,
+    "r": 3,
+    "shared": false,
+    "steps": 300000,
+    "learning_rate": 0.0003,
+    "update_interval": 2048,
+    "randomize": true,
+    "resumed": false,
+    "checkpoint_step": 8192,
+    "partial": true
+  },
+  "metrics": {
+    "avg_reward": 2.7,
+    "fps": 42
+  },
+  "created_at": "2026-04-21T00:09:20.228045"
+}

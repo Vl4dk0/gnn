@@ -1,0 +1,24 @@
+{
+  "model_type": "gps",
+  "model_id": "gps_gin_h128_l6",
+  "task": "min_cycle",
+  "training": {
+    "input_dim": 4,
+    "hidden_dim": 128,
+    "output_dim": 1,
+    "num_layers": 6,
+    "dropout": 0.2,
+    "conv_type": "gin",
+    "heads": 8,
+    "epochs": 5000,
+    "best_epoch": 1880,
+    "learning_rate": 0.001,
+    "graphs_per_epoch": 10
+  },
+  "metrics": {
+    "mse": 1451.9722,
+    "mae": 10.9456,
+    "accuracy": 32.57
+  },
+  "created_at": "2026-04-16T14:46:56.405946"
+}

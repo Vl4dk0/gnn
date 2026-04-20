@@ -1,0 +1,27 @@
+{
+  "model_type": "actor_critic",
+  "model_id": "gin_h128_l6_ppo",
+  "task": "cage",
+  "training": {
+    "model_type": "gin",
+    "input_dim": 8,
+    "hidden_dim": 128,
+    "num_layers": 6,
+    "dropout": 0.2,
+    "r": 3,
+    "shared": false,
+    "steps": 500000,
+    "learning_rate": 0.0003,
+    "update_interval": 2048,
+    "randomize": true,
+    "episode_steps": 2000,
+    "resumed": false,
+    "checkpoint_step": 500000,
+    "partial": false
+  },
+  "metrics": {
+    "avg_reward": 15.11,
+    "fps": 61
+  },
+  "created_at": "2026-04-16T16:27:49.942817"
+}

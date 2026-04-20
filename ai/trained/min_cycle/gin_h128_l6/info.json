@@ -1,0 +1,22 @@
+{
+  "model_type": "gin",
+  "model_id": "gin_h128_l6",
+  "task": "min_cycle",
+  "training": {
+    "input_dim": 4,
+    "hidden_dim": 128,
+    "output_dim": 1,
+    "num_layers": 6,
+    "dropout": 0.2,
+    "epochs": 5000,
+    "best_epoch": 4520,
+    "learning_rate": 0.001,
+    "graphs_per_epoch": 10
+  },
+  "metrics": {
+    "mse": 6.2926,
+    "mae": 2.0155,
+    "accuracy": 23.47
+  },
+  "created_at": "2026-04-16T14:22:34.434845"
+}
