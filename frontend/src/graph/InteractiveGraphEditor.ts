@@ -1,4 +1,5 @@
 import type { GraphNodePredictionView, GraphPrediction } from "../types/graph";
+import { getCanvasTheme } from "../hooks/useTheme";
 import { Graph } from "./Graph";
 import { GraphNode } from "./GraphNode";
 import { PhysicsEngine } from "./PhysicsEngine";
@@ -64,10 +65,9 @@ export class InteractiveGraphEditor {
   private readonly maxScale = 5.0;
   private readonly scaleStep = 0.033;
 
-  private readonly backgroundColor = "#1a1a1a";
-  private readonly edgeColor = "#555555";
-  private readonly textColor = "#ffffff";
-  private readonly errorDotColor = "#ff0000";
+  private get themeColors() {
+    return getCanvasTheme();
+  }
 
   private mouseX = 0;
   private mouseY = 0;
@@ -860,13 +860,15 @@ export class InteractiveGraphEditor {
   }
 
   private render(): void {
+    const theme = this.themeColors;
+
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
     this.ctx.save();
     this.ctx.translate(this.offsetX, this.offsetY);
     this.ctx.scale(this.scale, this.scale);
 
-    this.ctx.strokeStyle = this.edgeColor;
+    this.ctx.strokeStyle = theme.edge;
     this.ctx.lineWidth = 2;
 
     const edges = this.graph.getEdges();
@@ -882,7 +884,7 @@ export class InteractiveGraphEditor {
     });
 
     if (this.edgeStart) {
-      this.ctx.strokeStyle = "#888888";
+      this.ctx.strokeStyle = theme.dimColor;
       this.ctx.setLineDash([5, 5]);
       this.ctx.beginPath();
       this.ctx.moveTo(this.edgeStart.x, this.edgeStart.y);
@@ -893,14 +895,14 @@ export class InteractiveGraphEditor {
 
     this.graph.nodes.forEach((node) => {
       const isSelected = node === this.selectedNode;
-      const fillColor = isSelected ? node.selectedColor : node.color;
+      const fillColor = isSelected ? theme.nodeSelected : theme.node;
 
       this.ctx.fillStyle = fillColor;
       this.ctx.beginPath();
       this.ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
       this.ctx.fill();
 
-      this.ctx.fillStyle = this.textColor;
+      this.ctx.fillStyle = theme.text;
       this.ctx.font = "bold 14px Arial";
       this.ctx.textAlign = "center";
       this.ctx.textBaseline = "middle";
@@ -915,15 +917,15 @@ export class InteractiveGraphEditor {
         this.ctx.textBaseline = "middle";
 
         const isCorrect = node.predicted === node.actual;
-        const correctColor = isCorrect ? "#888888" : "#00ff00";
-        const predictedColor = isCorrect ? "#888888" : this.errorDotColor;
+        const correctColor = isCorrect ? theme.dimColor : theme.correctColor;
+        const predictedColor = isCorrect ? theme.dimColor : theme.errorDot;
 
         this.ctx.fillStyle = correctColor;
         const correctText = String(node.actual);
         this.ctx.fillText(correctText, offsetX, offsetY);
 
         const correctWidth = this.ctx.measureText(correctText).width;
-        this.ctx.fillStyle = isCorrect ? "#888888" : this.textColor;
+        this.ctx.fillStyle = isCorrect ? theme.dimColor : theme.text;
         const slashX = offsetX + correctWidth;
         this.ctx.fillText("/", slashX, offsetY);
         const slashWidth = this.ctx.measureText("/").width;

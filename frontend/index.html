@@ -6,11 +6,18 @@
     <title>Bachelor Thesis - GNN Projects</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <script src="/config.js"></script>
-    <style>
-      body {
-        background-color: #1a1a1a;
-      }
-    </style>
+    <script>
+      // Apply theme before first paint to prevent flash
+      (function() {
+        var t = localStorage.getItem('theme');
+        if (t === 'light') {
+          document.documentElement.style.backgroundColor = '#ffffff';
+        } else {
+          document.documentElement.classList.add('dark');
+          document.documentElement.style.backgroundColor = '#1a1a1a';
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

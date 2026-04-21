@@ -3,6 +3,7 @@ import { AnimatePresence } from "framer-motion";
 
 import { BackgroundGraphTexture } from "./components/layout/BackgroundGraphTexture";
 import { SiteGraphNav } from "./components/layout/SiteGraphNav";
+import { ThemeToggle } from "./components/ui/ThemeToggle";
 import { OverviewPage } from "./pages/OverviewPage";
 import { DocsGnnsPage } from "./pages/docs/DocsGnnsPage";
 import { DocsArchitecturePage } from "./pages/docs/DocsArchitecturePage";
@@ -27,6 +28,7 @@ const AppRoutes = () => {
     <>
       <BackgroundGraphTexture />
       <SiteGraphNav />
+      <ThemeToggle />
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
           <Route path="/" element={<OverviewPage />} />

@@ -2,6 +2,86 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Light mode (default) */
+:root {
+  --color-bg0: #f0f0f0;
+  --color-bg1: #ffffff;
+  --color-bg2: #f5f5f5;
+  --color-line: #d0d0d0;
+  --color-line2: #bbbbbb;
+  --color-textMain: #1a1a1a;
+  --color-textMuted: #555555;
+  --color-textDim: #888888;
+  --color-accent: #5a5a5a;
+  --color-accentHover: #4a4a4a;
+  --code-bg: #eaeef3;
+  --code-border: #c8cdd4;
+  --btn-text: #ffffff;
+  --btn-secondary-bg: #7a7a7a;
+  --shadow-card: 0 4px 15px rgba(0, 0, 0, 0.08);
+  --shadow-cardHover: 0 6px 20px rgba(0, 0, 0, 0.12);
+  --scrollbar-thumb: #c0c0c0;
+  --scrollbar-thumb-hover: #999999;
+  --input-focus-bg: #ffffff;
+  --input-focus-shadow: 0 0 10px rgba(0, 0, 0, 0.06);
+  --disabled-bg: #d0d0d0;
+  --disabled-text: #999999;
+  --modal-overlay-bg: rgba(0, 0, 0, 0.3);
+  --modal-shadow: 0 10px 50px rgba(0, 0, 0, 0.15);
+  --slider-track: #d0d0d0;
+  --slider-thumb-border: #999999;
+  --slider-thumb-bg: #888888;
+  --graph-nav-link: #c0c0c0;
+  --graph-nav-node-fill: #ffffff;
+  --graph-nav-node-stroke: #999999;
+  --graph-nav-number: #999999;
+  --graph-nav-label: #999999;
+  --graph-nav-active-fill: #e8e8e8;
+  --graph-nav-active-stroke: #333333;
+  --graph-nav-active-text: #333333;
+  --graph-nav-hover-text: #333333;
+}
+
+/* Dark mode */
+.dark {
+  --color-bg0: #0f0f0f;
+  --color-bg1: #1a1a1a;
+  --color-bg2: #2a2a2a;
+  --color-line: #444444;
+  --color-line2: #555555;
+  --color-textMain: #ffffff;
+  --color-textMuted: #cccccc;
+  --color-textDim: #888888;
+  --color-accent: #666666;
+  --color-accentHover: #777777;
+  --code-bg: #2a2a2a;
+  --code-border: #555555;
+  --btn-text: #ffffff;
+  --btn-secondary-bg: #4a4a4a;
+  --shadow-card: 0 4px 15px rgba(0, 0, 0, 0.3);
+  --shadow-cardHover: 0 6px 20px rgba(0, 0, 0, 0.4);
+  --scrollbar-thumb: #3a3a3a;
+  --scrollbar-thumb-hover: #555555;
+  --input-focus-bg: #0f0f0f;
+  --input-focus-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+  --disabled-bg: #3a3a3a;
+  --disabled-text: #666666;
+  --modal-overlay-bg: rgba(0, 0, 0, 0.7);
+  --modal-shadow: 0 10px 50px rgba(0, 0, 0, 0.5);
+  --slider-track: #3a3a3a;
+  --slider-thumb-border: #cccccc;
+  --slider-thumb-bg: #999999;
+  --graph-nav-link: #555555;
+  --graph-nav-node-fill: #1a1a1a;
+  --graph-nav-node-stroke: #888888;
+  --graph-nav-number: #888888;
+  --graph-nav-label: #666666;
+  --graph-nav-active-fill: #333333;
+  --graph-nav-active-stroke: #ffffff;
+  --graph-nav-active-text: #ffffff;
+  --graph-nav-hover-text: #ffffff;
+}
+
 @keyframes soft-drift {
   0%,
   100% {
@@ -44,21 +124,24 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply rounded-full bg-[#3a3a3a];
+    @apply rounded-full;
+    background: var(--scrollbar-thumb);
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-[#555555];
+    background: var(--scrollbar-thumb-hover);
   }
 
   /* Firefox scrollbar support */
   * {
     scrollbar-width: thin;
-    scrollbar-color: #3a3a3a transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
   }
 
   code {
-    @apply rounded bg-bg2 px-1.5 py-0.5 font-mono text-[0.9em] text-textMain ui-hover-outline border border-line2 shadow-sm;
+    @apply rounded px-1.5 py-0.5 font-mono text-[0.9em] text-textMain ui-hover-outline shadow-sm;
+    background: var(--code-bg);
+    border: 1px solid var(--code-border);
   }
 
   ul {
@@ -72,8 +155,9 @@
   }
 
   .input-base:focus {
-    @apply border-textDim bg-[#0f0f0f] outline-none;
-    box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+    @apply border-textDim outline-none;
+    background: var(--input-focus-bg);
+    box-shadow: var(--input-focus-shadow);
   }
 
   .label-base {
@@ -81,7 +165,8 @@
   }
 
   .primary-action {
-    @apply w-full rounded-md bg-accent px-7 py-3.5 text-base font-bold uppercase tracking-[1px] text-textMain shadow-card transition-all duration-300;
+    @apply w-full rounded-md bg-accent px-7 py-3.5 text-base font-bold uppercase tracking-[1px] shadow-card transition-all duration-300;
+    color: var(--btn-text);
   }
 
   .primary-action:hover {
@@ -89,12 +174,15 @@
   }
 
   .primary-action:disabled {
-    @apply cursor-not-allowed bg-[#3a3a3a] text-[#666666] shadow-none;
+    @apply cursor-not-allowed shadow-none;
+    background: var(--disabled-bg);
+    color: var(--disabled-text);
     transform: none;
   }
 
   .ui-button-solid {
-    @apply inline-block rounded-md bg-accent px-6 py-3 text-sm font-bold uppercase tracking-[0.8px] text-textMain no-underline shadow-card;
+    @apply inline-block rounded-md bg-accent px-6 py-3 text-sm font-bold uppercase tracking-[0.8px] no-underline shadow-card;
+    color: var(--btn-text);
   }
 
   .ui-button-outline {
@@ -179,7 +267,8 @@
   }
 
   .modal-overlay {
-    @apply fixed inset-0 z-[1000] hidden items-center justify-center bg-black/70 backdrop-blur-sm;
+    @apply fixed inset-0 z-[1000] hidden items-center justify-center backdrop-blur-sm;
+    background: var(--modal-overlay-bg);
   }
 
   .modal-overlay.show {
@@ -188,7 +277,7 @@
 
   .modal-content {
     @apply w-[90%] max-w-[500px] rounded-xl border-2 border-line2 bg-bg2 p-9;
-    box-shadow: 0 10px 50px rgba(0, 0, 0, 0.5);
+    box-shadow: var(--modal-shadow);
   }
 
   .range-slider-container {
@@ -197,7 +286,7 @@
 
   .range-slider-container::before {
     content: "";
-    @apply pointer-events-none absolute left-0 top-1/2 h-1 w-full -translate-y-1/2 rounded-sm bg-[#3a3a3a];
+    @apply pointer-events-none absolute left-0 top-1/2 h-1 w-full -translate-y-1/2 rounded-sm bg-[var(--slider-track)];
   }
 
   .range-track-highlight {
@@ -214,8 +303,8 @@
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    border: 2px solid #cccccc;
-    background: #999999;
+    border: 2px solid var(--slider-thumb-border);
+    background: var(--slider-thumb-bg);
     pointer-events: all;
     cursor: pointer;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
@@ -225,15 +314,15 @@
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    border: 2px solid #cccccc;
-    background: #999999;
+    border: 2px solid var(--slider-thumb-border);
+    background: var(--slider-thumb-bg);
     pointer-events: all;
     cursor: pointer;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
   }
 
   .single-slider {
-    @apply my-4 h-1 w-full cursor-pointer appearance-none rounded-sm bg-[#3a3a3a] outline-none;
+    @apply my-4 h-1 w-full cursor-pointer appearance-none rounded-sm bg-[var(--slider-track)] outline-none;
   }
 
   .single-slider::-webkit-slider-thumb {
@@ -242,8 +331,8 @@
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    border: 2px solid #cccccc;
-    background: #999999;
+    border: 2px solid var(--slider-thumb-border);
+    background: var(--slider-thumb-bg);
     cursor: pointer;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
   }
@@ -252,9 +341,39 @@
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    border: 2px solid #cccccc;
-    background: #999999;
+    border: 2px solid var(--slider-thumb-border);
+    background: var(--slider-thumb-bg);
     cursor: pointer;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
   }
 }
+
+/* ── Highlight.js: Atom One Light (default) ── */
+pre code.hljs { display: block; overflow-x: auto; padding: 1em }
+code.hljs { padding: 3px 5px }
+.hljs { color: #383a42; background: #fafafa }
+.hljs-comment, .hljs-quote { color: #a0a1a7; font-style: italic }
+.hljs-doctag, .hljs-keyword, .hljs-formula { color: #a626a4 }
+.hljs-section, .hljs-name, .hljs-selector-tag, .hljs-deletion, .hljs-subst { color: #e45649 }
+.hljs-literal { color: #0184bb }
+.hljs-string, .hljs-regexp, .hljs-addition, .hljs-attribute, .hljs-meta .hljs-string { color: #50a14f }
+.hljs-attr, .hljs-variable, .hljs-template-variable, .hljs-type, .hljs-selector-class, .hljs-selector-attr, .hljs-selector-pseudo, .hljs-number { color: #986801 }
+.hljs-symbol, .hljs-bullet, .hljs-link, .hljs-meta, .hljs-selector-id, .hljs-title { color: #4078f2 }
+.hljs-built_in, .hljs-title.class_, .hljs-class .hljs-title { color: #c18401 }
+.hljs-emphasis { font-style: italic }
+.hljs-strong { font-weight: bold }
+.hljs-link { text-decoration: underline }
+
+/* ── Highlight.js: Atom One Dark (under .dark) ── */
+.dark .hljs { color: #abb2bf; background: #282c34 }
+.dark .hljs-comment, .dark .hljs-quote { color: #5c6370; font-style: italic }
+.dark .hljs-doctag, .dark .hljs-keyword, .dark .hljs-formula { color: #c678dd }
+.dark .hljs-section, .dark .hljs-name, .dark .hljs-selector-tag, .dark .hljs-deletion, .dark .hljs-subst { color: #e06c75 }
+.dark .hljs-literal { color: #56b6c2 }
+.dark .hljs-string, .dark .hljs-regexp, .dark .hljs-addition, .dark .hljs-attribute, .dark .hljs-meta .hljs-string { color: #98c379 }
+.dark .hljs-attr, .dark .hljs-variable, .dark .hljs-template-variable, .dark .hljs-type, .dark .hljs-selector-class, .dark .hljs-selector-attr, .dark .hljs-selector-pseudo, .dark .hljs-number { color: #d19a66 }
+.dark .hljs-symbol, .dark .hljs-bullet, .dark .hljs-link, .dark .hljs-meta, .dark .hljs-selector-id, .dark .hljs-title { color: #61aeee }
+.dark .hljs-built_in, .dark .hljs-title.class_, .dark .hljs-class .hljs-title { color: #e6c07b }
+.dark .hljs-emphasis { font-style: italic }
+.dark .hljs-strong { font-weight: bold }
+.dark .hljs-link { text-decoration: underline }

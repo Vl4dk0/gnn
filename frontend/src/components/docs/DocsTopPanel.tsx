@@ -57,14 +57,14 @@ export const DocsTopPanel = ({ featureActive, currentPath }: DocsTopPanelProps) 
                 className={`ui-button-panel ui-surface-link rounded-md px-3 py-2 text-inherit ${
                   active
                     ? "border-line2 bg-bg2 text-textMain"
-                  : "cursor-not-allowed border-[#333333] bg-[#161616] text-textDim opacity-65"
+                  : "cursor-not-allowed border-[#d0d0d0] bg-[#e8e8e8] dark:border-[#333333] dark:bg-[#161616] text-textDim opacity-65"
                 }`}
               >
                 <p className="text-sm font-bold leading-tight">{project.title}</p>
                 <p className="mt-0.5 text-[11px] leading-[1.35] text-textMuted">
                   {project.description}
                 </p>
-                <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.7px] text-[#d8d8d8]">
+                <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.7px] text-[#555555] dark:text-[#d8d8d8]">
                   {active ? "Open interactive graph editor" : "Unavailable"}
                 </p>
               </a>
@@ -86,7 +86,7 @@ export const DocsTopPanel = ({ featureActive, currentPath }: DocsTopPanelProps) 
                   className={`ui-button-panel ui-surface-link block rounded-md px-3 py-2 text-inherit ${
                     active
                       ? "border-line2 bg-bg2 text-textMain"
-                      : "cursor-not-allowed border-[#333333] bg-[#161616] text-textDim opacity-65"
+                      : "cursor-not-allowed border-[#d0d0d0] bg-[#e8e8e8] dark:border-[#333333] dark:bg-[#161616] text-textDim opacity-65"
                   }`}
                 >
                   <p className="text-sm font-bold leading-tight">{project.title}</p>

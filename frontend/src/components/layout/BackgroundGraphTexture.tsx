@@ -33,7 +33,7 @@ export const BackgroundGraphTexture = () => {
             key={`${r}-${c}`}
             x={x + colWidth / 2} // Center in cell
             y={y + lineHeight / 2} // Center in cell
-            className="fill-white"
+            className="fill-black dark:fill-white"
             fontSize={fontSize}
             fontFamily="monospace"
             dominantBaseline="middle"

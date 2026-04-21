@@ -85,8 +85,8 @@ export const MetricTable = <T extends Record<string, any>>({
             {columns.map((col) => (
               <th
                 key={String(col.key)}
-                className={`border-b border-line px-3 py-2.5 text-left text-[0.85rem] uppercase tracking-[0.6px] text-textMain bg-[#232323] ${
-                  col.sortable !== false ? "cursor-pointer hover:bg-[#2a2a2a] select-none" : ""
+                className={`border-b border-line px-3 py-2.5 text-left text-[0.85rem] uppercase tracking-[0.6px] text-textMain bg-[#ebebeb] dark:bg-[#232323] ${
+                  col.sortable !== false ? "cursor-pointer hover:bg-[#e0e0e0] dark:hover:bg-[#2a2a2a] select-none" : ""
                 }`}
                 onClick={() =>
                   col.sortable !== false && handleSort(col.key, col.defaultDirection)
@@ -159,7 +159,7 @@ export const MetricTable = <T extends Record<string, any>>({
         </thead>
         <tbody>
           {sortedData.map((row, i) => (
-            <tr key={i} className="hover:bg-white/5 transition-colors">
+            <tr key={i} className="hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
               {columns.map((col) => (
                 <td
                   key={String(col.key)}

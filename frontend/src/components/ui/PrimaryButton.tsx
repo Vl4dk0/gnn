@@ -13,7 +13,8 @@ export const PrimaryButton = ({
   return (
     <button
       type="button"
-      className={`${fullWidth ? "primary-action ui-action" : "ui-action rounded-md bg-accent px-5 py-2.5 text-sm font-semibold uppercase tracking-[1px] text-textMain transition-all duration-300"} ${className}`}
+      className={`${fullWidth ? "primary-action ui-action" : "ui-action rounded-md bg-accent px-5 py-2.5 text-sm font-semibold uppercase tracking-[1px] transition-all duration-300"} ${className}`}
+      style={{ color: "var(--btn-text)" }}
       {...props}
     >
       {children}

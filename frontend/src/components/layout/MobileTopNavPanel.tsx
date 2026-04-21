@@ -29,7 +29,7 @@ export const MobileTopNavPanel = ({ featureActive }: MobileTopNavPanelProps) => 
               className={`ui-surface-link min-w-fit shrink-0 rounded-md border px-3 py-2 text-xs font-semibold uppercase tracking-[0.6px] no-underline transition-colors ${
                 active
                   ? "border-line2 bg-bg1 text-textMain"
-                  : "cursor-not-allowed border-[#333333] bg-[#161616] text-textDim opacity-70"
+                  : "cursor-not-allowed border-[#d0d0d0] bg-[#e8e8e8] dark:border-[#333333] dark:bg-[#161616] text-textDim opacity-70"
               }`}
               title={project.description}
             >

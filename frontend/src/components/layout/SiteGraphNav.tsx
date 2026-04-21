@@ -179,7 +179,7 @@ export const SiteGraphNav = () => {
     // 4. Render Elements
     const link = svg
       .append("g")
-      .attr("stroke", "#555")
+      .attr("stroke", "var(--graph-nav-link)")
       .attr("stroke-opacity", 0.6)
       .attr("fill", "none")
       .selectAll("path")
@@ -200,8 +200,8 @@ export const SiteGraphNav = () => {
       .append("circle")
       .attr("class", "node-circle transition-all duration-300")
       .attr("r", (d: any) => (d.group === "app" ? 8 : 12))
-      .attr("fill", "#1a1a1a")
-      .attr("stroke", "#888")
+      .attr("fill", "var(--graph-nav-node-fill)")
+      .attr("stroke", "var(--graph-nav-node-stroke)")
       .attr("stroke-width", 2);
 
     // Number inside circle (for non-apps)
@@ -213,7 +213,7 @@ export const SiteGraphNav = () => {
       .attr("dy", "0.35em") // Vertically center
       .attr("font-size", "11px")
       .attr("font-weight", "bold")
-      .attr("fill", "#888")
+      .attr("fill", "var(--graph-nav-number)")
       .attr("class", "node-number pointer-events-none select-none transition-all duration-300");
 
     // Labels (Beneath Node)
@@ -228,8 +228,8 @@ export const SiteGraphNav = () => {
       .attr("font-size", (d: any) => (d.group === "app" ? "10px" : "11px"))
       .attr("font-weight", (d: any) => (d.group === "app" ? "400" : "500"))
       .attr("letter-spacing", "0.02em")
-      .attr("fill", "#666") // Default dimmed
-      .style("text-shadow", "0 1px 4px rgba(0,0,0,0.8)"); // Ensure readability
+      .attr("fill", "var(--graph-nav-label)") // Default dimmed
+      .style("text-shadow", "none");
 
     // Click Handler
     nodeGroup.on("click", (event: any, d: GraphNode) => {
@@ -241,11 +241,11 @@ export const SiteGraphNav = () => {
     nodeGroup
       .on("mouseenter", (event: any) => {
         const el = d3.select(event.currentTarget);
-        el.select(".node-circle").attr("stroke", "#fff");
-        el.select(".node-number").attr("fill", "#fff");
+        el.select(".node-circle").attr("stroke", "var(--graph-nav-hover-text)");
+        el.select(".node-number").attr("fill", "var(--graph-nav-hover-text)");
 
         // Highlight label
-        el.select(".node-label").attr("fill", "#fff");
+        el.select(".node-label").attr("fill", "var(--graph-nav-hover-text)");
       })
       .on("mouseleave", (event: any, d: GraphNode) => {
         const normalize = (p: string) => p.replace(/\/$/, "") || "/";
@@ -254,12 +254,12 @@ export const SiteGraphNav = () => {
 
         if (!isActive) {
           const el = d3.select(event.currentTarget);
-          el.select(".node-circle").attr("fill", "#1a1a1a").attr("stroke", "#888");
+          el.select(".node-circle").attr("fill", "var(--graph-nav-node-fill)").attr("stroke", "var(--graph-nav-node-stroke)");
 
-          el.select(".node-number").attr("fill", "#888");
+          el.select(".node-number").attr("fill", "var(--graph-nav-number)");
 
           // Dim label
-          el.select(".node-label").attr("fill", "#666");
+          el.select(".node-label").attr("fill", "var(--graph-nav-label)");
         }
       });
 
@@ -325,11 +325,11 @@ export const SiteGraphNav = () => {
       .duration(300)
       .attr("fill", (d: any) => {
         const isActive = normalize(d.path) === current;
-        return isActive ? "#333" : "#1a1a1a";
+        return isActive ? "var(--graph-nav-active-fill)" : "var(--graph-nav-node-fill)";
       })
       .attr("stroke", (d: any) => {
         const isActive = normalize(d.path) === current;
-        return isActive ? "#fff" : "#888";
+        return isActive ? "var(--graph-nav-active-stroke)" : "var(--graph-nav-node-stroke)";
       })
       .attr("stroke-width", (d: any) => {
         const isActive = normalize(d.path) === current;
@@ -348,7 +348,7 @@ export const SiteGraphNav = () => {
       .duration(300)
       .attr("fill", (d: any) => {
         const isActive = normalize(d.path) === current;
-        return isActive ? "#fff" : "#888";
+        return isActive ? "var(--graph-nav-active-text)" : "var(--graph-nav-number)";
       });
 
     // Update Halo Styles
@@ -362,7 +362,7 @@ export const SiteGraphNav = () => {
       .duration(300)
       .attr("fill", (d: any) => {
         const isActive = normalize(d.path) === current;
-        return isActive ? "#fff" : "#666";
+        return isActive ? "var(--graph-nav-active-text)" : "var(--graph-nav-label)";
       });
   }, [location.pathname, isOpen]);
 

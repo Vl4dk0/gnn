@@ -5,23 +5,24 @@ const config: Config = {
     "./index.html",
     "./src/**/*.{ts,tsx}"
   ],
+  darkMode: "class",
   theme: {
     extend: {
       colors: {
-        bg0: "#0f0f0f",
-        bg1: "#1a1a1a",
-        bg2: "#2a2a2a",
-        line: "#444444",
-        line2: "#555555",
-        textMain: "#ffffff",
-        textMuted: "#cccccc",
-        textDim: "#888888",
-        accent: "#666666",
-        accentHover: "#777777"
+        bg0: "var(--color-bg0)",
+        bg1: "var(--color-bg1)",
+        bg2: "var(--color-bg2)",
+        line: "var(--color-line)",
+        line2: "var(--color-line2)",
+        textMain: "var(--color-textMain)",
+        textMuted: "var(--color-textMuted)",
+        textDim: "var(--color-textDim)",
+        accent: "var(--color-accent)",
+        accentHover: "var(--color-accentHover)"
       },
       boxShadow: {
-        card: "0 4px 15px rgba(0, 0, 0, 0.3)",
-        cardHover: "0 6px 20px rgba(0, 0, 0, 0.4)"
+        card: "var(--shadow-card)",
+        cardHover: "var(--shadow-cardHover)"
       }
     }
   },
