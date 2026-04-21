@@ -345,9 +345,9 @@ class CageConstructionEnv:
                 info["action_type"] = "edge_invalid_add"
                 info["done_reason"] = "add_rule_or_constraint"
 
-        # Potential-based reward shaping (Ng et al., 1999)
+        # Progress-based reward shaping (undiscounted potential difference)
         new_potential = self._potential()
-        reward += 0.99 * new_potential - self._prev_potential
+        reward += new_potential - self._prev_potential
         self._prev_potential = new_potential
 
         girth_ok = self._is_girth_satisfied_active()
