@@ -14,13 +14,14 @@
     "learning_rate": 0.0003,
     "update_interval": 2048,
     "randomize": true,
+    "episode_steps": 500,
     "resumed": false,
-    "checkpoint_step": 22528,
-    "partial": true
+    "checkpoint_step": 300000,
+    "partial": false
   },
   "metrics": {
-    "avg_reward": 3.28,
-    "fps": 70
+    "avg_reward": 14.16,
+    "fps": 73
   },
-  "created_at": "2026-04-21T00:09:23.431365"
+  "created_at": "2026-04-21T01:12:28.193147"
 }
