@@ -1,6 +1,6 @@
 {
   "model_type": "actor_critic",
-  "model_id": "loopy_loopy_r3_h64_ppo",
+  "model_id": "loopy_r3_h64_ppo",
   "task": "cage",
   "training": {
     "model_type": "loopy",

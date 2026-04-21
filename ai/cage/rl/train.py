@@ -76,7 +76,10 @@ def train_ppo(
     console = Console()
     is_tty = sys.stdout.isatty()
 
-    model_id = f"{model_type}_{model_name}"
+    if model_name == model_type or model_name.startswith(f"{model_type}_"):
+        model_id = model_name
+    else:
+        model_id = f"{model_type}_{model_name}"
     r_for_obs: int | None = r if model_type == "loopy" else None
 
     env = CageConstructionEnv(
