@@ -1,0 +1,24 @@
+{
+  "model_type": "loopy",
+  "model_id": "loopy_r3_h128_l6",
+  "task": "min_cycle",
+  "training": {
+    "input_dim": 4,
+    "hidden_dim": 128,
+    "output_dim": 1,
+    "num_layers": 6,
+    "dropout": 0.2,
+    "r": 3,
+    "shared": true,
+    "epochs": 5000,
+    "best_epoch": 4840,
+    "learning_rate": 0.001,
+    "graphs_per_epoch": 10
+  },
+  "metrics": {
+    "mse": 0.5768,
+    "mae": 0.2326,
+    "accuracy": 85.91
+  },
+  "created_at": "2026-04-16T15:12:36.594978"
+}

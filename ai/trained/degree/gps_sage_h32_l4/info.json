@@ -1,0 +1,24 @@
+{
+  "model_type": "gps",
+  "model_id": "gps_sage_h32_l4",
+  "task": "degree",
+  "training": {
+    "input_dim": 4,
+    "hidden_dim": 32,
+    "output_dim": 1,
+    "num_layers": 4,
+    "dropout": 0.2,
+    "conv_type": "sage",
+    "heads": 4,
+    "epochs": 500,
+    "best_epoch": 150,
+    "learning_rate": 0.001,
+    "graphs_per_epoch": 50
+  },
+  "metrics": {
+    "mse": 0.1495,
+    "mae": 0.1274,
+    "accuracy": 87.26
+  },
+  "created_at": "2026-03-17T01:27:15.468924"
+}
