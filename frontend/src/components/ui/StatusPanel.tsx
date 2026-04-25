@@ -11,6 +11,10 @@ const formatGirth = (value: number | null) => {
   return value === null ? "∞" : String(value);
 };
 
+const formatAction = (action: string) => {
+  return action.replace(/^edge_/, "").replaceAll("_", " ");
+};
+
 export const StatusPanel = ({ status, error, successMessage, stoppedByUser }: StatusPanelProps) => {
   if (error) {
     return (
@@ -30,6 +34,9 @@ export const StatusPanel = ({ status, error, successMessage, stoppedByUser }: St
         <strong>Target:</strong> ({status.k},{status.g})-cage
       </div>
       <div className="mb-2">
+        <strong>Mode:</strong> {status.mode === "stepped" ? "RL step inspection" : "Fast search"}
+      </div>
+      <div className="mb-2">
         <strong>Step:</strong> {status.step_count}
       </div>
       <div className="mb-2">
@@ -45,9 +52,43 @@ export const StatusPanel = ({ status, error, successMessage, stoppedByUser }: St
         <strong>Girth:</strong> {formatGirth(status.girth)} (target: {status.g})
       </div>
 
-      {!status.is_complete && (
+      {status.last_event && (
+        <div className="mt-3 rounded-xl border border-line2 bg-bg2/75 p-3">
+          <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.8px] text-textDim">
+            Last RL Move
+          </div>
+          <div>
+            <strong>Action:</strong> {formatAction(status.last_event.action)}
+          </div>
+          {status.last_event.u !== null && status.last_event.v !== null && (
+            <div>
+              <strong>Edge:</strong> {status.last_event.u}-{status.last_event.v}
+            </div>
+          )}
+          <div>
+            <strong>Accepted:</strong> {status.last_event.accepted ? "yes" : "no"}
+          </div>
+          <div>
+            <strong>Reward:</strong> {status.last_event.reward.toFixed(3)}
+          </div>
+          {status.last_event.done_reason && (
+            <div>
+              <strong>Reason:</strong> {status.last_event.done_reason}
+            </div>
+          )}
+        </div>
+      )}
+
+      {!status.is_complete && !status.timed_out && (
         <div className="mt-3 text-sm text-textDim">
-          ⏳ Generating... ({status.elapsed_time.toFixed(1)}s)
+          {status.mode === "stepped" ? "Inspection ready" : "⏳ Generating..."} (
+          {status.elapsed_time.toFixed(1)}s)
+        </div>
+      )}
+
+      {status.timed_out && (
+        <div className="mt-3 text-sm text-textDim">
+          Generation timed out ({status.elapsed_time.toFixed(1)}s)
         </div>
       )}
 

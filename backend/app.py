@@ -1,4 +1,5 @@
 import os
+import json
 
 from dotenv import load_dotenv
 from flask import Flask, Response, jsonify, request
@@ -18,8 +19,10 @@ def create_app() -> Flask:
     backend_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(backend_dir)
     frontend_dir = os.path.join(project_root, "frontend")
+    frontend_dist_dir = os.path.join(frontend_dir, "dist")
+    static_dir = frontend_dist_dir if os.path.exists(frontend_dist_dir) else frontend_dir
 
-    app = Flask(__name__, static_folder=frontend_dir, static_url_path="")
+    app = Flask(__name__, static_folder=None)
     _ = CORS(app)  # Enable CORS for all routes
 
     # Register blueprints
@@ -60,23 +63,24 @@ def create_app() -> Flask:
     @app.route("/config.js")
     def config_js():  # pyright: ignore[reportUnusedFunction]
         """Runtime-injected frontend config script."""
-        js = f'window.__APP_CONFIG__ = {{"apiBaseUrl": "{resolve_api_base_url()}"}};'
+        config = json.dumps({"apiBaseUrl": resolve_api_base_url()})
+        js = f"window.__APP_CONFIG__ = {config};"
         return Response(js, mimetype="application/javascript")
 
     @app.route("/")
     def index():  # pyright: ignore[reportUnusedFunction]
         """Serve the main HTML page."""
-        return send_from_directory(frontend_dir, "index.html")
+        return send_from_directory(static_dir, "index.html")
 
     @app.route("/<path:path>")
     def serve_static(path: str):  # pyright: ignore[reportUnusedFunction]
         """Serve static files (CSS, JS, etc.) or fallback to SPA entry point."""
-        full_path = os.path.join(frontend_dir, path)
+        full_path = os.path.join(static_dir, path)
         if os.path.exists(full_path) and os.path.isfile(full_path):
-            return send_from_directory(frontend_dir, path)
+            return send_from_directory(static_dir, path)
 
         # SPA Fallback: serve index.html for unknown paths (client-side routing)
-        return send_from_directory(frontend_dir, "index.html")
+        return send_from_directory(static_dir, "index.html")
 
     return app
 

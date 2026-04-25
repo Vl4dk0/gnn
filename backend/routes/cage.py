@@ -5,7 +5,8 @@ Blueprint for Cage Graph Generator API endpoints.
 import uuid
 import threading
 import time
-from typing import Protocol, TypedDict, Required, cast
+from collections import deque
+from typing import Literal, Protocol, TypedDict, Required, cast
 
 import networkx as nx
 from flask import Blueprint, jsonify, request, Response
@@ -17,7 +18,7 @@ from ai.cage import (
     RLGenerator,
     VoltageSearchGenerator,
 )
-from ai.registry import get_best_model_id, list_trained_models
+from ai.registry import get_best_model_id, list_trained_models, model_exists
 from backend.utils.graph_utils import (
     graph_to_edge_list,
     is_valid_cage,
@@ -41,17 +42,38 @@ class _GeneratorProto(Protocol):
     def is_regular(self) -> bool: ...
 
 
+type _GeneratorType = Literal["randomwalk", "bruteforce", "astar", "rl", "voltage"]
+type _ExecutionMode = Literal["async", "stepped"]
+type _Generator = (
+    RandomWalkGenerator
+    | BruteforceGenerator
+    | AStarGenerator
+    | RLGenerator
+    | VoltageSearchGenerator
+)
+
+
+class _StepEvent(TypedDict):
+    step: int
+    action: str
+    u: int | None
+    v: int | None
+    accepted: bool
+    reward: float
+    done: bool
+    done_reason: str | None
+
+
 class _Session(TypedDict, total=False):
-    generator: Required[
-        RandomWalkGenerator
-        | BruteforceGenerator
-        | AStarGenerator
-        | RLGenerator
-        | VoltageSearchGenerator
-    ]
+    generator: Required[_Generator]
+    mode: Required[_ExecutionMode]
+    generator_type: Required[_GeneratorType]
     last_poll: Required[float]
-    thread: Required[threading.Thread]
+    last_activity: Required[float]
+    thread: Required[threading.Thread | None]
     stopped: Required[bool]
+    lock: Required[threading.Lock]
+    events: Required[deque[_StepEvent]]
     timed_out: bool
 
 
@@ -61,6 +83,11 @@ class _GenerateRequest(TypedDict, total=False):
     generator: str
     model: str
     model_id: str
+    mode: str
+
+
+class _StepRequest(TypedDict, total=False):
+    steps: int
 
 
 class _AnalyzeRequest(TypedDict, total=False):
@@ -82,37 +109,138 @@ POLL_TIMEOUT = 5
 # Hard cap on how long a single generation session may run
 MAX_GENERATION_TIME = 300  # 5 minutes
 MAX_PARALLEL_GENERATIONS = 3
+STEPPED_IDLE_TIMEOUT = 30 * 60
+MAX_STEP_BATCH = 100
 
 # Safety limits to prevent pathological generation requests from exhausting local compute.
 MAX_MOORE_BOUND = 120
+VALID_GENERATORS: set[str] = {"randomwalk", "bruteforce", "astar", "rl", "voltage"}
+VALID_MODES: set[str] = {"async", "stepped"}
 
 
 def _count_active_generations_locked() -> int:
     """Count currently running generation threads (lock must be held)."""
     active = 0
     for session in generation_sessions.values():
-        if session["thread"].is_alive():
+        thread = session["thread"]
+        if thread is not None and thread.is_alive():
             active += 1
     return active
 
 
-def run_generation(
+def _normalize_generator_type(generator_type: str) -> _GeneratorType | None:
+    if generator_type in VALID_GENERATORS:
+        return cast(_GeneratorType, generator_type)
+    return None
+
+
+def _normalize_mode(mode: str) -> _ExecutionMode | None:
+    if mode in VALID_MODES:
+        return cast(_ExecutionMode, mode)
+    return None
+
+
+def _append_latest_event(session: _Session, generator: _Generator) -> _StepEvent | None:
+    if not isinstance(generator, RLGenerator):
+        return None
+    event = generator.last_event
+    if event is None:
+        return None
+    copied_event: _StepEvent = {
+        "step": event["step"],
+        "action": event["action"],
+        "u": event["u"],
+        "v": event["v"],
+        "accepted": event["accepted"],
+        "reward": event["reward"],
+        "done": event["done"],
+        "done_reason": event["done_reason"],
+    }
+    session["events"].append(copied_event)
+    return copied_event
+
+
+def _snapshot_status(
     session_id: str,
-    generator: RandomWalkGenerator | BruteforceGenerator | AStarGenerator | RLGenerator,
-) -> None:
+    session: _Session,
+    previous_graph: str | None = None,
+    events: list[_StepEvent] | None = None,
+) -> dict[str, object]:
+    """Create a consistent status payload. The session lock must be held."""
+    generator: _GeneratorProto = cast(_GeneratorProto, session["generator"])
+    graph = generator.graph.copy()
+    girth_val = compute_girth(graph) if len(graph.edges()) > 0 else float("inf")
+    girth_json = None if girth_val == float("inf") else girth_val
+    last_event = session["events"][-1] if len(session["events"]) > 0 else None
+
+    payload: dict[str, object] = {
+        "session_id": session_id,
+        "mode": session["mode"],
+        "generator": session["generator_type"],
+        "k": generator.k,
+        "g": generator.g,
+        "step_count": generator.step_count,
+        "num_nodes": len(graph.nodes()),
+        "num_edges": len(graph.edges()),
+        "girth": girth_json,
+        "is_k_regular": is_k_regular(graph, generator.k),
+        "is_complete": generator.is_complete,
+        "success": generator.success,
+        "stopped": session["stopped"],
+        "timed_out": session.get("timed_out", False),
+        "current_graph": graph_to_edge_list(graph),
+        "moore_bound": moore_bound(generator.k, generator.g),
+        "elapsed_time": generator.elapsed_time(),
+        "last_event": last_event,
+        "events": events or [],
+    }
+    if previous_graph is not None:
+        payload["previous_graph"] = previous_graph
+    return payload
+
+
+def _create_generator(
+    generator_type: _GeneratorType,
+    k: int,
+    g: int,
+    requested_model_type: str,
+    requested_model_id: str | None,
+) -> _Generator:
+    if generator_type == "randomwalk":
+        return RandomWalkGenerator(k, g)
+    if generator_type == "bruteforce":
+        return BruteforceGenerator(k, g)
+    if generator_type == "astar":
+        return AStarGenerator(k, g)
+    if generator_type == "voltage":
+        return VoltageSearchGenerator(k, g)
+    return RLGenerator(
+        k,
+        g,
+        model_type=requested_model_type,
+        model_id=requested_model_id,
+    )
+
+
+def run_generation(session_id: str) -> None:
     """
     Background thread function that runs generation continuously.
     Stops if session hasn't been polled recently (abandoned by frontend).
     """
     try:
-        while not generator.is_complete:
-            # Check if session has been abandoned (no polling)
+        while True:
             with session_lock:
                 if session_id not in generation_sessions:
                     print(f"Generation thread {session_id} - session removed, stopping")
                     break
 
                 session: _Session = generation_sessions[session_id]
+
+            with session["lock"]:
+                generator = session["generator"]
+                if generator.is_complete:
+                    break
+
                 last_poll: float = session.get("last_poll", time.time())
 
                 # Stop if no polling for POLL_TIMEOUT seconds
@@ -133,13 +261,16 @@ def run_generation(
                     session["timed_out"] = True
                     break
 
-            generator.step()
+                generator.step()
+                _ = _append_latest_event(session, generator)
+                session["last_activity"] = time.time()
+
             # Small sleep to prevent CPU spinning, but still fast
             time.sleep(0.001)  # 1ms between steps
     except Exception as e:
         print(f"Error in generation thread {session_id}: {e}")
     finally:
-        print(f"Generation thread {session_id} completed. Success: {generator.success}")
+        print(f"Generation thread {session_id} completed.")
 
 
 @cage_bp.route("/status", methods=["GET"])
@@ -168,9 +299,22 @@ def generate() -> Response | tuple[Response, int]:
 
     k: int = data["k"]
     g: int = data["g"]
-    generator_type: str = data.get("generator", "randomwalk")
+    raw_generator_type: str = data.get("generator", "randomwalk")
+    raw_mode: str = data.get("mode", "async")
     requested_model_id: str | None = data.get("model_id")
     requested_model_type: str = data.get("model", "gin")
+    generator_type = _normalize_generator_type(raw_generator_type)
+    mode = _normalize_mode(raw_mode)
+
+    if generator_type is None:
+        return jsonify({"error": f"Unknown cage generator: {raw_generator_type}"}), 400
+    if mode is None:
+        return jsonify({"error": f"Unknown cage execution mode: {raw_mode}"}), 400
+    if mode == "stepped" and generator_type != "rl":
+        return jsonify({"error": "Stepped inspection mode is only supported for RL"}), 400
+    if generator_type == "rl" and requested_model_id is not None:
+        if not model_exists("cage", requested_model_id):
+            return jsonify({"error": f"Unknown cage model_id: {requested_model_id}"}), 400
 
     # Validation
     if k < 2:
@@ -199,34 +343,25 @@ def generate() -> Response | tuple[Response, int]:
 
     # Create generator based on type
     session_id = str(uuid.uuid4())
-
-    if generator_type == "bruteforce":
-        generator = BruteforceGenerator(k, g)
-    elif generator_type == "astar":
-        generator = AStarGenerator(k, g)
-    elif generator_type == "rl":
-        generator = RLGenerator(
-            k,
-            g,
-            model_type=requested_model_type,
-            model_id=requested_model_id,
-        )
-    elif generator_type == "voltage":
-        generator = VoltageSearchGenerator(k, g)
-    else:  # 'randomwalk' or default
-        generator = RandomWalkGenerator(k, g)
-
-    # Start background thread to run generation
-    thread = threading.Thread(
-        target=run_generation,
-        args=(session_id, generator),
-        daemon=True,
-        name=f"cage-gen-{session_id[:8]}",
+    generator = _create_generator(
+        generator_type,
+        k,
+        g,
+        requested_model_type,
+        requested_model_id,
     )
+    thread: threading.Thread | None = None
+    if mode == "async":
+        thread = threading.Thread(
+            target=run_generation,
+            args=(session_id,),
+            daemon=True,
+            name=f"cage-gen-{session_id[:8]}",
+        )
 
     with session_lock:
         active = _count_active_generations_locked()
-        if active >= MAX_PARALLEL_GENERATIONS:
+        if mode == "async" and active >= MAX_PARALLEL_GENERATIONS:
             return (
                 jsonify(
                     {
@@ -243,17 +378,25 @@ def generate() -> Response | tuple[Response, int]:
 
         generation_sessions[session_id] = {
             "generator": generator,
+            "mode": mode,
+            "generator_type": generator_type,
             "last_poll": time.time(),
+            "last_activity": time.time(),
             "thread": thread,
             "stopped": False,
+            "lock": threading.Lock(),
+            "events": deque(maxlen=1000),
         }
 
-    thread.start()
+    if thread is not None:
+        thread.start()
 
     return jsonify(
         {
             "session_id": session_id,
             "status": "started",
+            "mode": mode,
+            "generator": generator_type,
             "k": k,
             "g": g,
             "moore_bound": mb,
@@ -286,40 +429,52 @@ def get_status(session_id: str) -> Response | tuple[Response, int]:
         if not session:
             return jsonify({"error": "Session not found"}), 404
 
-        # Update last poll time to keep session alive
+    with session["lock"]:
+        # Update last poll time to keep async sessions alive.
         session["last_poll"] = time.time()
-        generator: _GeneratorProto = cast(_GeneratorProto, session["generator"])
-        stopped: bool = session["stopped"]
-        timed_out: bool = session.get("timed_out", False)
+        session["last_activity"] = time.time()
+        return jsonify(_snapshot_status(session_id, session))
 
-    # Just read current state - don't execute steps (background thread handles that)
-    # Compute girth and convert infinity to null for JSON
-    girth_val = (
-        compute_girth(generator.graph)
-        if len(generator.graph.edges()) > 0
-        else float("inf")
-    )
-    girth_json = None if girth_val == float("inf") else girth_val
 
-    return jsonify(
-        {
-            "session_id": session_id,
-            "k": generator.k,
-            "g": generator.g,
-            "step_count": generator.step_count,
-            "num_nodes": len(generator.graph.nodes()),
-            "num_edges": len(generator.graph.edges()),
-            "girth": girth_json,  # Now properly converts inf to null
-            "is_k_regular": generator.is_regular(),
-            "is_complete": generator.is_complete,
-            "success": generator.success,
-            "stopped": stopped,
-            "timed_out": timed_out,
-            "current_graph": graph_to_edge_list(generator.graph),
-            "moore_bound": moore_bound(generator.k, generator.g),
-            "elapsed_time": generator.elapsed_time(),
-        }
-    )
+@cage_bp.route("/step/<session_id>", methods=["POST"])
+def step_session(session_id: str) -> Response | tuple[Response, int]:
+    """Advance a stepped RL inspection session by a bounded number of steps."""
+    data: _StepRequest = cast(_StepRequest, request.get_json() or {})
+    steps = int(data.get("steps", 1))
+    if steps < 1 or steps > MAX_STEP_BATCH:
+        return jsonify({"error": f"steps must be between 1 and {MAX_STEP_BATCH}"}), 400
+
+    with session_lock:
+        session: _Session | None = generation_sessions.get(session_id)
+        if not session:
+            return jsonify({"error": "Session not found"}), 404
+
+    with session["lock"]:
+        if session["mode"] != "stepped":
+            return jsonify({"error": "Session is not in stepped mode"}), 400
+        if session["stopped"]:
+            return jsonify({"error": "Session has been stopped"}), 400
+
+        generator = session["generator"]
+        previous_graph = graph_to_edge_list(generator.graph.copy())
+        events: list[_StepEvent] = []
+        for _ in range(steps):
+            if generator.is_complete:
+                break
+            generator.step()
+            event = _append_latest_event(session, generator)
+            if event is not None:
+                events.append(event)
+
+        session["last_activity"] = time.time()
+        return jsonify(
+            _snapshot_status(
+                session_id,
+                session,
+                previous_graph=previous_graph,
+                events=events,
+            )
+        )
 
 
 @cage_bp.route("/stop/<session_id>", methods=["POST"])
@@ -390,10 +545,11 @@ def cleanup_old_sessions() -> None:
             to_remove: list[str] = []
             session_id: str
             for session_id, session in generation_sessions.items():
-                if session.get("stopped", False):
-                    # Remove stopped sessions after 30 seconds
-                    if time.time() - session["last_poll"] > 30:
-                        to_remove.append(session_id)
+                idle_seconds = time.time() - session["last_activity"]
+                if session.get("stopped", False) and idle_seconds > 30:
+                    to_remove.append(session_id)
+                elif session["mode"] == "stepped" and idle_seconds > STEPPED_IDLE_TIMEOUT:
+                    to_remove.append(session_id)
 
             # Remove them
             for session_id in to_remove:

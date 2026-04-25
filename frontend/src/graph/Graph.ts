@@ -190,6 +190,99 @@ export class Graph {
     });
   }
 
+  /**
+   * Update graph from an edge list, preserving positions of existing nodes.
+   * Only adds/removes the diff — nodes that already exist keep their
+   * current (x, y) from the physics simulation.
+   */
+  public updateFromEdgeList(edgeListText: string, canvasWidth: number, canvasHeight: number): void {
+    if (!edgeListText.trim()) {
+      this.clear();
+      return;
+    }
+
+    const lines = edgeListText.trim().split("\n");
+    const newNodeIds = new Set<number>();
+    const newEdges: Array<{ from: number; to: number }> = [];
+
+    lines.forEach((line) => {
+      const parts = line.trim().split(/\s+/);
+      if (parts.length === 1) {
+        const vertex = Number.parseInt(parts[0], 10);
+        if (!Number.isNaN(vertex)) newNodeIds.add(vertex);
+        return;
+      }
+      if (parts.length < 2) return;
+      const from = Number.parseInt(parts[0], 10);
+      const to = Number.parseInt(parts[1], 10);
+      if (Number.isNaN(from) || Number.isNaN(to)) return;
+      newNodeIds.add(from);
+      newNodeIds.add(to);
+      newEdges.push({ from, to });
+    });
+
+    // Build lookup of current nodes by id
+    const existingById = new Map<number, GraphNode>();
+    for (const node of this.nodes) {
+      existingById.set(node.id, node);
+    }
+
+    // Remove nodes that are no longer present
+    const toRemove = this.nodes.filter((n) => !newNodeIds.has(n.id));
+    for (const node of toRemove) {
+      this.removeNode(node);
+    }
+
+    // Add new nodes (ones not already present) near center with jitter
+    const centerX = canvasWidth / 2;
+    const centerY = canvasHeight / 2;
+    const idToNode = new Map<number, GraphNode>();
+    for (const node of this.nodes) {
+      idToNode.set(node.id, node);
+    }
+
+    const sortedNewIds = Array.from(newNodeIds).sort((a, b) => a - b);
+    for (const id of sortedNewIds) {
+      if (!idToNode.has(id)) {
+        const jitterX = (Math.random() - 0.5) * 10;
+        const jitterY = (Math.random() - 0.5) * 10;
+        const node = new GraphNode(id, centerX + jitterX, centerY + jitterY);
+        this.nodes.push(node);
+        idToNode.set(id, node);
+      }
+    }
+
+    this.nextNodeId = sortedNewIds.length ? Math.max(...sortedNewIds) + 1 : 0;
+
+    // Build the target edge set
+    const targetEdgeSet = new Set<string>();
+    for (const { from, to } of newEdges) {
+      const key = from < to ? `${from}-${to}` : `${to}-${from}`;
+      targetEdgeSet.add(key);
+    }
+
+    // Remove edges that shouldn't exist anymore
+    const currentEdges = this.getEdges();
+    for (const edge of currentEdges) {
+      const key = edge.from.id < edge.to.id
+        ? `${edge.from.id}-${edge.to.id}`
+        : `${edge.to.id}-${edge.from.id}`;
+      if (!targetEdgeSet.has(key)) {
+        this.removeEdge(edge.from, edge.to);
+      }
+    }
+
+    // Add edges that are missing
+    for (const { from, to } of newEdges) {
+      const fromNode = idToNode.get(from);
+      const toNode = idToNode.get(to);
+      if (fromNode && toNode && !fromNode.hasNeighbor(toNode)) {
+        fromNode.addNeighbor(toNode);
+        toNode.addNeighbor(fromNode);
+      }
+    }
+  }
+
   public updatePredictions(predictions: GraphPrediction[]): void {
     this.clearPredictions();
 

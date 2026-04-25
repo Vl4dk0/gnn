@@ -319,6 +319,7 @@ class CageConstructionEnv:
             "action_idx": action_idx,
             "edge": [u, v],
             "action_type": "unknown",
+            "accepted": False,
             "success": False,
         }
 
@@ -334,12 +335,14 @@ class CageConstructionEnv:
                 valid_action = True
                 reward += self.REMOVE_PENALTY
                 info["action_type"] = "edge_remove"
+                info["accepted"] = True
         else:
             if self._can_add_edge(u, v):
                 _ = self.graph.add_edge(u, v)
                 reward += self.ADD_REWARD
                 valid_action = True
                 info["action_type"] = "edge_add"
+                info["accepted"] = True
             else:
                 reward += self.INVALID_PENALTY
                 info["action_type"] = "edge_invalid_add"
@@ -377,5 +380,7 @@ class CageConstructionEnv:
         info["active_nodes"] = len(self._active_nodes())
         info["girth_ok"] = girth_ok
         info["is_k_regular"] = is_k_regular
+        info["reward"] = reward
+        info["done"] = done
 
         return self._get_obs(), reward, done, info

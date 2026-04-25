@@ -2,6 +2,7 @@ import { fetchJson } from "../api/apiClient";
 import { getRuntimeConfig } from "../api/config";
 import type {
   CageGenerateResponse,
+  CageExecutionMode,
   CageStatusResponse,
   GeneratorType,
   ModelsResponse
@@ -11,12 +12,13 @@ export const startCageGeneration = async (
   k: number,
   g: number,
   generator: GeneratorType,
+  mode: CageExecutionMode,
   modelId?: string | null
 ): Promise<CageGenerateResponse> => {
   const runtime = getRuntimeConfig();
   return fetchJson<CageGenerateResponse>(`${runtime.cageUrl}/generate`, {
     method: "POST",
-    body: { k, g, generator, ...(modelId ? { model_id: modelId } : {}) }
+    body: { k, g, generator, mode, ...(modelId ? { model_id: modelId } : {}) }
   });
 };
 
@@ -28,6 +30,17 @@ export const fetchCageModels = async (): Promise<ModelsResponse> => {
 export const fetchCageStatus = async (sessionId: string): Promise<CageStatusResponse> => {
   const runtime = getRuntimeConfig();
   return fetchJson<CageStatusResponse>(`${runtime.cageUrl}/status/${sessionId}`);
+};
+
+export const stepCageGeneration = async (
+  sessionId: string,
+  steps: number
+): Promise<CageStatusResponse> => {
+  const runtime = getRuntimeConfig();
+  return fetchJson<CageStatusResponse>(`${runtime.cageUrl}/step/${sessionId}`, {
+    method: "POST",
+    body: { steps }
+  });
 };
 
 export const stopCageGeneration = async (sessionId: string): Promise<void> => {

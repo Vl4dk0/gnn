@@ -1,5 +1,5 @@
 import time
-from typing import cast
+from typing import TypedDict, cast
 
 import networkx as nx
 import torch
@@ -15,6 +15,17 @@ from backend.utils.graph_utils import (
     moore_bound,
     moore_hoffman_upper_bound,
 )
+
+
+class CageStepEvent(TypedDict):
+    step: int
+    action: str
+    u: int | None
+    v: int | None
+    accepted: bool
+    reward: float
+    done: bool
+    done_reason: str | None
 
 
 class RLGenerator:
@@ -34,6 +45,7 @@ class RLGenerator:
     start_time: float
     env: CageConstructionEnv
     obs: Data
+    last_event: CageStepEvent | None
 
     def __init__(
         self,
@@ -81,6 +93,7 @@ class RLGenerator:
         self.is_complete = False
         self.success = False
         self.start_time = 0.0
+        self.last_event = None
 
     def _load_actor_critic(
         self,
@@ -234,14 +247,40 @@ class RLGenerator:
         if not bool(mask.any()):
             # Keep session alive for manual stop; action space can recover after future edits.
             self.step_count += 1
+            self.last_event = {
+                "step": self.step_count,
+                "action": "noop",
+                "u": None,
+                "v": None,
+                "accepted": False,
+                "reward": 0.0,
+                "done": False,
+                "done_reason": "no_valid_action",
+            }
             return
 
         action_idx = self._pick_action(mask)
-        next_obs, _, done, info = self.env.step(action_idx)
+        next_obs, reward, done, info = self.env.step(action_idx)
 
         self.obs = next_obs
         self.graph = self.env.graph
         self.step_count = self.env.current_step
+        edge_value = info.get("edge", [])
+        edge = edge_value if isinstance(edge_value, list) else []
+        u = int(edge[0]) if len(edge) == 2 else None
+        v = int(edge[1]) if len(edge) == 2 else None
+        done_reason_value = info.get("done_reason")
+        reward_value = info.get("reward", reward)
+        self.last_event = {
+            "step": self.step_count,
+            "action": str(info.get("action_type", "unknown")),
+            "u": u,
+            "v": v,
+            "accepted": bool(info.get("accepted", False)),
+            "reward": float(reward_value) if isinstance(reward_value, int | float) else reward,
+            "done": bool(info.get("done", done)),
+            "done_reason": str(done_reason_value) if done_reason_value is not None else None,
+        }
 
         if done and bool(info.get("success", False)):
             result_graph = self._active_result_graph()

@@ -30,11 +30,19 @@ export const CagePage = () => {
     successMessage,
     stoppedByUser,
     isGenerating,
+    isSteppedMode,
+    isStepping,
+    isAutoStepping,
+    hasActiveSession,
+    canStep,
     currentMooreBound,
     mooreBoundLimit,
     isMooreBoundOverLimit,
     onEditorReady,
     start,
+    stepOnce,
+    startAutoStepping,
+    pauseAutoStepping,
     stop,
     clearCanvas
   } = useCageGeneration();
@@ -63,7 +71,9 @@ export const CagePage = () => {
       ? `${currentMooreBound} > ${mooreBoundLimit}`
       : isGenerating
         ? "Generating..."
-        : "Generate Cage";
+        : isSteppedMode
+          ? "Start Inspection"
+          : "Generate Cage";
 
   return (
     <div className="relative h-dvh overflow-hidden bg-transparent">
@@ -88,7 +98,7 @@ export const CagePage = () => {
             Config
           </span>
           <span className="mt-1 block text-sm leading-5 text-textMuted max-[900px]:mt-0.5 max-[900px]:text-xs">
-            {isGenerating ? "Generation running" : "Ready to generate"}
+            {hasActiveSession ? "Session active" : "Ready to generate"}
           </span>
         </button>
 
@@ -195,7 +205,6 @@ export const CagePage = () => {
                   stoppedByUser={stoppedByUser}
                 />
               </div>
-
             </section>
           </div>
         )}
@@ -209,15 +218,35 @@ export const CagePage = () => {
 
         <div className="pointer-events-none absolute inset-x-0 bottom-6 z-20 flex justify-center px-4 max-[900px]:bottom-4">
           <div className="pointer-events-auto flex gap-3">
-            <PrimaryButton
-              fullWidth={false}
-              className="min-w-[220px] rounded-full bg-bg1/92 px-7 py-3 text-sm tracking-[0.8px] backdrop-blur-sm max-[900px]:min-w-[200px]"
-              onClick={() => start()}
-              disabled={isGenerating || isMooreBoundOverLimit}
-            >
-              {primaryLabel}
-            </PrimaryButton>
-            {isGenerating && (
+            {!isSteppedMode || !hasActiveSession ? (
+              <PrimaryButton
+                fullWidth={false}
+                className="min-w-[220px] rounded-full bg-bg1/92 px-7 py-3 text-sm tracking-[0.8px] backdrop-blur-sm max-[900px]:min-w-[200px]"
+                onClick={() => start()}
+                disabled={isGenerating || isMooreBoundOverLimit || hasActiveSession}
+              >
+                {primaryLabel}
+              </PrimaryButton>
+            ) : (
+              <>
+                <PrimaryButton
+                  fullWidth={false}
+                  className="rounded-full bg-bg1/92 px-6 py-3 text-sm tracking-[0.8px] backdrop-blur-sm"
+                  onClick={() => stepOnce()}
+                  disabled={!canStep || isStepping}
+                >
+                  {isStepping ? "Stepping..." : "Step"}
+                </PrimaryButton>
+                <SecondaryButton
+                  fullWidth={false}
+                  className="rounded-full bg-bg1/92 px-6 py-3 text-sm tracking-[0.8px] backdrop-blur-sm"
+                  onClick={() => (isAutoStepping ? pauseAutoStepping() : startAutoStepping())}
+                >
+                  {isAutoStepping ? "Pause" : "Auto Step"}
+                </SecondaryButton>
+              </>
+            )}
+            {hasActiveSession && (
               <SecondaryButton
                 fullWidth={false}
                 className="rounded-full bg-bg1/92 px-6 py-3 text-sm tracking-[0.8px] backdrop-blur-sm"
@@ -243,8 +272,8 @@ export const CagePage = () => {
             setDraftSettings((current) => ({
               ...current,
               generatorType: event.target.value as CageSettings["generatorType"],
-              modelId:
-                event.target.value === "rl" ? current.modelId : null
+              executionMode: event.target.value === "rl" ? current.executionMode : "async",
+              modelId: event.target.value === "rl" ? current.modelId : null
             }));
           }}
         >
@@ -275,28 +304,97 @@ export const CagePage = () => {
           </SelectField>
         )}
 
-        <SettingGroup>
-          <label className="label-base mb-2 block normal-case tracking-normal">
-            Update Interval:&nbsp;
-            <span>{draftSettings.pollingInterval}ms</span>
-          </label>
-          <SingleRangeSlider
-            id="pollingInterval"
-            min={50}
-            max={2000}
-            step={50}
-            value={draftSettings.pollingInterval}
-            onChange={(value) => {
+        {draftSettings.generatorType === "rl" && (
+          <SelectField
+            id="rlExecutionMode"
+            label="Execution Mode"
+            value={draftSettings.executionMode}
+            onChange={(event) => {
               setDraftSettings((current) => ({
                 ...current,
-                pollingInterval: value
+                executionMode: event.target.value as CageSettings["executionMode"]
               }));
             }}
-          />
-          <div className="mt-2 text-[0.85em] text-textDim">
-            How often frontend checks for updates (50ms - 2000ms)
-          </div>
-        </SettingGroup>
+          >
+            <option value="async">Fast Search</option>
+            <option value="stepped">Step Inspection</option>
+          </SelectField>
+        )}
+
+        {!(draftSettings.generatorType === "rl" && draftSettings.executionMode === "stepped") && (
+          <SettingGroup>
+            <label className="label-base mb-2 block normal-case tracking-normal">
+              Update Interval:&nbsp;
+              <span>{draftSettings.pollingInterval}ms</span>
+            </label>
+            <SingleRangeSlider
+              id="pollingInterval"
+              min={50}
+              max={2000}
+              step={50}
+              value={draftSettings.pollingInterval}
+              onChange={(value) => {
+                setDraftSettings((current) => ({
+                  ...current,
+                  pollingInterval: value
+                }));
+              }}
+            />
+            <div className="mt-2 text-[0.85em] text-textDim">
+              How often frontend checks for updates (50ms - 2000ms)
+            </div>
+          </SettingGroup>
+        )}
+
+        {draftSettings.generatorType === "rl" && draftSettings.executionMode === "stepped" && (
+          <>
+            <SettingGroup>
+              <label className="label-base mb-2 block normal-case tracking-normal">
+                Steps per Tick:&nbsp;
+                <span>{draftSettings.stepsPerTick}</span>
+              </label>
+              <SingleRangeSlider
+                id="stepsPerTick"
+                min={1}
+                max={100}
+                step={1}
+                value={draftSettings.stepsPerTick}
+                onChange={(value) => {
+                  setDraftSettings((current) => ({
+                    ...current,
+                    stepsPerTick: Math.round(value)
+                  }));
+                }}
+              />
+              <div className="mt-2 text-[0.85em] text-textDim">
+                Manual step and auto step batch size.
+              </div>
+            </SettingGroup>
+
+            <SettingGroup>
+              <label className="label-base mb-2 block normal-case tracking-normal">
+                Auto Step Interval:&nbsp;
+                <span>{draftSettings.autoStepInterval}ms</span>
+              </label>
+              <SingleRangeSlider
+                id="autoStepInterval"
+                min={50}
+                max={2000}
+                step={50}
+                value={draftSettings.autoStepInterval}
+                onChange={(value) => {
+                  setDraftSettings((current) => ({
+                    ...current,
+                    autoStepInterval: value
+                  }));
+                }}
+              />
+              <div className="mt-2 text-[0.85em] text-textDim">
+                Delay between sequential auto-step requests.
+              </div>
+            </SettingGroup>
+          </>
+        )}
 
         <SettingGroup>
           <label className="flex cursor-pointer items-center gap-2 text-[0.95em] text-textMuted">

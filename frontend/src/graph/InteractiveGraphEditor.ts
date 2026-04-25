@@ -973,6 +973,21 @@ export class InteractiveGraphEditor {
     }
   }
 
+  /**
+   * Update graph incrementally — existing nodes keep their positions,
+   * only the diff (added/removed nodes and edges) is applied.  Much
+   * smoother than loadFromEdgeList for step-by-step visualization.
+   */
+  public updateFromEdgeList(edgeListText: string): void {
+    const hadNodes = this.graph.nodes.length > 0;
+    this.graph.updateFromEdgeList(edgeListText, this.canvas.width, this.canvas.height);
+    this.selectedNode = null;
+
+    if (!hadNodes && this.graph.nodes.length > 0) {
+      this.preSettlePhysics(200);
+    }
+  }
+
   public clear(): void {
     this.graph.clear();
     this.selectedNode = null;

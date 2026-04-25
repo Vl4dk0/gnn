@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import type { CageSettings, CageStatusResponse } from "../types/api";
+import type { CageExecutionMode, CageSettings, CageStatusResponse } from "../types/api";
 import {
   fetchCageModels,
   fetchCageStatus,
   startCageGeneration,
+  stepCageGeneration,
   stopCageGeneration
 } from "../services/cage";
 import { readStored, writeStored } from "../utils/storage";
@@ -13,12 +14,24 @@ import { mooreBound, resolveMooreBoundLimit } from "../utils/mooreBound";
 
 const DEFAULT_SETTINGS: CageSettings = {
   generatorType: "randomwalk",
+  executionMode: "async",
   modelId: null,
   pollingInterval: 500,
+  stepsPerTick: 1,
+  autoStepInterval: 250,
   enablePhysics: true
 };
 
 const STORAGE_KEY = "cageGeneratorSettings";
+
+type CageRunPhase =
+  | "idle"
+  | "starting"
+  | "async-running"
+  | "stepped-ready"
+  | "stepping"
+  | "auto-stepping"
+  | "complete";
 
 interface ModelOption {
   value: string;
@@ -39,6 +52,21 @@ const formatElapsed = (seconds: number): string => {
   return `${mins}m ${secs}s`;
 };
 
+const normalizeSettings = (settings: CageSettings): CageSettings => {
+  const merged = { ...DEFAULT_SETTINGS, ...settings };
+  const executionMode: CageExecutionMode =
+    merged.generatorType === "rl" ? merged.executionMode : "async";
+
+  return {
+    ...merged,
+    executionMode,
+    modelId: merged.generatorType === "rl" ? merged.modelId : null,
+    pollingInterval: Math.max(50, Math.min(2000, merged.pollingInterval)),
+    stepsPerTick: Math.max(1, Math.min(100, Math.round(merged.stepsPerTick))),
+    autoStepInterval: Math.max(50, Math.min(2000, merged.autoStepInterval))
+  };
+};
+
 export const useCageGeneration = () => {
   const editorRef = useRef<InteractiveGraphEditor | null>(null);
   const latestSessionIdRef = useRef<string | null>(null);
@@ -46,7 +74,7 @@ export const useCageGeneration = () => {
   const [degreeK, setDegreeK] = useState(3);
   const [girthG, setGirthG] = useState(5);
   const [settings, setSettings] = useState<CageSettings>(() =>
-    readStored<CageSettings>(STORAGE_KEY, DEFAULT_SETTINGS)
+    normalizeSettings(readStored<CageSettings>(STORAGE_KEY, DEFAULT_SETTINGS))
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [modelOptions, setModelOptions] = useState<ModelOption[]>([
@@ -57,7 +85,7 @@ export const useCageGeneration = () => {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [stoppedByUser, setStoppedByUser] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [phase, setPhase] = useState<CageRunPhase>("idle");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const mooreBoundLimit = resolveMooreBoundLimit();
 
@@ -74,6 +102,12 @@ export const useCageGeneration = () => {
   }, [degreeK, girthG]);
 
   const isMooreBoundOverLimit = currentMooreBound !== null && currentMooreBound > mooreBoundLimit;
+  const isSteppedMode = settings.generatorType === "rl" && settings.executionMode === "stepped";
+  const isGenerating = phase === "starting" || phase === "async-running";
+  const isStepping = phase === "stepping";
+  const isAutoStepping = phase === "auto-stepping";
+  const hasActiveSession = sessionId !== null && phase !== "complete";
+  const canStep = sessionId !== null && (phase === "stepped-ready" || phase === "stepping");
 
   useEffect(() => {
     latestSessionIdRef.current = sessionId;
@@ -126,56 +160,81 @@ export const useCageGeneration = () => {
     [settings.enablePhysics]
   );
 
-  const pollStatus = useCallback(async (activeSessionId: string) => {
-    if (!activeSessionId) {
-      return;
-    }
-
-    const currentStatus = await fetchCageStatus(activeSessionId);
+  const applyStatus = useCallback((currentStatus: CageStatusResponse) => {
     setStatus(currentStatus);
 
     if (currentStatus.current_graph) {
-      editorRef.current?.loadFromEdgeList(currentStatus.current_graph);
+      editorRef.current?.updateFromEdgeList(currentStatus.current_graph);
     }
 
     if (currentStatus.stopped) {
-      setIsGenerating(false);
-      setError("Generation stopped - page was navigated away");
       setSessionId(null);
+      setPhase("complete");
+      setError(
+        currentStatus.timed_out
+          ? "Generation timed out"
+          : "Generation stopped - page was navigated away"
+      );
       return;
     }
 
-    if (currentStatus.is_complete) {
-      setIsGenerating(false);
-      setSessionId(null);
+    if (!currentStatus.is_complete) {
+      return;
+    }
 
-      if (currentStatus.success) {
-        setSuccessMessage(`Valid cage! (${formatElapsed(currentStatus.elapsed_time)})`);
-      } else {
-        setError(
-          `Generation completed but cage is not valid. Nodes: ${currentStatus.num_nodes}, Girth: ${currentStatus.girth ?? "∞"}`
-        );
-      }
+    setSessionId(null);
+    setPhase("complete");
+
+    if (currentStatus.success) {
+      setSuccessMessage(`Valid cage! (${formatElapsed(currentStatus.elapsed_time)})`);
+    } else {
+      setError(
+        `Generation completed but cage is not valid. Nodes: ${currentStatus.num_nodes}, Girth: ${currentStatus.girth ?? "∞"}`
+      );
     }
   }, []);
 
+  const pollStatus = useCallback(
+    async (activeSessionId: string) => {
+      const currentStatus = await fetchCageStatus(activeSessionId);
+      applyStatus(currentStatus);
+      return currentStatus;
+    },
+    [applyStatus]
+  );
+
   useEffect(() => {
-    if (!sessionId || !isGenerating) {
+    if (!sessionId || phase !== "async-running") {
       return;
     }
 
-    const intervalId = window.setInterval(() => {
-      pollStatus(sessionId).catch((cause) => {
-        setIsGenerating(false);
+    let cancelled = false;
+    let timeoutId: number | null = null;
+
+    const pollOnce = async () => {
+      try {
+        const currentStatus = await pollStatus(sessionId);
+        if (cancelled || currentStatus.is_complete || currentStatus.stopped) {
+          return;
+        }
+        timeoutId = window.setTimeout(pollOnce, settings.pollingInterval);
+      } catch (cause) {
+        if (cancelled) return;
         setSessionId(null);
+        setPhase("complete");
         setError(cause instanceof Error ? cause.message : "Polling failed");
-      });
-    }, settings.pollingInterval);
+      }
+    };
+
+    timeoutId = window.setTimeout(pollOnce, settings.pollingInterval);
 
     return () => {
-      window.clearInterval(intervalId);
+      cancelled = true;
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
     };
-  }, [isGenerating, pollStatus, sessionId, settings.pollingInterval]);
+  }, [phase, pollStatus, sessionId, settings.pollingInterval]);
 
   useEffect(() => {
     return () => {
@@ -202,20 +261,29 @@ export const useCageGeneration = () => {
     setError(null);
     setSuccessMessage(null);
     setStoppedByUser(false);
-    setIsGenerating(true);
+    setPhase("starting");
+
+    const mode: CageExecutionMode = isSteppedMode ? "stepped" : "async";
 
     try {
       const result = await startCageGeneration(
         degreeK,
         girthG,
         settings.generatorType,
+        mode,
         settings.generatorType === "rl" ? settings.modelId : null
       );
       setSessionId(result.session_id);
-      await pollStatus(result.session_id);
+
+      const initialStatus = await pollStatus(result.session_id);
+      if (initialStatus.is_complete || initialStatus.stopped) {
+        return;
+      }
+
+      setPhase(mode === "stepped" ? "stepped-ready" : "async-running");
     } catch (cause) {
-      setIsGenerating(false);
       setSessionId(null);
+      setPhase("complete");
       setError(cause instanceof Error ? cause.message : "Failed to start generation");
     }
   }, [
@@ -223,11 +291,80 @@ export const useCageGeneration = () => {
     degreeK,
     girthG,
     isMooreBoundOverLimit,
+    isSteppedMode,
     mooreBoundLimit,
     pollStatus,
     settings.generatorType,
     settings.modelId
   ]);
+
+  const stepOnce = useCallback(async () => {
+    if (!sessionId || phase === "stepping" || phase === "auto-stepping") {
+      return;
+    }
+
+    setError(null);
+    setPhase("stepping");
+
+    try {
+      const currentStatus = await stepCageGeneration(sessionId, settings.stepsPerTick);
+      applyStatus(currentStatus);
+      if (!currentStatus.is_complete && !currentStatus.stopped) {
+        setPhase("stepped-ready");
+      }
+    } catch (cause) {
+      setPhase("stepped-ready");
+      setError(cause instanceof Error ? cause.message : "Failed to step generation");
+    }
+  }, [applyStatus, phase, sessionId, settings.stepsPerTick]);
+
+  useEffect(() => {
+    if (!sessionId || phase !== "auto-stepping") {
+      return;
+    }
+
+    let cancelled = false;
+    let timeoutId: number | null = null;
+
+    const stepLoop = async () => {
+      try {
+        const currentStatus = await stepCageGeneration(sessionId, settings.stepsPerTick);
+        applyStatus(currentStatus);
+
+        if (cancelled || currentStatus.is_complete || currentStatus.stopped) {
+          return;
+        }
+
+        timeoutId = window.setTimeout(stepLoop, settings.autoStepInterval);
+      } catch (cause) {
+        if (cancelled) return;
+        setPhase("stepped-ready");
+        setError(cause instanceof Error ? cause.message : "Auto step failed");
+      }
+    };
+
+    timeoutId = window.setTimeout(stepLoop, 0);
+
+    return () => {
+      cancelled = true;
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [applyStatus, phase, sessionId, settings.autoStepInterval, settings.stepsPerTick]);
+
+  const startAutoStepping = useCallback(() => {
+    if (sessionId && phase === "stepped-ready") {
+      setError(null);
+      setPhase("auto-stepping");
+    }
+  }, [phase, sessionId]);
+
+  const pauseAutoStepping = useCallback(() => {
+    if (phase === "auto-stepping") {
+      setPhase("stepped-ready");
+    }
+  }, [phase]);
 
   const stop = useCallback(async () => {
     if (!sessionId) {
@@ -243,7 +380,7 @@ export const useCageGeneration = () => {
       setError(cause instanceof Error ? cause.message : "Failed to stop generation");
     } finally {
       setSessionId(null);
-      setIsGenerating(false);
+      setPhase("complete");
     }
   }, [sessionId]);
 
@@ -252,10 +389,7 @@ export const useCageGeneration = () => {
   }, []);
 
   const saveSettings = useCallback((nextSettings: CageSettings) => {
-    const safe: CageSettings = {
-      ...nextSettings,
-      modelId: nextSettings.generatorType === "rl" ? nextSettings.modelId : null
-    };
+    const safe = normalizeSettings(nextSettings);
     setSettings(safe);
     writeStored(STORAGE_KEY, safe);
     setSettingsOpen(false);
@@ -276,11 +410,20 @@ export const useCageGeneration = () => {
     successMessage,
     stoppedByUser,
     isGenerating,
+    isSteppedMode,
+    isStepping,
+    isAutoStepping,
+    hasActiveSession,
+    canStep,
+    phase,
     currentMooreBound,
     mooreBoundLimit,
     isMooreBoundOverLimit,
     onEditorReady,
     start,
+    stepOnce,
+    startAutoStepping,
+    pauseAutoStepping,
     stop,
     clearCanvas
   };

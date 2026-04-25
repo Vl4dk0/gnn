@@ -1,3 +1,4 @@
+from numbers import Real
 from typing import TypedDict, cast
 
 from flask import Blueprint, jsonify, request
@@ -9,17 +10,41 @@ from backend.utils import parse_edge_list, generate_random_graph, graph_to_edge_
 degree_bp = Blueprint("degree", __name__, url_prefix="/api/degree")
 
 
-class _GenerateRequest(TypedDict, total=False):
-    minNodes: int
-    maxNodes: int
-    minProb: float
-    maxProb: float
-    allowSelfLoops: bool
-
-
 class _AnalyzeRequest(TypedDict, total=False):
     graph: str
     model_id: str
+
+
+def _read_generate_request(data: dict[str, object]) -> tuple[int, int, float, float, bool]:
+    min_nodes_raw = data.get("minNodes", 5)
+    max_nodes_raw = data.get("maxNodes", 12)
+    min_prob_raw = data.get("minProb", 0.15)
+    max_prob_raw = data.get("maxProb", 0.60)
+    allow_self_loops_raw = data.get("allowSelfLoops", True)
+
+    if not isinstance(min_nodes_raw, int) or isinstance(min_nodes_raw, bool):
+        raise ValueError("minNodes must be an integer")
+    if not isinstance(max_nodes_raw, int) or isinstance(max_nodes_raw, bool):
+        raise ValueError("maxNodes must be an integer")
+    if min_nodes_raw < 1 or max_nodes_raw < 1:
+        raise ValueError("minNodes and maxNodes must be positive")
+    if min_nodes_raw > max_nodes_raw:
+        raise ValueError("minNodes must be <= maxNodes")
+    if isinstance(min_prob_raw, bool) or not isinstance(min_prob_raw, Real):
+        raise ValueError("minProb must be a number")
+    if isinstance(max_prob_raw, bool) or not isinstance(max_prob_raw, Real):
+        raise ValueError("maxProb must be a number")
+
+    min_prob = float(min_prob_raw)
+    max_prob = float(max_prob_raw)
+    if min_prob < 0 or min_prob > 1 or max_prob < 0 or max_prob > 1:
+        raise ValueError("minProb and maxProb must be between 0 and 1")
+    if min_prob > max_prob:
+        raise ValueError("minProb must be <= maxProb")
+    if not isinstance(allow_self_loops_raw, bool):
+        raise ValueError("allowSelfLoops must be a boolean")
+
+    return min_nodes_raw, max_nodes_raw, min_prob, max_prob, allow_self_loops_raw
 
 
 @degree_bp.route("/models", methods=["GET"])
@@ -75,14 +100,9 @@ def generate_random_graph_endpoint():
     }
     """
     try:
-        data: _GenerateRequest = cast(_GenerateRequest, request.get_json() or {})
+        data = cast(dict[str, object], request.get_json() or {})
 
-        # Get parameters from request or use defaults
-        min_nodes: int = data.get("minNodes", 5)
-        max_nodes: int = data.get("maxNodes", 12)
-        min_prob: float = data.get("minProb", 0.15)
-        max_prob: float = data.get("maxProb", 0.60)
-        allow_self_loops: bool = data.get("allowSelfLoops", True)
+        min_nodes, max_nodes, min_prob, max_prob, allow_self_loops = _read_generate_request(data)
 
         # Use centralized graph generation
         G = generate_random_graph(
@@ -94,6 +114,8 @@ def generate_random_graph_endpoint():
 
         return jsonify({"graph": graph_str})
 
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
     except Exception as e:
         return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
 
