@@ -1,4 +1,5 @@
 import time
+from typing import cast
 
 import networkx as nx
 import torch
@@ -9,6 +10,7 @@ from ai.cage.rl.model import ActorCritic
 from ai.registry import get_best_model_id, list_trained_models
 from ai.utils.device import configure_torch_device
 from backend.utils.graph_utils import (
+    compute_girth,
     is_k_regular,
     moore_bound,
     moore_hoffman_upper_bound,
@@ -188,14 +190,34 @@ class RLGenerator:
         return is_k_regular(self.graph, self.k)
 
     def _pick_action(self, mask: torch.Tensor) -> int:
-        from typing import cast as _cast
-
         with torch.no_grad():
-            logits, _ = _cast(tuple[torch.Tensor, torch.Tensor], self.model(self.obs))
+            logits, _ = cast(tuple[torch.Tensor, torch.Tensor], self.model(self.obs))
 
         masked_logits = logits.masked_fill(~mask, -1e9)
         probs = torch.softmax(masked_logits, dim=0)
         return int(torch.multinomial(probs, 1).item())
+
+    def _active_result_graph(self) -> nx.Graph[int]:
+        """Return the connected non-isolated subgraph that the RL env optimizes."""
+        active_nodes = [
+            node for node in self.env.graph.nodes if self.env.graph.degree(node) > 0
+        ]
+        node_map = {node: idx for idx, node in enumerate(active_nodes)}
+        result: nx.Graph[int] = nx.Graph()
+        result.add_nodes_from(range(len(active_nodes)))
+        for u, v in self.env.graph.edges(active_nodes):
+            _ = result.add_edge(node_map[u], node_map[v])
+        return result
+
+    def _is_valid_result(self, graph: nx.Graph[int]) -> bool:
+        if graph.number_of_nodes() == 0:
+            return False
+        if not nx.is_connected(graph):
+            return False
+        if not is_k_regular(graph, self.k):
+            return False
+        girth = compute_girth(graph)
+        return not isinstance(girth, float) and girth >= self.g
 
     def step(self) -> None:
         if self.is_complete:
@@ -218,5 +240,8 @@ class RLGenerator:
         self.step_count = self.env.current_step
 
         if done and bool(info.get("success", False)):
-            self.is_complete = True
-            self.success = True
+            result_graph = self._active_result_graph()
+            if self._is_valid_result(result_graph):
+                self.graph = result_graph
+                self.is_complete = True
+                self.success = True
