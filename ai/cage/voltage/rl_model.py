@@ -102,7 +102,10 @@ class VoltageActorCritic(nn.Module):
         edge_h = self.edge_proj(edge_attr)
 
         for i in range(len(self.convs)):
-            h = cast(torch.Tensor, self.convs[i](h, edge_index, edge_h))
+            if self.conv_type == "gps":
+                h = cast(torch.Tensor, self.convs[i](h, edge_index, edge_attr=edge_h))
+            else:
+                h = cast(torch.Tensor, self.convs[i](h, edge_index, edge_h))
             h = cast(torch.Tensor, self.bns[i](h))
             h = F.relu(h)
 

@@ -475,6 +475,36 @@ def meta_search(
                                 f"girth={props['girth']}, voltages={volts}"
                             )
 
+            # Tabu search
+            volts_t, girth_t = tabu_search(
+                base,
+                group,
+                k,
+                g_target,
+                num_iterations=2000,
+                verbose=False,
+            )
+
+            if isinstance(girth_t, int) and girth_t >= g_target and volts_t is not None:
+                if lift_size < best_order:
+                    lifted = build_lift(base, group, volts_t)
+                    props = verify_lift(lifted, k, g_target)
+                    if props["is_valid_kg"]:
+                        best_order = float(lift_size)
+                        best_result = {
+                            "girth": props["girth"],
+                            "order": lift_size,
+                            "voltages": volts_t,
+                            "base_name": base_name,
+                            "group_name": group.name,
+                            "method": "tabu",
+                        }
+                        if verbose:
+                            print(
+                                f"  ** NEW BEST (tabu): {group.name}, order={lift_size}, "
+                                f"girth={props['girth']}, voltages={volts_t}"
+                            )
+
             # Beam search (if model available)
             if model is not None:
                 volts_b, girth_b = beam_search(
