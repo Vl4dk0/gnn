@@ -16,7 +16,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
-from torch_geometric.nn import GINEConv, global_mean_pool  # pyright: ignore[reportMissingTypeStubs]
+from torch_geometric.nn import GINEConv, GPSConv, global_mean_pool  # pyright: ignore[reportMissingTypeStubs]
 
 
 class VoltageActorCritic(nn.Module):
@@ -36,6 +36,8 @@ class VoltageActorCritic(nn.Module):
     hidden_dim: int
     max_action_dim: int
 
+    conv_type: str
+
     def __init__(
         self,
         input_dim: int = 6,
@@ -44,16 +46,19 @@ class VoltageActorCritic(nn.Module):
         num_layers: int = 3,
         dropout: float = 0.1,
         max_action_dim: int = 100,
+        conv_type: str = "gine",
+        heads: int = 4,
     ):
         super().__init__()  # pyright: ignore[reportUnknownMemberType]
         self.hidden_dim = hidden_dim
         self.max_action_dim = max_action_dim
+        self.conv_type = conv_type
 
         # Input projections
         self.node_proj = nn.Linear(input_dim, hidden_dim)
         self.edge_proj = nn.Linear(edge_feat_dim, hidden_dim)
 
-        # GINEConv layers
+        # Conv layers
         self.convs = nn.ModuleList()
         self.bns = nn.ModuleList()
         for _ in range(num_layers):
@@ -62,7 +67,13 @@ class VoltageActorCritic(nn.Module):
                 nn.ReLU(),
                 nn.Linear(hidden_dim, hidden_dim),
             )
-            _ = self.convs.append(GINEConv(mlp, train_eps=True))
+            if conv_type == "gps":
+                gine = GINEConv(mlp, train_eps=True)
+                _ = self.convs.append(
+                    GPSConv(hidden_dim, gine, heads=heads, dropout=dropout)
+                )
+            else:
+                _ = self.convs.append(GINEConv(mlp, train_eps=True))
             _ = self.bns.append(nn.BatchNorm1d(hidden_dim))
 
         # Actor head: graph embedding -> action logits

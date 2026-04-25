@@ -59,6 +59,8 @@ def train_voltage_ppo(
     max_action_dim: int = 100,
     log_seconds: float = 3.0,
     name: str = "voltage_ppo",
+    conv_type: str = "gine",
+    heads: int = 4,
 ) -> VoltageActorCritic:
     """Train PPO agent for voltage assignment."""
     _ = configure_torch_device()
@@ -76,6 +78,8 @@ def train_voltage_ppo(
         num_layers=num_layers,
         dropout=dropout,
         max_action_dim=max_action_dim,
+        conv_type=conv_type,
+        heads=heads,
     )
 
     optimizer = optim.Adam(agent.parameters(), lr=lr)
@@ -347,6 +351,16 @@ if __name__ == "__main__":
         "--name", type=str, default="voltage_ppo", help="Model name for saving"
     )
     _ = parser.add_argument(
+        "--conv-type",
+        type=str,
+        default="gine",
+        choices=["gine", "gps"],
+        help="Convolution type (gine or gps)",
+    )
+    _ = parser.add_argument(
+        "--heads", type=int, default=4, help="Attention heads (GPS only)"
+    )
+    _ = parser.add_argument(
         "--no-random", action="store_true", help="Disable curriculum"
     )
     _ = parser.add_argument(
@@ -364,4 +378,6 @@ if __name__ == "__main__":
         randomize=not cast(bool, args.no_random),
         log_seconds=cast(float, args.log),
         name=cast(str, args.name),
+        conv_type=cast(str, args.conv_type),
+        heads=cast(int, args.heads),
     )
