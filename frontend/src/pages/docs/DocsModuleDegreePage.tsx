@@ -94,17 +94,24 @@ optimizer.step()`}</code>
       <DocsCard>
         <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">Interpretation</h2>
         <p className="text-base leading-[1.7] text-textMuted">
-          As expected, most architectures can learn to predict degree with high accuracy.
+          As expected, most architectures can learn to predict degree with high accuracy.{" "}
+          <code>GIN</code> and <code>SAGE</code> both achieve over <code>99%</code> even with
+          small models.
         </p>
         <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
-          Notice that <code>GCN</code> and <code>LOOPY</code> perform poorly. I expected GCN to
-          struggle because of its simple aggregation, but LOOPY is <code>surprising</code> to me.
+          <code>GCN</code> and <code>LOOPY</code> perform poorly on this task.
+          GCN struggles because of its simple mean aggregation. LOOPY's poor performance is more
+          surprising — the r-neighborhood cycle detection machinery adds complexity that is
+          unnecessary for degree counting, and the model exhibits numerical instability (exploding
+          MSE values during evaluation) even with larger hidden dimensions. Degree prediction is a
+          purely local task where Loopy's cycle awareness provides no benefit.
         </p>
         <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
-          I thought that the addition of r-neighborhood would only make it more powerful. It might
-          be that I set the hidden dimenstions value too low (32), so the GNN cannot afford to learn
-          with this architecture. Which if is the case, it is unfortunate, becuase I don't have
-          access to better hardware for training.
+          After training larger models on PERUN, <code>GPS</code> with GIN convolution improved
+          to <code>98%</code>, showing that the attention mechanism can help even on local tasks
+          when given enough capacity. Interestingly, the larger <code>GIN</code> (<code>h128</code>)
+          performed slightly worse than the smaller one — suggesting that for this simple task,
+          more parameters can lead to overfitting.
         </p>
       </DocsCard>
 

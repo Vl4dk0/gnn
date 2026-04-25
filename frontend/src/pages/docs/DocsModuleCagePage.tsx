@@ -127,7 +127,13 @@ for succ_graph in successors:
           than <code>g</code>. So this step wouldn't add much computational overhead, but it helps
           filtering out a large portion of invalid actions.
         </p>
-        <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
+      </DocsCard>
+
+      <DocsCard>
+        <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">
+          Curriculum learning and the initial reward structure
+        </h2>
+        <p className="text-base leading-[1.7] text-textMuted">
           I started training by giving the model <code>random</code> k and g values and gave it{" "}
           <code>5000</code> steps to find a solution. That turned out to take too long{" "}
           <code>without</code> any significant <code>learning signal</code>. So I switched to
@@ -142,32 +148,216 @@ for succ_graph in successors:
           get the 1st pair.
         </p>
         <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
-          The final reward structure is as follows:
+          The initial reward structure was as follows:
         </p>
         <pre className="mt-2.5 overflow-x-auto rounded-lg border-2 border-line2 bg-bg1 p-1.5">
           <code className="language-python">
-            {`# ai/cage/rl/env.py (constants)
-SCORE_FLOOR: float = -20.0  # do not go beneath this
-SUCCESS_REWARD: float = 50.0  # when found the correct thing
-INVALID_PENALTY: float = -0.005  # if you make an invalid action
-ADD_REWARD: float = 0.01  # add edge
-REMOVE_PENALTY: float = -0.1  # remove edge
-SATISFY_BONUS: float = 0.05  # if graph became k-regular or girth became correct`}
+            {`# ai/cage/rl/env.py — initial reward constants
+SCORE_FLOOR: float = -20.0      # do not go beneath this
+SUCCESS_REWARD: float = 50.0    # when found the correct thing
+INVALID_PENALTY: float = -0.005 # if you make an invalid action
+ADD_REWARD: float = 0.01        # add edge
+REMOVE_PENALTY: float = -0.1    # remove edge
+SATISFY_BONUS: float = 0.05     # if graph became k-regular or girth became correct
+
+# With these rewards, the agent achieved only ~1.6% success rate on (3,5)-cage.`}
           </code>
         </pre>
       </DocsCard>
 
       <DocsCard>
+        <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">
+          Iterating on the reward
+        </h2>
         <p className="text-base leading-[1.7] text-textMuted">
-          Currenlty, the PPO-based approach is still being trained, results so far are promising. An
-          RL-agent is able to find small <code>(3,5)</code> and <code>(3,6)</code> graphs fast and
-          consistently.
+          The reward structure above looked reasonable on paper, but in practice the agent barely
+          learned anything. After <code>100k</code> training steps, the success rate on the easiest
+          cage <code>(3,5)</code> was just <code>1.6%</code>. The core problem was that the reward
+          signal was almost entirely <code>sparse</code>: the agent received <code>+0.01</code> per
+          edge addition and a <code>+50</code> jackpot on success that almost never fired. There was
+          no directional signal telling it whether it was getting <code>closer</code> to a valid
+          cage.
         </p>
         <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
-          I will start training the model for speed, reducing its number of steps to find a
-          solution, once it can reliably find solutions for all <code>(k,g)</code> pairs with
-          moore's bound up to
-          <code>30</code>.
+          The <code>10:1</code> asymmetry between the remove penalty (<code>-0.1</code>) and the
+          add reward (<code>+0.01</code>) was also crippling. Cage construction inherently requires
+          backtracking — you add an edge, realize it blocks k-regularity somewhere, and need to undo
+          it. But the agent was terrified of removing edges, so it just kept adding until it got
+          stuck in a dead-end state for the remaining <code>~1985</code> steps of a 2000-step
+          episode.
+        </p>
+        <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
+          The fix was <code>progress-based reward shaping</code>. I defined a potential function
+          that measures how close the current graph is to a valid cage — combining{" "}
+          <code>regularity progress</code> (fraction of nodes with correct degree) and{" "}
+          <code>edge progress</code> (edges placed vs target). Each step, the agent receives the
+          change in potential as a bonus: positive when making progress, negative when regressing.
+          I also reduced the remove penalty to <code>-0.02</code>, shortened episodes to{" "}
+          <code>500</code> steps, and increased the entropy coefficient for more exploration.
+        </p>
+        <pre className="mt-2.5 overflow-x-auto rounded-lg border-2 border-line2 bg-bg1 p-1.5">
+          <code className="language-python">
+            {`# ai/cage/rl/env.py — updated constants
+REMOVE_PENALTY: float = -0.02  # was -0.1
+
+# Progress-based shaping added to step():
+# Initially used: reward += 0.99 * potential(s') - potential(s)
+# Fixed to:       reward += potential(s') - potential(s)
+# where potential = 5.0 * (0.6 * regularity_score + 0.4 * edge_progress)
+
+# Also changed:
+# episode_steps: 2000 -> 500
+# entropy_coef:  0.01 -> 0.05`}
+          </code>
+        </pre>
+      </DocsCard>
+
+      <DocsCard>
+        <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">
+          The gamma discount trap
+        </h2>
+        <p className="text-base leading-[1.7] text-textMuted">
+          The first version of the shaping used a <code>discount factor</code>{" "}
+          <code>{"γ=0.99"}</code> in the formula, following the theoretical framework from Ng et
+          al. (1999): <code>{"reward += γ·φ(s') - φ(s)"}</code>. This is mathematically guaranteed
+          to preserve the optimal policy. In practice, it created a disaster.
+        </p>
+        <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
+          Over a 500-step episode, the cumulative shaped reward telescopes to{" "}
+          <code>{"0.99·φ(T) - φ(0) + (-0.01)·Σφ(t)"}</code>. That last term is a{" "}
+          <code>hidden per-step penalty</code> for maintaining high potential. Once the agent built
+          a graph close to a valid cage (high potential) but couldn't finish it, it bled{" "}
+          <code>-0.04</code> reward <code>every step</code> just for existing at high potential.
+          Over 450 steps: <code>-18.0</code> cumulative penalty. The agent learned to{" "}
+          <code>avoid building good graphs</code> because it couldn't complete them — the exact
+          opposite of the intended behavior.
+        </p>
+        <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
+          The fix was simple: drop the discount and use <code>{"φ(s') - φ(s)"}</code> directly. The
+          cumulative shaped reward then equals <code>{"φ(T) - φ(0)"}</code> — always non-negative,
+          no per-step penalty. After this change, both GIN and GPS models maintained positive
+          success rates throughout training instead of collapsing to zero.
+        </p>
+      </DocsCard>
+
+      <DocsCard>
+        <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">
+          Reward iteration summary
+        </h2>
+        <div className="overflow-x-auto">
+          <table className="mt-2 w-full text-sm text-textMuted">
+            <thead>
+              <tr className="border-b border-line2 text-left text-textSub">
+                <th className="py-2 pr-4 font-semibold">Version</th>
+                <th className="py-2 pr-4 font-semibold">Key change</th>
+                <th className="py-2 font-semibold">(3,5) success</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b border-line">
+                <td className="py-2 pr-4 font-medium text-textMain">v1: Sparse only</td>
+                <td className="py-2 pr-4">+0.01 per edge, +50 on success, remove = -0.1</td>
+                <td className="py-2">1.6%</td>
+              </tr>
+              <tr className="border-b border-line">
+                <td className="py-2 pr-4 font-medium text-textMain">{"v2: Shaping (γ=0.99)"}</td>
+                <td className="py-2 pr-4">{"+ potential shaping, remove → -0.02, episodes → 500"}</td>
+                <td className="py-2">{"23% peak → collapsed to 0%"}</td>
+              </tr>
+              <tr>
+                <td className="py-2 pr-4 font-medium text-textMain">v3: Undiscounted</td>
+                <td className="py-2 pr-4">{"Drop γ, use φ(s') - φ(s) directly"}</td>
+                <td className="py-2">30-60%, stable</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </DocsCard>
+
+      <DocsCard>
+        <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">
+          Training on PERUN supercomputer
+        </h2>
+        <p className="text-base leading-[1.7] text-textMuted">
+          To scale up training, I moved to the{" "}
+          <a
+            href="https://www.hpc.tuke.sk/en/perun-supercomputer-info"
+            className="text-accent1 hover:underline"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            PERUN supercomputer
+          </a>{" "}
+          at TUKE, equipped with NVIDIA H200 GPUs. This allowed training multiple model variants in
+          parallel for extended periods.
+        </p>
+        <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
+          For cage generation, I tested <code>GIN</code> (hidden 64 and 96) and{" "}
+          <code>GPS</code> (Graph Transformer with GIN convolution) at various hidden dimensions
+          and attention head counts. GPS consistently outperformed GIN — the attention mechanism
+          captures <code>global graph structure</code> in a single layer, which helps the agent
+          reason about girth constraints that depend on distant parts of the graph. Plain GIN
+          only propagates information locally, hop by hop. Scaling up GPS to <code>h128</code>{" "}
+          with <code>8 attention heads</code> produced the best results by a wide margin.
+        </p>
+      </DocsCard>
+
+      <DocsCard>
+        <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">Results so far</h2>
+        <p className="text-base leading-[1.7] text-textMuted">
+          The best performing model is <code>GPS h128</code> with 8 attention heads and GIN
+          convolution. It achieved over <code>30%</code> success rate on the{" "}
+          <code>(3,5)</code>-cage and over <code>20%</code> on <code>(3,6)</code>, unlocking
+          three progressive stages including <code>(4,5)</code>. The model reached these
+          milestones within the first 20 minutes of training — dramatically faster than smaller
+          variants.
+        </p>
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full text-sm text-textMuted">
+            <thead>
+              <tr className="border-b border-line2 text-left text-textSub">
+                <th className="py-2 pr-4 font-semibold">Model</th>
+                <th className="py-2 pr-4 font-semibold">(3,5) success</th>
+                <th className="py-2 pr-4 font-semibold">(3,6) success</th>
+                <th className="py-2 pr-4 font-semibold">Stages unlocked</th>
+                <th className="py-2 font-semibold">Best reward</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b border-line">
+                <td className="py-2 pr-4 font-medium text-textMain">GPS h128, 8 heads</td>
+                <td className="py-2 pr-4">30.6%</td>
+                <td className="py-2 pr-4">21.7%</td>
+                <td className="py-2 pr-4">3 (incl. (4,5))</td>
+                <td className="py-2">42.64</td>
+              </tr>
+              <tr className="border-b border-line">
+                <td className="py-2 pr-4 font-medium text-textMain">GPS h64, 4 heads</td>
+                <td className="py-2 pr-4">9.7%</td>
+                <td className="py-2 pr-4">3.5%</td>
+                <td className="py-2 pr-4">2</td>
+                <td className="py-2">52.75</td>
+              </tr>
+              <tr className="border-b border-line">
+                <td className="py-2 pr-4 font-medium text-textMain">GIN h64</td>
+                <td className="py-2 pr-4">17.1%</td>
+                <td className="py-2 pr-4">1.9%</td>
+                <td className="py-2 pr-4">3</td>
+                <td className="py-2">50.18</td>
+              </tr>
+              <tr>
+                <td className="py-2 pr-4 font-medium text-textMain">GIN h32 (no shaping)</td>
+                <td className="py-2 pr-4">1.6%</td>
+                <td className="py-2 pr-4">-</td>
+                <td className="py-2 pr-4">0</td>
+                <td className="py-2">28.41</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-3 text-base leading-[1.7] text-textMuted">
+          Training continues on PERUN, and these models may achieve even better results with
+          longer runs.
         </p>
       </DocsCard>
 

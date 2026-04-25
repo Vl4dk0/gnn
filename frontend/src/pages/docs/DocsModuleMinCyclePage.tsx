@@ -73,16 +73,36 @@ export const DocsModuleMinCyclePage = () => {
       <DocsCard>
         <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">Interpretation</h2>
         <p className="text-base leading-[1.7] text-textMuted">
-          None of the architectures managed to learn to predict min-cycle with high accuracy. (above
-          90%)
+          With the initial small models (<code>h32</code>), none of the architectures managed to
+          predict min-cycle with high accuracy (above 90%). <code>GIN</code> appeared to perform
+          best at <code>71%</code>, but after testing it interactively in the editor, it became
+          clear that it <code>cheats</code>: it almost always predicts either <code>0</code> (not
+          part of a cycle) or <code>3</code> (triangle). Since random graphs contain many triangles
+          and many nodes not in any cycle, this simple heuristic happens to be right often enough to
+          inflate the accuracy. The model never learned to actually detect longer cycles.{" "}
+          <code>LOOPY</code> — which was specifically designed for cycle-aware tasks — only
+          reached <code>58%</code>. That was also a surprise.
         </p>
         <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
-          Notice that <code>LOOPY</code> performs better than on degree prediction, but it is not
-          the best.
+          After training larger models on the{" "}
+          <a
+            href="https://www.hpc.tuke.sk/en/perun-supercomputer-info"
+            className="text-accent1 hover:underline"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            PERUN supercomputer
+          </a>
+          , the picture changed significantly. <code>Loopy GNN</code> with larger hidden
+          dimensions (<code>h128</code>) jumped to <code>86%</code> accuracy — the best result on
+          this task. It turns out the cycle-aware r-neighborhood message passing needs sufficient
+          model capacity to be effective. With only <code>32</code> hidden dimensions, the model simply could not
+          afford to learn with this architecture.
         </p>
         <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
-          The big surprise for me is that <code>GIN</code> performs better than <code>LOOPY</code>,
-          which was specifically designed to handle such tasks.
+          <code>GPS</code> with GCN convolution also improved notably to <code>56%</code> with
+          the larger model, suggesting that the attention mechanism helps capture the global
+          structure needed for girth detection.
         </p>
       </DocsCard>
 

@@ -254,7 +254,9 @@ export const SiteGraphNav = () => {
 
         if (!isActive) {
           const el = d3.select(event.currentTarget);
-          el.select(".node-circle").attr("fill", "var(--graph-nav-node-fill)").attr("stroke", "var(--graph-nav-node-stroke)");
+          el.select(".node-circle")
+            .attr("fill", "var(--graph-nav-node-fill)")
+            .attr("stroke", "var(--graph-nav-node-stroke)");
 
           el.select(".node-number").attr("fill", "var(--graph-nav-number)");
 

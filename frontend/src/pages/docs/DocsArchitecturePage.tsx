@@ -17,12 +17,62 @@ export const DocsArchitecturePage = () => {
       </DocsHero>
 
       <DocsCard>
+        <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">At a glance</h2>
+        <div className="overflow-x-auto">
+          <table className="mt-2 w-full text-sm text-textMuted">
+            <thead>
+              <tr className="border-b border-line2 text-left text-textSub">
+                <th className="py-2 pr-4 font-semibold">Architecture</th>
+                <th className="py-2 pr-4 font-semibold">Aggregation</th>
+                <th className="py-2 pr-4 font-semibold">Scope</th>
+                <th className="py-2 font-semibold">Key strength</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b border-line">
+                <td className="py-2 pr-4 font-medium text-textMain">GCN</td>
+                <td className="py-2 pr-4">Degree-normalized mean</td>
+                <td className="py-2 pr-4">Local</td>
+                <td className="py-2">Stable, simple baseline</td>
+              </tr>
+              <tr className="border-b border-line">
+                <td className="py-2 pr-4 font-medium text-textMain">GraphSAGE</td>
+                <td className="py-2 pr-4">Learned mean</td>
+                <td className="py-2 pr-4">Local</td>
+                <td className="py-2">Inductive, generalizes to unseen nodes</td>
+              </tr>
+              <tr className="border-b border-line">
+                <td className="py-2 pr-4 font-medium text-textMain">GIN</td>
+                <td className="py-2 pr-4">Sum + MLP</td>
+                <td className="py-2 pr-4">Local</td>
+                <td className="py-2">Maximally expressive (1-WL equivalent)</td>
+              </tr>
+              <tr className="border-b border-line">
+                <td className="py-2 pr-4 font-medium text-textMain">GPS</td>
+                <td className="py-2 pr-4">Local conv + global attention</td>
+                <td className="py-2 pr-4">Global</td>
+                <td className="py-2">Captures long-range dependencies</td>
+              </tr>
+              <tr>
+                <td className="py-2 pr-4 font-medium text-textMain">Loopy</td>
+                <td className="py-2 pr-4">Sum + r-neighborhood paths</td>
+                <td className="py-2 pr-4">Local (cycle-aware)</td>
+                <td className="py-2">Detects cycles up to length r+2</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </DocsCard>
+
+      <DocsCard>
         <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">
           GCN - Graph Convolution Network
         </h2>
         <p className="text-base leading-[1.7] text-textMuted">
-          GCN uses degree-normalized aggregation. It is a strong baseline because it is stable and
-          simple, but normalization can dampen raw counting signals.
+          GCN uses degree-normalized aggregation: each neighbor's message is scaled by the inverse
+          square root of both the sender's and receiver's degree. This normalization makes training
+          stable but can dampen raw counting signals — the model struggles to distinguish a node
+          with 3 neighbors from one with 5 if the normalized values end up similar.
         </p>
       </DocsCard>
 
@@ -31,9 +81,10 @@ export const DocsArchitecturePage = () => {
           GraphSAGE - Sampling and Aggregation
         </h2>
         <p className="text-base leading-[1.7] text-textMuted">
-          GraphSAGE was designed as an inductive sample-and-aggregate architecture. By learning
-          aggregator functions rather than fixed node embeddings, it generalizes to unseen nodes in
-          dynamic graphs.
+          GraphSAGE was designed as an inductive architecture: it learns <code>aggregator
+          functions</code> rather than fixed node embeddings. This means it can generalize to
+          unseen nodes and dynamic graphs without retraining. In practice it uses a learned mean
+          aggregation followed by concatenation with the node's own features.
         </p>
       </DocsCard>
 
@@ -42,8 +93,12 @@ export const DocsArchitecturePage = () => {
           GIN - Graph Isomorphism Network
         </h2>
         <p className="text-base leading-[1.7] text-textMuted">
-          GIN uses sum aggregation and then applies an MLP with a learnable self-weight term. It is
-          one of the strongest 1-WL-style architectures for structural discrimination.
+          GIN uses sum aggregation followed by an MLP with a learnable self-weight term. It is
+          provably as powerful as the <code>1-WL test</code> (Weisfeiler-Leman graph isomorphism
+          test) — a classical algorithm that distinguishes graphs by iteratively comparing
+          neighborhood multisets. In practice, this means GIN can distinguish any pair of graphs
+          that 1-WL can distinguish, making it one of the most expressive standard GNN
+          architectures.
         </p>
       </DocsCard>
 
@@ -52,18 +107,23 @@ export const DocsArchitecturePage = () => {
           GPS - General, Powerful, Scalable
         </h2>
         <p className="text-base leading-[1.7] text-textMuted">
-          GPS is a graph transformer recipe that combines local message passing with global
-          attention. The idea is to keep convolution-style locality while adding a global context
-          channel that scales to larger graphs.
+          GPS is a graph transformer that combines local message passing with global attention. Each
+          layer runs a standard GNN convolution (GCN, GIN, or SAGE) in parallel with a multi-head
+          attention mechanism over all nodes, then merges the results. This gives every node a{" "}
+          <code>global view</code> of the graph in a single layer — unlike purely local
+          architectures that need many layers stacked to propagate information across distant nodes.
         </p>
       </DocsCard>
 
       <DocsCard>
         <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">Loopy</h2>
         <p className="text-base leading-[1.7] text-textMuted">
-          Loopy adds a second structural channel on top of ordinary message passing by incorporating
-          r-neighborhood path and cycle information. This improves cycle sensitivity for the
-          minimum-cycle task.
+          Loopy adds a second structural channel on top of ordinary message passing by incorporating{" "}
+          <code>r-neighborhood</code> path and cycle information. For each node, it finds all
+          simple cycles up to length <code>r+2</code> that pass through it, and processes them
+          with dedicated path convolutions. This gives the model explicit cycle awareness — standard
+          GNNs provably cannot count cycles, but Loopy can. The trade-off is that it needs
+          sufficient hidden dimensions to leverage this extra information effectively.
         </p>
       </DocsCard>
 

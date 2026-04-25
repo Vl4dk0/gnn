@@ -102,8 +102,11 @@ export const DocsGnnsPage = () => {
         <p className="text-base leading-[1.7] text-textMuted">
           In this thesis the architectures use <code>sum aggregation</code> because it is the most
           expressive standard choice for multiset inputs. With a sufficiently powerful MLP, sum
-          aggregation can be injective over multisets, while mean and max aggregation can collapse
-          distinct neighborhoods into the same representation. It can <code>decay</code>.
+          aggregation can be <code>injective</code> over multisets — meaning two different
+          neighborhoods will always produce different aggregated values. Mean and max aggregation
+          lose this property: mean collapses <code>{"{1,1,1}"}</code> and{" "}
+          <code>{"{2,2,2}"}</code> if they share the same average, and max ignores everything
+          except the largest value.
         </p>
       </DocsCard>
 

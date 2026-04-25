@@ -6,9 +6,7 @@ import { useDocsMetrics } from "../../hooks/useDocsMetrics";
 import { formatAccuracy } from "../shared/format";
 
 export const DocsModuleAssessmentPage = () => {
-  const { degreeModels, cycleModels, assessmentRows } = useDocsMetrics();
-
-  const unavailable = degreeModels === null && cycleModels === null;
+  const { assessmentRows } = useDocsMetrics();
 
   const columns: Column<(typeof assessmentRows)[number]>[] = [
     { key: "modelId", header: "Model", sortable: true, defaultDirection: "asc" },
@@ -60,29 +58,45 @@ export const DocsModuleAssessmentPage = () => {
       <DocsCard>
         <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">Interpretation</h2>
         <p className="text-base leading-[1.7] text-textMuted">
-          The best performing model on average is <code>GIN</code>. After seeing these results, I
-          can safely assume that <code>LOOPY</code> architecture requires more than 32 hidden
-          dimensions. It was supposed to be performing the best out of all, but{" "}
-          <code>falls short</code> in both tasks.
+          With small models (<code>h32_l4</code>), <code>GIN</code> dominates on average — it
+          excels at degree prediction and leads on min-cycle. <code>LOOPY</code> with 32 hidden
+          dimensions falls short in both tasks despite being designed for cycle detection.
+        </p>
+        <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
+          After training larger models on the PERUN supercomputer, the picture changes.{" "}
+          <code>Loopy</code> with <code>h128</code> jumps to <code>86%</code> on min-cycle — the
+          best result on that task — confirming that its r-neighborhood architecture simply needed
+          more capacity. However, it remains unstable on degree prediction (a task where cycle
+          awareness provides no benefit), which drags down its average.
+        </p>
+        <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
+          <code>GPS</code> models show mixed results: GPS with GIN convolution at <code>h128</code>
+          {" "}reaches <code>98%</code> on degree but struggles on min-cycle, while GPS with GCN
+          convolution does the opposite — weaker on degree but stronger on min-cycle.
+        </p>
+        <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
+          These prediction results inform the next step: <code>cage generation</code>. Since cage
+          construction requires both local decisions (which edge to add) and global awareness
+          (does adding this edge create a short cycle?), the architectures that capture global
+          structure — GPS and, to some extent, GIN — are the natural candidates for the RL-based
+          generation approach.
         </p>
       </DocsCard>
 
       <DocsCard>
         <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">Training Parameters</h2>
         <p className="text-base leading-[1.7] text-textMuted">
-          {/* Across both tasks, models were trained with the same hyperparameters: - Epochs: 500 - */}
-          {/* Hidden Dim: 32 - Num Layers: 4 - Dropout: 0.2 - Learning Rate: 0.001 - Input Dim: 4 - */}
-          {/* Graphs per Epoch: 50 */}
           Machine Learning:
           <ul>
             <li>
               Learning rate: <code>0.001</code>
             </li>
             <li>
-              Dropout: <code>0.2</code>
+              Dropout: <code>0.2</code> — randomly disables neurons during training to prevent
+              overfitting
             </li>
             <li>
-              Number of epochs: <code>500</code>
+              Number of epochs: <code>500</code> (h32 models), <code>5000</code> (h128 models)
             </li>
             <li>
               Train on <code>50</code> random graphs <code>per epoch</code>
@@ -101,31 +115,34 @@ export const DocsModuleAssessmentPage = () => {
           </ul>
         </p>
         <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
-          Graph Neural Network:
+          Graph Neural Network (parameters encoded in model names, e.g.{" "}
+          <code>gin_h32_l4</code> = GIN with 32 hidden dims, 4 layers):
           <ul>
             <li>
-              Number of layers: <code>4</code>;{" "}
+              Number of layers (<code>l</code>):
               <div className="my-1 pl-2 text-sm leading-[1.5] text-textMuted">
-                each layer corresponds to <code>one round</code> of message passing. The more we
-                have, the more information about node's neighborhood the model can capture.
+                Each layer corresponds to <code>one round</code> of message passing. The more we
+                have, the more information about node's neighborhood the model can capture. More
+                layers also increase the risk of <code>over-smoothing</code>, where node embeddings
+                become indistinguishable.
+              </div>
+            </li>
+            <li>
+              Hidden dimensions (<code>h</code>):
+              <div className="my-1 pl-2 text-sm leading-[1.5] text-textMuted">
+                The size of the node embeddings in each layer. Determines the{" "}
+                <code>capacity</code> of the model to capture complex graph structures. Larger
+                values allow more expressive representations but require more training data and
+                compute.
               </div>
             </li>
             <li>
               Input dimensions: <code>4</code>
               <div className="my-1 pl-2 text-sm leading-[1.5] text-textMuted">
-                The size of the initial node features. The more dimensions, the more information
-                about the nodes can be encoded at the start of training. We used{" "}
-                <code>random features</code> for these tasks. Random features are a common choice in
-                graph learning when we want to test the model's ability to learn from the graph
-                structure itself, without relying on any specific node attributes.
-              </div>
-            </li>
-            <li>
-              Hidden dimensions: <code>32</code>
-              <div className="my-1 pl-2 text-sm leading-[1.5] text-textMuted">
-                The size of the node embeddings in each layer. These dimensions determine the{" "}
-                <code>capacity</code> of the model to capture complex graph structures and node
-                features.
+                The size of the initial node features. We used{" "}
+                <code>random features</code> — a common choice in graph learning when testing the
+                model's ability to learn from graph structure itself, without relying on specific
+                node attributes.
               </div>
             </li>
           </ul>
