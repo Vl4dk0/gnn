@@ -6,7 +6,9 @@ meta-search that iterates over base graphs and groups.
 
 from __future__ import annotations
 
+import argparse
 import math
+import multiprocessing
 import random
 import sys
 import time
@@ -405,6 +407,51 @@ def _candidate_bases(k: int) -> list[tuple[str, BaseGraph]]:
     return bases
 
 
+def _search_one_config(
+    args: tuple[str, BaseGraph, FiniteGroup, int, int, int],
+) -> dict[str, object] | None:
+    """Run random + tabu search on one (base, group) pair. Process-safe worker."""
+    base_name, base, group, k, g_target, num_random_trials = args
+    lift_size = base.num_nodes * group.order
+    best: dict[str, object] | None = None
+
+    def _make_result(
+        volts: list[int], girth_val: object, method: str
+    ) -> dict[str, object]:
+        return dict(
+            girth=girth_val,
+            order=lift_size,
+            voltages=volts,
+            base_name=base_name,
+            group_name=group.name,
+            method=method,
+        )
+
+    # Random search
+    volts, girth = random_search(
+        base, group, k, g_target, num_trials=num_random_trials, verbose=False
+    )
+    if isinstance(girth, int) and girth >= g_target and volts is not None:
+        lifted = build_lift(base, group, volts)
+        props = verify_lift(lifted, k, g_target)
+        if props["is_valid_kg"]:
+            best = _make_result(volts, props["girth"], "random")
+
+    # Tabu search
+    volts_t, girth_t = tabu_search(
+        base, group, k, g_target, num_iterations=2000, verbose=False
+    )
+    if isinstance(girth_t, int) and girth_t >= g_target and volts_t is not None:
+        lifted = build_lift(base, group, volts_t)
+        props = verify_lift(lifted, k, g_target)
+        if props["is_valid_kg"]:
+            candidate = _make_result(volts_t, props["girth"], "tabu")
+            if best is None or lift_size < int(str(best.get("order", 999999))):
+                best = candidate
+
+    return best
+
+
 def meta_search(
     k: int,
     g_target: int,
@@ -413,13 +460,28 @@ def meta_search(
     beam_width: int = 50,
     max_group_order: int = 100,
     verbose: bool = True,
+    num_workers: int = 1,
 ) -> dict[str, object]:
     """Search over base graphs and groups for small (k, g)-graphs.
 
-    Uses random search (always) and beam search (if model provided).
-    Returns information about the best graph found.
+    Uses random + tabu search in parallel across (base, group) configs.
+    Beam search runs if a model is provided (sequential, requires GPU).
     """
     bases = _candidate_bases(k)
+
+    # Build flat list of all configs
+    configs: list[tuple[str, BaseGraph, FiniteGroup, int, int, int]] = []
+    for base_name, base in bases:
+        groups = _candidate_groups_for_target(k, g_target, base, max_group_order)
+        for group in groups:
+            configs.append((base_name, base, group, k, g_target, num_random_trials))
+
+    if verbose:
+        print(f"Searching for ({k},{g_target})-graphs via voltage graph lifts...")
+        print(f"  Total configs: {len(configs)} across {len(bases)} bases")
+        print(f"  Workers: {num_workers}")
+        print(f"  Max group order: {max_group_order}")
+
     best_result: dict[str, object] = {
         "girth": 0,
         "order": math.inf,
@@ -428,124 +490,37 @@ def meta_search(
         "group_name": None,
     }
     best_order: float = math.inf
-
     start_time = time.time()
-    configs_tried = 0
 
-    for base_name, base in bases:
-        groups = _candidate_groups_for_target(k, g_target, base, max_group_order)
-
-        if verbose:
-            print(
-                f"\nBase: {base_name} ({base.num_nodes} nodes, {base.num_undirected_edges()} edges)"
-            )
-            print(f"  Groups to try: {len(groups)}")
-
-        for group in groups:
-            configs_tried += 1
-            lift_size = base.num_nodes * group.order
-
-            # Random search
-            volts, girth = random_search(
-                base,
-                group,
-                k,
-                g_target,
-                num_trials=num_random_trials,
-                verbose=False,
-            )
-
-            if isinstance(girth, int) and girth >= g_target and volts is not None:
-                if lift_size < best_order:
-                    lifted = build_lift(base, group, volts)
-                    props = verify_lift(lifted, k, g_target)
-                    if props["is_valid_kg"]:
-                        best_order = float(lift_size)
-                        best_result = {
-                            "girth": props["girth"],
-                            "order": lift_size,
-                            "voltages": volts,
-                            "base_name": base_name,
-                            "group_name": group.name,
-                            "method": "random",
-                        }
-                        if verbose:
-                            print(
-                                f"  ** NEW BEST: {group.name}, order={lift_size}, "
-                                f"girth={props['girth']}, voltages={volts}"
-                            )
-
-            # Tabu search
-            volts_t, girth_t = tabu_search(
-                base,
-                group,
-                k,
-                g_target,
-                num_iterations=2000,
-                verbose=False,
-            )
-
-            if isinstance(girth_t, int) and girth_t >= g_target and volts_t is not None:
-                if lift_size < best_order:
-                    lifted = build_lift(base, group, volts_t)
-                    props = verify_lift(lifted, k, g_target)
-                    if props["is_valid_kg"]:
-                        best_order = float(lift_size)
-                        best_result = {
-                            "girth": props["girth"],
-                            "order": lift_size,
-                            "voltages": volts_t,
-                            "base_name": base_name,
-                            "group_name": group.name,
-                            "method": "tabu",
-                        }
-                        if verbose:
-                            print(
-                                f"  ** NEW BEST (tabu): {group.name}, order={lift_size}, "
-                                f"girth={props['girth']}, voltages={volts_t}"
-                            )
-
-            # Beam search (if model available)
-            if model is not None:
-                volts_b, girth_b = beam_search(
-                    base,
-                    group,
-                    k,
-                    g_target,
-                    model=model,
-                    beam_width=beam_width,
-                    verbose=False,
+    def _update_best(result: dict[str, object] | None) -> None:
+        nonlocal best_order, best_result
+        if result is None:
+            return
+        order = int(str(result["order"]))
+        if order < best_order:
+            best_order = float(order)
+            best_result = result
+            if verbose:
+                print(
+                    f"  ** NEW BEST: {result['group_name']}, order={order}, "
+                    f"girth={result['girth']}, method={result['method']}, "
+                    f"voltages={result['voltages']}"
                 )
 
-                if (
-                    isinstance(girth_b, int)
-                    and girth_b >= g_target
-                    and volts_b is not None
-                ):
-                    if lift_size < best_order:
-                        lifted = build_lift(base, group, volts_b)
-                        props = verify_lift(lifted, k, g_target)
-                        if props["is_valid_kg"]:
-                            best_order = float(lift_size)
-                            best_result = {
-                                "girth": props["girth"],
-                                "order": lift_size,
-                                "voltages": volts_b,
-                                "base_name": base_name,
-                                "group_name": group.name,
-                                "method": "beam",
-                            }
-                            if verbose:
-                                print(
-                                    f"  ** NEW BEST (beam): {group.name}, order={lift_size}, "
-                                    f"girth={props['girth']}, voltages={volts_b}"
-                                )
+    if num_workers > 1:
+        with multiprocessing.Pool(num_workers) as pool:
+            for result in pool.imap_unordered(_search_one_config, configs):
+                _update_best(result)
+    else:
+        for cfg in configs:
+            result = _search_one_config(cfg)
+            _update_best(result)
 
     elapsed = time.time() - start_time
 
     if verbose:
         print(f"\n{'=' * 60}")
-        print(f"Search complete: {configs_tried} configs in {elapsed:.1f}s")
+        print(f"Search complete: {len(configs)} configs in {elapsed:.1f}s")
         if best_result["voltages"] is not None:
             print(f"Best ({k},{g_target})-graph found:")
             print(f"  Order: {best_result['order']}")
@@ -555,7 +530,7 @@ def meta_search(
             print(f"  Voltages: {best_result['voltages']}")
             print(f"  Method: {best_result.get('method', 'unknown')}")
 
-            # Build and verify the actual lift
+            # Verify the best result
             volts_final = best_result["voltages"]
             base_final = None
             for bname, b in bases:
@@ -595,8 +570,24 @@ def _find_group_by_name(name: str, max_order: int) -> FiniteGroup | None:
 
 
 if __name__ == "__main__":
-    k = int(sys.argv[1]) if len(sys.argv) > 1 else 3
-    g = int(sys.argv[2]) if len(sys.argv) > 2 else 5
+    parser = argparse.ArgumentParser(description="Voltage graph cage search")
+    _ = parser.add_argument("k", type=int, nargs="?", default=3, help="Degree k")
+    _ = parser.add_argument("g", type=int, nargs="?", default=5, help="Girth g")
+    _ = parser.add_argument("--workers", type=int, default=1, help="Parallel workers")
+    _ = parser.add_argument(
+        "--max-group-order", type=int, default=100, help="Max group order"
+    )
+    _ = parser.add_argument(
+        "--trials", type=int, default=5000, help="Random trials per config"
+    )
+    args = parser.parse_args()
 
-    print(f"Searching for ({k},{g})-graphs via voltage graph lifts...")
-    _ = meta_search(k, g, model=None, num_random_trials=5000, verbose=True)
+    _ = meta_search(
+        args.k,
+        args.g,
+        model=None,
+        num_random_trials=args.trials,
+        max_group_order=args.max_group_order,
+        verbose=True,
+        num_workers=args.workers,
+    )
