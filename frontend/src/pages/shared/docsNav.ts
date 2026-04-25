@@ -11,6 +11,7 @@ export const DOCS_SEQUENCE: DocsItem[] = [
   { href: "/docs/module-min-cycle", title: "Minimum-cycle prediction", short: "Cycle" },
   { href: "/docs/module-assessment", title: "Assessment", short: "Assess" },
   { href: "/docs/module-cage", title: "Cage generation", short: "Cage" },
+  { href: "/docs/voltage", title: "Voltage graph lifts", short: "Voltage" },
   { href: "/docs/training", title: "Do It Yourself", short: "DIY" }
 ];
 

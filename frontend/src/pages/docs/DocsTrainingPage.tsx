@@ -142,7 +142,7 @@ if __name__ == "__main__":
       </DocsCard>
 
       <div className="mt-10 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-5">
-        <DocsNextButton href="/docs/module-cage" label="Cage generation" direction="back" />
+        <DocsNextButton href="/docs/voltage" label="Voltage graph lifts" direction="back" />
         <DocsNextButton href="/" label="Overview" />
       </div>
     </DocsLayout>

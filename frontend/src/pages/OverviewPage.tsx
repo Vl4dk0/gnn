@@ -44,8 +44,14 @@ const STORY_ITEMS = [
     description: "Why generation is difficult and what has been tried so far."
   },
   {
-    href: "/docs/training",
+    href: "/docs/voltage",
     index: 7,
+    title: "Voltage graph lifts",
+    description: "An algebraic shortcut: tiny blueprints + groups to generate large regular graphs."
+  },
+  {
+    href: "/docs/training",
+    index: 8,
     title: "Do It Yourself",
     description: "A minimal example you can run in a clean folder."
   }

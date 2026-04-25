@@ -363,7 +363,7 @@ REMOVE_PENALTY: float = -0.02  # was -0.1
 
       <div className="mt-10 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-5">
         <DocsNextButton href="/docs/module-assessment" label="Assessment" direction="back" />
-        <DocsNextButton href="/docs/training" label="Do It Yourself" />
+        <DocsNextButton href="/docs/voltage" label="Voltage graph lifts" />
       </div>
     </DocsLayout>
   );

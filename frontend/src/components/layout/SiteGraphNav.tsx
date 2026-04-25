@@ -29,6 +29,7 @@ const INITIAL_NODES: GraphNode[] = [
   { id: "cycle", label: "Cycle", path: "/docs/module-min-cycle", group: "doc" },
   { id: "assess", label: "Assessment", path: "/docs/module-assessment", group: "doc" },
   { id: "cage", label: "Cage", path: "/docs/module-cage", group: "doc" },
+  { id: "voltage", label: "Voltage", path: "/docs/voltage", group: "doc" },
   { id: "train", label: "DIY", path: "/docs/training", group: "doc" },
   // Apps (Editors)
   { id: "app-degree", label: "Editor", path: "/degree", group: "app" },
@@ -45,23 +46,35 @@ const getPathNumber = (path: string): number | null => {
   if (path === "/docs/module-min-cycle") return 4;
   if (path === "/docs/module-assessment") return 5;
   if (path === "/docs/module-cage") return 6;
-  if (path === "/docs/training") return 7;
+  if (path === "/docs/voltage") return 7;
+  if (path === "/docs/training") return 8;
   return null;
 };
 
-// "Star" topology: Root connects to all docs
+// Star topology + sequential edges between consecutive docs
 const INITIAL_LINKS: GraphLink[] = [
+  // Root connects to all docs
   { source: "root", target: "gnns" },
   { source: "root", target: "arch" },
   { source: "root", target: "degree" },
   { source: "root", target: "cycle" },
   { source: "root", target: "assess" },
   { source: "root", target: "cage" },
+  { source: "root", target: "voltage" },
   { source: "root", target: "train" },
-  // Branches to apps (keep these attached to their respective docs)
+  // Sequential edges (docs flow in order)
+  { source: "gnns", target: "arch" },
+  { source: "arch", target: "degree" },
+  { source: "degree", target: "cycle" },
+  { source: "cycle", target: "assess" },
+  { source: "assess", target: "cage" },
+  { source: "cage", target: "voltage" },
+  { source: "voltage", target: "train" },
+  // Branches to apps
   { source: "degree", target: "app-degree" },
   { source: "cycle", target: "app-cycle" },
-  { source: "cage", target: "app-cage" }
+  { source: "cage", target: "app-cage" },
+  { source: "voltage", target: "app-cage" }
 ];
 
 export const SiteGraphNav = () => {
@@ -83,7 +96,7 @@ export const SiteGraphNav = () => {
     if (!isOpen || !svgRef.current) return;
 
     const width = 300;
-    const height = 600;
+    const height = 630;
 
     // 1. Setup SVG
     const svg = d3
@@ -137,40 +150,45 @@ export const SiteGraphNav = () => {
           .forceLink<GraphNode, GraphLink>(links)
           .id((d) => d.id)
           .distance((d) => {
-            // Shorter links for apps
-            if ((d.target as GraphNode).group === "app") return 60; // Increased from 50
-            // Variable length for star topology to spread them out vertically
-            const targetId = (d.target as GraphNode).id;
-            if (targetId === "gnns") return 60;
-            if (targetId === "arch") return 120;
-            if (targetId === "degree") return 180;
-            if (targetId === "cycle") return 240;
-            if (targetId === "assess") return 300;
-            if (targetId === "cage") return 360;
-            if (targetId === "train") return 420;
+            const src = (d.source as GraphNode).id;
+            const tgt = (d.target as GraphNode).id;
+            // App branches: short
+            if ((d.target as GraphNode).group === "app") return 55;
+            // Sequential edges between consecutive docs: short, tight chain
+            const seqPairs = [
+              ["gnns", "arch"], ["arch", "degree"], ["degree", "cycle"],
+              ["cycle", "assess"], ["assess", "cage"], ["cage", "voltage"],
+              ["voltage", "train"]
+            ];
+            if (seqPairs.some(([a, b]) => (src === a && tgt === b) || (src === b && tgt === a))) {
+              return 65;
+            }
+            // Star edges from root: uniform medium distance
+            if (src === "root" || tgt === "root") return 200;
             return 100;
           })
       )
-      .force("charge", d3.forceManyBody().strength(-200)) // Increased repel to -200
-      .force("center", d3.forceCenter(width * 0.3, height / 2).strength(0.005)) // Centered at 0.3 (left side)
+      .force("charge", d3.forceManyBody().strength(-150))
+      .force("center", d3.forceCenter(width * 0.3, height / 2).strength(0.003))
       .force(
         "y",
         d3
           .forceY()
           .y((d: any) => {
-            // Vertical guidance
-            if (d.group === "root") return 40;
+            // Vertical guidance — evenly spaced chain
+            if (d.group === "root") return 35;
             if (d.id === "gnns") return 100;
-            if (d.id === "arch") return 160;
-            if (d.id === "degree") return 220;
-            if (d.id === "cycle") return 280;
-            if (d.id === "assess") return 340;
-            if (d.id === "cage") return 400;
-            if (d.id === "train") return 460;
+            if (d.id === "arch") return 165;
+            if (d.id === "degree") return 230;
+            if (d.id === "cycle") return 295;
+            if (d.id === "assess") return 360;
+            if (d.id === "cage") return 425;
+            if (d.id === "voltage") return 490;
+            if (d.id === "train") return 555;
 
             return height / 2;
           })
-          .strength((d: any) => (d.group === "app" ? 0.02 : 0.1)) // Very loose vertical constraint
+          .strength((d: any) => (d.group === "app" ? 0.02 : 0.15))
       )
       .force("x", d3.forceX(width * 0.3).strength(0.01)); // Weak pull to left (0.3)
 
@@ -369,7 +387,7 @@ export const SiteGraphNav = () => {
   }, [location.pathname, isOpen]);
 
   return (
-    <div className="fixed right-10 top-1/2 z-50 hidden h-[600px] w-[300px] -translate-y-1/2 pointer-events-none min-[1380px]:block">
+    <div className="fixed right-10 top-1/2 z-50 hidden h-[630px] w-[300px] -translate-y-1/2 pointer-events-none min-[1380px]:block">
       <div className="relative h-full w-full">
         {/* Toggle Button - always visible, top-right of container */}
         <div
