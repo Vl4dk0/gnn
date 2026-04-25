@@ -149,6 +149,9 @@ def compute_girth(G: nx.Graph[int]) -> int | float:
     if len(G.edges()) == 0:
         return float("inf")
 
+    if any(G.has_edge(node, node) for node in G.nodes()):
+        return 1
+
     # BFS-based girth computation
     return _compute_girth_bfs(G)
 

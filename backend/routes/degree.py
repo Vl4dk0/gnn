@@ -3,7 +3,7 @@ from typing import TypedDict, cast
 from flask import Blueprint, jsonify, request
 
 from ai.degree import predict_all_nodes
-from ai.registry import list_trained_models, get_best_model_id
+from ai.registry import list_trained_models, get_best_model_id, model_exists
 from backend.utils import parse_edge_list, generate_random_graph, graph_to_edge_list
 
 degree_bp = Blueprint("degree", __name__, url_prefix="/api/degree")
@@ -135,6 +135,9 @@ def analyze_graph():
 
         if graph_str is None:
             return jsonify({"error": "Graph data is required"}), 400
+
+        if model_id is not None and not model_exists("degree", model_id):
+            return jsonify({"error": f"Unknown degree model_id: {model_id}"}), 400
 
         # Parse the graph
         G = parse_edge_list(graph_str)

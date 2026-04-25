@@ -25,7 +25,7 @@ export class GraphNode {
   }
 
   public get degree(): number {
-    return this.neighbors.length;
+    return this.neighbors.reduce((total, neighbor) => total + (neighbor === this ? 2 : 1), 0);
   }
 
   public get isWrong(): boolean {

@@ -19,7 +19,7 @@ const DEFAULT_SETTINGS: DegreeMinCycleSettings = {
   modelId: null
 };
 
-const STORAGE_KEY = "graphSettings";
+const storageKeyForTask = (task: PredictionTask) => `graphSettings:${task}`;
 
 interface ModelOption {
   value: string;
@@ -32,7 +32,7 @@ export const usePredictionGraph = (task: PredictionTask) => {
   const [graphInput, setGraphInput] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settings, setSettings] = useState<DegreeMinCycleSettings>(() =>
-    readStored<DegreeMinCycleSettings>(STORAGE_KEY, DEFAULT_SETTINGS)
+    readStored<DegreeMinCycleSettings>(storageKeyForTask(task), DEFAULT_SETTINGS)
   );
   const [modelOptions, setModelOptions] = useState<ModelOption[]>([
     {
@@ -178,7 +178,7 @@ export const usePredictionGraph = (task: PredictionTask) => {
       };
 
       setSettings(safe);
-      writeStored(STORAGE_KEY, safe);
+      writeStored(storageKeyForTask(task), safe);
       applyPhysics(safe.enablePhysics);
 
       if (editorRef.current) {
@@ -188,7 +188,7 @@ export const usePredictionGraph = (task: PredictionTask) => {
 
       setSettingsOpen(false);
     },
-    [applyPhysics]
+    [applyPhysics, task]
   );
 
   const setGraphFromEditor = useCallback((edgeList: string) => {

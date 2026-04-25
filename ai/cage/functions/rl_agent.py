@@ -157,6 +157,8 @@ class RLGenerator:
                 dropout = float(training.get("dropout", 0.0))
                 r = int(training.get("r", 3))
                 shared = bool(training.get("shared", False))
+                conv_type = str(training.get("conv_type", "gin"))
+                heads = int(training.get("heads", 4))
                 weights_path = str(selected_model_info["weights_path"])
 
                 model = ActorCritic(
@@ -167,6 +169,8 @@ class RLGenerator:
                     dropout=dropout,
                     r=r,
                     shared=shared,
+                    conv_type=conv_type,
+                    heads=heads,
                 )
                 loaded_weights = torch.load(weights_path, map_location=self.device)  # pyright: ignore[reportAny]
                 _ = model.load_state_dict(loaded_weights)  # pyright: ignore[reportAny]
@@ -217,7 +221,7 @@ class RLGenerator:
         if not is_k_regular(graph, self.k):
             return False
         girth = compute_girth(graph)
-        return not isinstance(girth, float) and girth >= self.g
+        return girth == self.g
 
     def step(self) -> None:
         if self.is_complete:
