@@ -1,27 +1,27 @@
 {
   "model_type": "actor_critic",
-  "model_id": "gin_shaped_ppo",
+  "model_id": "gin_shaped_h96_ppo",
   "task": "cage",
   "training": {
     "model_type": "gin",
     "input_dim": 8,
-    "hidden_dim": 64,
+    "hidden_dim": 96,
     "num_layers": 4,
     "dropout": 0.2,
     "r": 3,
     "shared": false,
     "steps": 99999999,
-    "learning_rate": 0.0003,
+    "learning_rate": 0.0001,
     "update_interval": 2048,
     "randomize": true,
     "resumed": true,
-    "resume_path": "/mnt/data/home/vljake390/gnn/ai/trained/cage/gin_shaped_ppo/weights.pt",
-    "checkpoint_step": 10481664,
+    "resume_path": "/mnt/data/home/vljake390/gnn/ai/trained/cage/gin_shaped_h96_ppo/weights.pt",
+    "checkpoint_step": 10850304,
     "partial": true
   },
   "metrics": {
-    "avg_reward": 28.21,
-    "fps": 60
+    "avg_reward": 27.37,
+    "fps": 62
   },
-  "created_at": "2026-04-25T13:57:32.827505"
+  "created_at": "2026-04-25T13:57:43.649245"
 }
