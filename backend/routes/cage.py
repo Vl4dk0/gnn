@@ -15,6 +15,7 @@ from ai.cage import (
     BruteforceGenerator,
     AStarGenerator,
     RLGenerator,
+    VoltageSearchGenerator,
 )
 from ai.registry import get_best_model_id, list_trained_models
 from backend.utils.graph_utils import (
@@ -42,7 +43,11 @@ class _GeneratorProto(Protocol):
 
 class _Session(TypedDict, total=False):
     generator: Required[
-        RandomWalkGenerator | BruteforceGenerator | AStarGenerator | RLGenerator
+        RandomWalkGenerator
+        | BruteforceGenerator
+        | AStarGenerator
+        | RLGenerator
+        | VoltageSearchGenerator
     ]
     last_poll: Required[float]
     thread: Required[threading.Thread]
@@ -206,6 +211,8 @@ def generate() -> Response | tuple[Response, int]:
             model_type=requested_model_type,
             model_id=requested_model_id,
         )
+    elif generator_type == "voltage":
+        generator = VoltageSearchGenerator(k, g)
     else:  # 'randomwalk' or default
         generator = RandomWalkGenerator(k, g)
 

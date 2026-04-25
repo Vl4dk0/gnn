@@ -52,7 +52,7 @@ export interface DegreeMinCycleSettings {
   modelId: string | null;
 }
 
-export type GeneratorType = "randomwalk" | "bruteforce" | "astar" | "rl";
+export type GeneratorType = "randomwalk" | "bruteforce" | "astar" | "rl" | "voltage";
 
 export interface CageSettings {
   generatorType: GeneratorType;
