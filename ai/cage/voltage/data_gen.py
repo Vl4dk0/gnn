@@ -155,8 +155,9 @@ def generate_dataset(
     Returns (dataset, stats). Stats reports overall counts plus a per-target
     breakdown keyed by "k_g".
 
-    Each sample is keyed by (k, base_name, group_name, voltage_tuple) to
-    prevent train/val/test leakage across splits.
+    Each sample is keyed by (k, g_target, base_name, group_name, voltage_tuple)
+    to prevent train/val/test leakage across splits without dropping the same
+    lift evaluated under a different girth target.
     """
     if not targets:
         raise ValueError("targets must be non-empty")

@@ -2,9 +2,10 @@
 Blueprint for Cage Graph Generator API endpoints.
 """
 
-import uuid
+import json
 import threading
 import time
+import uuid
 from collections import deque
 from typing import Literal, Protocol, TypedDict, Required, cast
 
@@ -19,7 +20,12 @@ from ai.cage import (
     VoltageSearchGenerator,
 )
 from ai.cage.functions.voltage_rl_agent import VoltageRLGenerator
-from ai.registry import get_best_model_id, list_trained_models, model_exists
+from ai.registry import (
+    get_best_model_id,
+    get_trained_dir,
+    list_trained_models,
+    model_exists,
+)
 from backend.utils.graph_utils import (
     graph_to_edge_list,
     is_valid_cage,
@@ -149,6 +155,18 @@ def _normalize_mode(mode: str) -> _ExecutionMode | None:
     if mode in VALID_MODES:
         return cast(_ExecutionMode, mode)
     return None
+
+
+def _voltage_rl_model_exists(model_id: str) -> bool:
+    model_dir = get_trained_dir("cage") / model_id
+    info_path = model_dir / "info.json"
+    weights_path = model_dir / "weights.pt"
+    if not info_path.exists() or not weights_path.exists():
+        return False
+
+    with open(info_path) as f:
+        info = cast(dict[str, object], json.load(f))
+    return info.get("model_type") == "voltage_actor_critic"
 
 
 def _append_latest_event(session: _Session, generator: _Generator) -> _StepEvent | None:
@@ -325,10 +343,20 @@ def generate() -> Response | tuple[Response, int]:
         return jsonify(
             {"error": "Stepped inspection mode is only supported for RL"}
         ), 400
-    if generator_type in ("rl", "voltage_rl") and requested_model_id is not None:
+    if generator_type == "rl" and requested_model_id is not None:
         if not model_exists("cage", requested_model_id):
             return jsonify(
                 {"error": f"Unknown cage model_id: {requested_model_id}"}
+            ), 400
+    if generator_type == "voltage_rl" and requested_model_id is not None:
+        if not _voltage_rl_model_exists(requested_model_id):
+            return jsonify(
+                {
+                    "error": (
+                        f"Unknown voltage_rl model_id: {requested_model_id}. "
+                        "Expected a cage model with model_type=voltage_actor_critic."
+                    )
+                }
             ), 400
 
     # Validation
@@ -358,13 +386,16 @@ def generate() -> Response | tuple[Response, int]:
 
     # Create generator based on type
     session_id = str(uuid.uuid4())
-    generator = _create_generator(
-        generator_type,
-        k,
-        g,
-        requested_model_type,
-        requested_model_id,
-    )
+    try:
+        generator = _create_generator(
+            generator_type,
+            k,
+            g,
+            requested_model_type,
+            requested_model_id,
+        )
+    except (FileNotFoundError, RuntimeError, ValueError) as e:
+        return jsonify({"error": str(e)}), 400
     thread: threading.Thread | None = None
     if mode == "async":
         thread = threading.Thread(
