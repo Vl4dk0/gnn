@@ -93,6 +93,11 @@ class VoltageRLGenerator:
                 candidates.append((model_dir.name, weights_path))
 
         if not candidates:
+            if model_id is not None:
+                raise FileNotFoundError(
+                    f"voltage_rl model_id={model_id!r} requested but no "
+                    "voltage_actor_critic models exist in the cage registry"
+                )
             print("No voltage RL models found. Using random weights.")
             return VoltageActorCritic(
                 input_dim=self.env.get_input_dim(), edge_feat_dim=2
@@ -107,6 +112,12 @@ class VoltageRLGenerator:
                     selected_path = cpath
                     selected_id = cid
                     break
+            if selected_path is None:
+                available = ", ".join(cid for cid, _ in candidates)
+                raise FileNotFoundError(
+                    f"voltage_rl model_id={model_id!r} not found in cage "
+                    f"registry. Available: [{available}]"
+                )
 
         if selected_path is None:
             selected_id, selected_path = candidates[0]
@@ -128,15 +139,9 @@ class VoltageRLGenerator:
             heads=int(training.get("heads", 4)),
         )
 
-        try:
-            weights = torch.load(selected_path, map_location=self.device)  # pyright: ignore[reportAny]
-            _ = model.load_state_dict(weights)  # pyright: ignore[reportAny]
-            print(f"Loaded voltage RL model: {selected_id}")
-        except Exception as e:
-            print(
-                f"Failed to load voltage RL model {selected_id}: {e}. Using random weights."
-            )
-
+        weights = torch.load(selected_path, map_location=self.device)  # pyright: ignore[reportAny]
+        _ = model.load_state_dict(weights)  # pyright: ignore[reportAny]
+        print(f"Loaded voltage RL model: {selected_id}")
         return model
 
     def elapsed_time(self) -> float:

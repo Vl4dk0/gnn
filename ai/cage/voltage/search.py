@@ -289,6 +289,7 @@ def beam_search(
     order = group.order
 
     _ = model.eval()
+    device = next(model.parameters()).device
 
     # Each candidate is a partial voltage list (length increases each step)
     candidates: list[tuple[list[int], float]] = [([], 0.0)]
@@ -307,6 +308,7 @@ def beam_search(
                     data = base_graph_to_pyg(
                         base, full_volts, group, k, g_target, girth=0
                     )
+                    data = data.to(device)
                     girth_pred, class_logit = model(data)
                     score = float(girth_pred.item()) + float(
                         torch.sigmoid(class_logit).item()

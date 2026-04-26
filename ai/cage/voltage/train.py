@@ -226,6 +226,15 @@ def train(
         f"in {gen_stats['attempts']} attempts "
         f"({gen_stats['duplicates_skipped']} duplicates skipped)"
     )
+    produced_n = int(cast(int, gen_stats["produced"]))
+    requested_n = int(cast(int, gen_stats["requested"]))
+    if produced_n < 0.95 * requested_n:
+        print(
+            f"  WARNING: produced only {produced_n}/{requested_n} samples "
+            f"({100 * produced_n / max(requested_n, 1):.1f}%). "
+            "Increase --max-group-order or --samples ceiling, "
+            "or reduce target overlap."
+        )
     per_target_gen = cast(dict[str, dict[str, float]], gen_stats["per_target"])
     for tkey, ts in per_target_gen.items():
         print(

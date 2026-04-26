@@ -152,9 +152,7 @@ def _normalize_mode(mode: str) -> _ExecutionMode | None:
 
 
 def _append_latest_event(session: _Session, generator: _Generator) -> _StepEvent | None:
-    if not isinstance(generator, RLGenerator):
-        return None
-    event = generator.last_event
+    event = cast("_StepEvent | None", getattr(generator, "last_event", None))
     if event is None:
         return None
     copied_event: _StepEvent = {
@@ -327,7 +325,7 @@ def generate() -> Response | tuple[Response, int]:
         return jsonify(
             {"error": "Stepped inspection mode is only supported for RL"}
         ), 400
-    if generator_type == "rl" and requested_model_id is not None:
+    if generator_type in ("rl", "voltage_rl") and requested_model_id is not None:
         if not model_exists("cage", requested_model_id):
             return jsonify(
                 {"error": f"Unknown cage model_id: {requested_model_id}"}

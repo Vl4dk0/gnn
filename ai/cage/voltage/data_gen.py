@@ -171,7 +171,7 @@ def generate_dataset(
     }
 
     dataset: list[Data] = []
-    seen_keys: set[tuple[int, str, str, tuple[int, ...]]] = set()
+    seen_keys: set[tuple[int, int, str, str, tuple[int, ...]]] = set()
     duplicates_skipped = 0
     attempts = 0
     max_attempts = num_samples * max_attempts_multiplier
@@ -203,7 +203,7 @@ def generate_dataset(
         n_edges = base.num_undirected_edges()
         volt = [rng.randint(0, group.order - 1) for _ in range(n_edges)]
 
-        key = (k, base_name, group.name, tuple(volt))
+        key = (k, g_target, base_name, group.name, tuple(volt))
         if key in seen_keys:
             duplicates_skipped += 1
             per_target[target_key]["duplicates_skipped"] += 1
