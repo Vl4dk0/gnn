@@ -282,6 +282,7 @@ export const CagePage = () => {
           <option value="astar">A* Search (Best-First, Optimal)</option>
           <option value="rl">RL Agent (GNN-Guided)</option>
           <option value="voltage">Voltage Graph Lift (Algebraic)</option>
+          <option value="voltage_rl">Voltage RL (Learned Assignments)</option>
         </SelectField>
 
         {draftSettings.generatorType === "rl" && (
