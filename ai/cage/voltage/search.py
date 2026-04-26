@@ -7,6 +7,7 @@ meta-search that iterates over base graphs and groups.
 from __future__ import annotations
 
 import argparse
+import json
 import math
 import multiprocessing
 import random
@@ -516,6 +517,44 @@ def meta_search(
             result = _search_one_config(cfg)
             _update_best(result)
 
+    # Beam search pass — runs sequentially, model in main process only
+    if model is not None:
+        if verbose:
+            print(f"\n  --- ML-guided beam search (beam_width={beam_width}) ---")
+        for base_name, base in bases:
+            groups = _candidate_groups_for_target(k, g_target, base, max_group_order)
+            for group in groups:
+                lift_size = base.num_nodes * group.order
+                if lift_size >= best_order:
+                    continue
+                volts_b, girth_b = beam_search(
+                    base,
+                    group,
+                    k,
+                    g_target,
+                    model=model,
+                    beam_width=beam_width,
+                    verbose=False,
+                )
+                if (
+                    isinstance(girth_b, int)
+                    and girth_b >= g_target
+                    and volts_b is not None
+                ):
+                    lifted = build_lift(base, group, volts_b)
+                    props = verify_lift(lifted, k, g_target)
+                    if props["is_valid_kg"]:
+                        _update_best(
+                            dict(
+                                girth=props["girth"],
+                                order=lift_size,
+                                voltages=volts_b,
+                                base_name=base_name,
+                                group_name=group.name,
+                                method="beam",
+                            )
+                        )
+
     elapsed = time.time() - start_time
 
     if verbose:
@@ -580,14 +619,52 @@ if __name__ == "__main__":
     _ = parser.add_argument(
         "--trials", type=int, default=5000, help="Random trials per config"
     )
+    _ = parser.add_argument(
+        "--model-id",
+        type=str,
+        default=None,
+        help="Girth predictor model_id (e.g. girth_predictor_k3_g7) — enables beam search",
+    )
+    _ = parser.add_argument(
+        "--beam-width", type=int, default=50, help="Beam width when --model-id is set"
+    )
     args = parser.parse_args()
+
+    loaded_model: GirthPredictor | None = None
+    if args.model_id is not None:
+        from pathlib import Path
+
+        model_dir = (
+            Path(__file__).resolve().parents[2]
+            / "trained"
+            / "voltage_girth"
+            / str(args.model_id)
+        )
+        info_path = model_dir / "info.json"
+        weights_path = model_dir / "weights.pt"
+        if not weights_path.exists() or not info_path.exists():
+            raise FileNotFoundError(f"Predictor not found at {model_dir}")
+        with open(info_path) as f:
+            info = json.load(f)
+        training = info.get("training", {})
+        loaded_model = GirthPredictor(
+            node_feat_dim=2,
+            hidden_dim=int(training.get("hidden_dim", 64)),
+            num_layers=int(training.get("num_layers", 4)),
+            max_group_order=int(training.get("max_group_order", 60)),
+        )
+        state = torch.load(weights_path, map_location="cpu")  # pyright: ignore[reportAny]
+        _ = loaded_model.load_state_dict(state)  # pyright: ignore[reportAny]
+        _ = loaded_model.eval()
+        print(f"Loaded girth predictor: {args.model_id}")
 
     _ = meta_search(
         args.k,
         args.g,
-        model=None,
+        model=loaded_model,
         num_random_trials=args.trials,
         max_group_order=args.max_group_order,
         verbose=True,
         num_workers=args.workers,
+        beam_width=args.beam_width,
     )

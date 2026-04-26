@@ -18,6 +18,7 @@ from ai.cage import (
     RLGenerator,
     VoltageSearchGenerator,
 )
+from ai.cage.functions.voltage_rl_agent import VoltageRLGenerator
 from ai.registry import get_best_model_id, list_trained_models, model_exists
 from backend.utils.graph_utils import (
     graph_to_edge_list,
@@ -42,7 +43,9 @@ class _GeneratorProto(Protocol):
     def is_regular(self) -> bool: ...
 
 
-type _GeneratorType = Literal["randomwalk", "bruteforce", "astar", "rl", "voltage"]
+type _GeneratorType = Literal[
+    "randomwalk", "bruteforce", "astar", "rl", "voltage", "voltage_rl"
+]
 type _ExecutionMode = Literal["async", "stepped"]
 type _Generator = (
     RandomWalkGenerator
@@ -50,6 +53,7 @@ type _Generator = (
     | AStarGenerator
     | RLGenerator
     | VoltageSearchGenerator
+    | VoltageRLGenerator
 )
 
 
@@ -114,7 +118,14 @@ MAX_STEP_BATCH = 100
 
 # Safety limits to prevent pathological generation requests from exhausting local compute.
 MAX_MOORE_BOUND = 120
-VALID_GENERATORS: set[str] = {"randomwalk", "bruteforce", "astar", "rl", "voltage"}
+VALID_GENERATORS: set[str] = {
+    "randomwalk",
+    "bruteforce",
+    "astar",
+    "rl",
+    "voltage",
+    "voltage_rl",
+}
 VALID_MODES: set[str] = {"async", "stepped"}
 
 
@@ -214,6 +225,8 @@ def _create_generator(
         return AStarGenerator(k, g)
     if generator_type == "voltage":
         return VoltageSearchGenerator(k, g)
+    if generator_type == "voltage_rl":
+        return VoltageRLGenerator(k, g, model_id=requested_model_id)
     return RLGenerator(
         k,
         g,
@@ -311,10 +324,14 @@ def generate() -> Response | tuple[Response, int]:
     if mode is None:
         return jsonify({"error": f"Unknown cage execution mode: {raw_mode}"}), 400
     if mode == "stepped" and generator_type != "rl":
-        return jsonify({"error": "Stepped inspection mode is only supported for RL"}), 400
+        return jsonify(
+            {"error": "Stepped inspection mode is only supported for RL"}
+        ), 400
     if generator_type == "rl" and requested_model_id is not None:
         if not model_exists("cage", requested_model_id):
-            return jsonify({"error": f"Unknown cage model_id: {requested_model_id}"}), 400
+            return jsonify(
+                {"error": f"Unknown cage model_id: {requested_model_id}"}
+            ), 400
 
     # Validation
     if k < 2:
@@ -548,7 +565,9 @@ def cleanup_old_sessions() -> None:
                 idle_seconds = time.time() - session["last_activity"]
                 if session.get("stopped", False) and idle_seconds > 30:
                     to_remove.append(session_id)
-                elif session["mode"] == "stepped" and idle_seconds > STEPPED_IDLE_TIMEOUT:
+                elif (
+                    session["mode"] == "stepped" and idle_seconds > STEPPED_IDLE_TIMEOUT
+                ):
                     to_remove.append(session_id)
 
             # Remove them

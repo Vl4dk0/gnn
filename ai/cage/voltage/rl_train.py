@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import json
 import os
 import sys
 import time
@@ -322,6 +323,33 @@ def train_voltage_ppo(
     os.makedirs(save_dir, exist_ok=True)
     save_path = os.path.join(save_dir, "weights.pt")
     torch.save(agent.state_dict(), save_path)
+
+    info = {
+        "model_type": "voltage_actor_critic",
+        "model_id": name,
+        "task": "cage",
+        "training": {
+            "input_dim": input_dim,
+            "hidden_dim": hidden_dim,
+            "num_layers": num_layers,
+            "dropout": dropout,
+            "conv_type": conv_type,
+            "heads": heads,
+            "max_action_dim": max_action_dim,
+            "steps": total_timesteps,
+            "learning_rate": lr,
+            "update_interval": update_interval,
+            "entropy_coef": entropy_coef,
+            "randomize": randomize,
+        },
+        "metrics": {
+            "avg_reward": round(best_avg_reward, 2),
+        },
+    }
+    info_path = os.path.join(save_dir, "info.json")
+    with open(info_path, "w") as f:
+        json.dump(info, f, indent=2)
+
     console.print(f"\nModel saved to {save_path}")
     console.print(f"Best avg reward: {best_avg_reward:.2f}")
 

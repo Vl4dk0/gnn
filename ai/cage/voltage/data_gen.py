@@ -14,10 +14,10 @@ from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
 
 from ai.cage.voltage.base_graphs import (
     BaseGraph,
-    dumbbell,
     bouquet,
-    prism_base,
     cubic_multigraph_4nodes,
+    dumbbell,
+    prism_base,
 )
 from ai.cage.voltage.cycle_analysis import compute_lift_girth
 from ai.cage.voltage.groups import (
@@ -37,18 +37,7 @@ def base_graph_to_pyg(
     g_target: int,
     girth: int | float,
 ) -> Data:
-    """Convert a voltage-labeled base graph to a PyG Data object.
-
-    Node features (per base-graph node):
-        [degree / max_degree, node_index / num_nodes]
-
-    Edge features (per directed arc):
-        [voltage_element / group_order]
-        (We use a continuous encoding; the model.py uses an embedding layer.)
-
-    Global attributes stored on the Data object:
-        k, g_target, group_order, girth (label), girth_class (binary: girth >= g_target)
-    """
+    """Convert a voltage-labeled base graph to a PyG Data object."""
     n = base.num_nodes
 
     # Node features: [normalized_degree, normalized_index]
@@ -58,11 +47,6 @@ def base_graph_to_pyg(
         x[v, 0] = base.degree(v) / max(max_deg, 1)
         x[v, 1] = v / max(n - 1, 1)
 
-    # Edge index and edge attributes from arcs
-    src_list: list[int] = []
-    dst_list: list[int] = []
-    edge_voltage: list[int] = []
-
     # Build arc -> voltage mapping
     arc_volt: dict[int, int] = {}
     for edge_pos, fwd_id in enumerate(base.undirected_edge_ids):
@@ -71,17 +55,18 @@ def base_graph_to_pyg(
         arc_volt[fwd_id] = v
         arc_volt[rev_id] = group.inv(v)
 
+    src_list: list[int] = []
+    dst_list: list[int] = []
+    edge_voltage: list[int] = []
     for arc in base.arcs:
         src_list.append(arc.src)
         dst_list.append(arc.dst)
         edge_voltage.append(arc_volt[arc.arc_id])
 
     edge_index = torch.tensor([src_list, dst_list], dtype=torch.long)
-    # Edge attr: voltage as integer (used as embedding index in the model)
     edge_attr = torch.tensor(edge_voltage, dtype=torch.long).unsqueeze(-1)
 
-    # Label — infinite girth means degenerate lift (disconnected/not regular),
-    # clamp to 0 and mark as negative example
+    # Label — infinite girth means degenerate lift
     if isinstance(girth, float):
         girth_int = 0
         girth_class = 0
@@ -105,47 +90,52 @@ def base_graph_to_pyg(
 
 
 def _candidate_groups(max_order: int) -> list[FiniteGroup]:
-    """Generate a list of candidate groups up to a given order."""
+    """Generate a list of candidate groups up to a given order, deduplicated by name."""
     groups: list[FiniteGroup] = []
+    seen_names: set[str] = set()
 
-    # Cyclic groups
+    def _add(g: FiniteGroup) -> None:
+        if g.name not in seen_names:
+            seen_names.add(g.name)
+            groups.append(g)
+
     for n in range(2, max_order + 1):
-        groups.append(cyclic_group(n))
+        _add(cyclic_group(n))
 
-    # Dihedral groups D_n (order 2n)
     for n in range(3, max_order // 2 + 1):
         if 2 * n <= max_order:
-            groups.append(dihedral_group(n))
+            _add(dihedral_group(n))
 
-    # Some direct products of small cyclic groups
     for a in range(2, min(10, max_order)):
         for b in range(a, min(10, max_order)):
             if a * b <= max_order:
-                groups.append(direct_product(cyclic_group(a), cyclic_group(b)))
+                _add(direct_product(cyclic_group(a), cyclic_group(b)))
 
     return groups
 
 
-def _candidate_base_graphs(k: int) -> list[BaseGraph]:
-    """Generate candidate base graphs for degree k."""
-    bases: list[BaseGraph] = []
+def _candidate_base_graphs(k: int) -> list[tuple[str, BaseGraph]]:
+    """Generate candidate base graphs for degree k, paired with stable names."""
+    bases: list[tuple[str, BaseGraph]] = []
 
     if k == 3:
-        # Dumbbell (2 nodes, 3 parallel edges) — most productive
-        bases.append(dumbbell(3))
-        # 4-node cubic multigraph
-        bases.append(cubic_multigraph_4nodes())
-        # Prism (6 nodes)
-        bases.append(prism_base())
+        bases.append(("dumbbell(3)", dumbbell(3)))
+        bases.append(("cubic_4nodes", cubic_multigraph_4nodes()))
+        bases.append(("prism", prism_base()))
 
-    # Dipoles for any k
-    bases.append(dumbbell(k))
+    bases.append((f"dumbbell({k})", dumbbell(k)))
 
-    # Bouquets (for even-degree lifts: lift of bouquet(m) is 2m-regular)
     if k % 2 == 0:
-        bases.append(bouquet(k // 2))
+        bases.append((f"bouquet({k // 2})", bouquet(k // 2)))
 
-    return bases
+    # Deduplicate by name (e.g., dumbbell(3) added twice for k=3)
+    seen: set[str] = set()
+    unique: list[tuple[str, BaseGraph]] = []
+    for name, base in bases:
+        if name not in seen:
+            seen.add(name)
+            unique.append((name, base))
+    return unique
 
 
 def generate_dataset(
@@ -153,42 +143,62 @@ def generate_dataset(
     g_target: int,
     num_samples: int = 10000,
     max_group_order: int = 60,
-) -> list[Data]:
-    """Generate training data for the girth predictor.
+    seed: int | None = None,
+    max_attempts_multiplier: int = 5,
+) -> tuple[list[Data], dict[str, int]]:
+    """Generate deduplicated training data for the girth predictor.
 
-    For each sample, randomly picks a base graph and group, samples a
-    random voltage assignment, computes the exact lift girth, and returns
-    the result as a PyG Data object.
+    Returns (dataset, stats) where stats reports duplicates_skipped, attempts,
+    and the requested vs actual sample count.
+
+    Each sample is keyed by (base_name, group_name, voltage_tuple). Duplicates
+    are skipped to prevent train/val/test leakage.
     """
+    rng = random.Random(seed)
+
     bases = _candidate_base_graphs(k)
     groups = _candidate_groups(max_group_order)
 
-    # Filter groups to those that give lifts of reasonable size
-    # (between Moore bound and ~4x Moore bound)
     mb = moore_bound(k, g_target)
 
     dataset: list[Data] = []
+    seen_keys: set[tuple[str, str, tuple[int, ...]]] = set()
+    duplicates_skipped = 0
+    attempts = 0
+    max_attempts = num_samples * max_attempts_multiplier
 
-    for _ in range(num_samples):
-        base = random.choice(bases)
-        # Filter groups by resulting lift size
+    while len(dataset) < num_samples and attempts < max_attempts:
+        attempts += 1
+        base_name, base = rng.choice(bases)
+
         valid_groups = [
             g for g in groups if mb <= base.num_nodes * g.order <= max(4 * mb, mb + 200)
         ]
         if not valid_groups:
-            # Fall back to all groups
             valid_groups = groups
 
-        group = random.choice(valid_groups)
+        group = rng.choice(valid_groups)
         n_edges = base.num_undirected_edges()
+        volt = [rng.randint(0, group.order - 1) for _ in range(n_edges)]
 
-        # Random voltage assignment
-        volt = [random.randint(0, group.order - 1) for _ in range(n_edges)]
+        key = (base_name, group.name, tuple(volt))
+        if key in seen_keys:
+            duplicates_skipped += 1
+            continue
+        seen_keys.add(key)
 
-        # Compute girth
         girth = compute_lift_girth(base, group, volt, max_girth=2 * g_target)
-
         data = base_graph_to_pyg(base, volt, group, k, g_target, girth)
+        # Track identity for debugging — small string overhead is fine
+        data.base_name = base_name
+        data.group_name = group.name
+
         dataset.append(data)
 
-    return dataset
+    stats: dict[str, int] = {
+        "requested": num_samples,
+        "produced": len(dataset),
+        "duplicates_skipped": duplicates_skipped,
+        "attempts": attempts,
+    }
+    return dataset, stats
