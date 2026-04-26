@@ -3,7 +3,7 @@ import json
 
 from dotenv import load_dotenv
 from flask import Flask, Response, jsonify, request
-from flask import send_from_directory
+from flask import send_file, send_from_directory
 from flask_cors import CORS
 
 from backend.routes.degree import degree_bp
@@ -66,6 +66,17 @@ def create_app() -> Flask:
         config = json.dumps({"apiBaseUrl": resolve_api_base_url()})
         js = f"window.__APP_CONFIG__ = {config};"
         return Response(js, mimetype="application/javascript")
+
+    @app.route("/thesis.pdf")
+    def thesis_pdf():  # pyright: ignore[reportUnusedFunction]
+        """Serve the current thesis PDF from the thesis directory."""
+        thesis_path = os.path.join(project_root, "thesis", "main.pdf")
+        return send_file(
+            thesis_path,
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name="gnn-algebraic-graph-theory-thesis.pdf",
+        )
 
     @app.route("/")
     def index():  # pyright: ignore[reportUnusedFunction]

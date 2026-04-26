@@ -8,7 +8,8 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": "http://127.0.0.1:5555",
-      "/config.js": "http://127.0.0.1:5555"
+      "/config.js": "http://127.0.0.1:5555",
+      "/thesis.pdf": "http://127.0.0.1:5555"
     }
   },
   build: {

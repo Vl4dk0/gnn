@@ -70,13 +70,22 @@ export const OverviewPage = () => {
           generation, but the thesis builds toward it through prediction tasks first.
         </p>
         <div className="mt-5 border-t border-line pt-4 text-sm leading-[1.7] text-textMuted">
-          <div className="ml-auto flex w-fit flex-col gap-2 text-left">
-            <p>
-              <span className="font-semibold text-textMain">Author:</span> {THESIS_AUTHOR}
-            </p>
-            <p>
-              <span className="font-semibold text-textMain">Supervisor:</span> {THESIS_SUPERVISOR}
-            </p>
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <a
+              href="/thesis.pdf"
+              download
+              className="ui-button-panel ui-surface-link rounded-md px-4 py-2 text-sm font-semibold text-textMain"
+            >
+              Download Thesis PDF
+            </a>
+            <div className="flex w-fit flex-col gap-2 text-left">
+              <p>
+                <span className="font-semibold text-textMain">Author:</span> {THESIS_AUTHOR}
+              </p>
+              <p>
+                <span className="font-semibold text-textMain">Supervisor:</span> {THESIS_SUPERVISOR}
+              </p>
+            </div>
           </div>
         </div>
       </DocsHero>
