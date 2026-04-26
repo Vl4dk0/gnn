@@ -1,14 +1,19 @@
 """Training script for the voltage graph girth predictor.
 
 Usage:
+    # Single target (Variant A — per-(k,g) model)
     uv run python -m ai.cage.voltage.train --k 3 --g 7 --samples 100000
-    uv run python -m ai.cage.voltage.train --k 3 --g 9 --epochs 200 --hidden-dim 128
+
+    # Per-g (Variant B — fixed g, multiple k)
+    uv run python -m ai.cage.voltage.train --targets "3,7;4,7;5,7" --samples 100000
+
+    # Unified (Variant C — full grid)
+    uv run python -m ai.cage.voltage.train --targets "3,5;3,6;4,5;4,6" --samples 200000
 """
 
 from __future__ import annotations
 
 import argparse
-import copy
 import json
 import os
 import random
@@ -40,13 +45,49 @@ def _set_seed(seed: int) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
+def _parse_targets(
+    targets_arg: str | None, k: int | None, g: int | None
+) -> list[tuple[int, int]]:
+    """Parse the --targets string or fall back to single (k, g)."""
+    if targets_arg:
+        out: list[tuple[int, int]] = []
+        for piece in targets_arg.split(";"):
+            piece = piece.strip()
+            if not piece:
+                continue
+            ks, gs = piece.split(",")
+            out.append((int(ks.strip()), int(gs.strip())))
+        if not out:
+            raise ValueError(f"Failed to parse --targets: {targets_arg!r}")
+        return out
+    if k is None or g is None:
+        raise ValueError("Provide either --targets or both --k and --g")
+    return [(k, g)]
+
+
+def _derive_model_id(targets: list[tuple[int, int]]) -> str:
+    """Pick a save-folder name that reflects the target shape."""
+    if len(targets) == 1:
+        k, g = targets[0]
+        return f"girth_predictor_k{k}_g{g}"
+    ks = {k for (k, _) in targets}
+    gs = {g for (_, g) in targets}
+    if len(gs) == 1:
+        (g,) = tuple(gs)
+        return f"girth_predictor_g{g}_multik"
+    if len(ks) == 1:
+        (k,) = tuple(ks)
+        return f"girth_predictor_k{k}_multig"
+    return "girth_predictor_unified"
+
+
 def _evaluate(
     model: GirthPredictor,
     loader: DataLoader,
     device: torch.device,
     regression_weight: float,
 ) -> dict[str, float]:
-    """Evaluate model and return metrics."""
+    """Evaluate model and return overall metrics."""
     _ = model.eval()
     total_loss = 0.0
     total_mae = 0.0
@@ -75,10 +116,18 @@ def _evaluate(
             )
 
             pred_class = (class_logit > 0).float()
-            tp += int(((pred_class == 1) & (class_true == 1)).sum().item())
-            fp += int(((pred_class == 1) & (class_true == 0)).sum().item())
-            fn += int(((pred_class == 0) & (class_true == 1)).sum().item())
-            tn += int(((pred_class == 0) & (class_true == 0)).sum().item())
+            tp += int(
+                cast(torch.Tensor, ((pred_class == 1) & (class_true == 1)).sum()).item()
+            )
+            fp += int(
+                cast(torch.Tensor, ((pred_class == 1) & (class_true == 0)).sum()).item()
+            )
+            fn += int(
+                cast(torch.Tensor, ((pred_class == 0) & (class_true == 1)).sum()).item()
+            )
+            tn += int(
+                cast(torch.Tensor, ((pred_class == 0) & (class_true == 0)).sum()).item()
+            )
             total += n
 
     accuracy = (tp + tn) / max(total, 1)
@@ -100,9 +149,36 @@ def _evaluate(
     }
 
 
+def _evaluate_per_target(
+    model: GirthPredictor,
+    test_data: list,  # pyright: ignore[reportMissingTypeArgument, reportUnknownParameterType]
+    device: torch.device,
+    batch_size: int,
+) -> dict[str, dict[str, float]]:
+    """Group test set by (k, g_target) and compute per-target metrics."""
+    groups: dict[tuple[int, int], list] = {}  # pyright: ignore[reportMissingTypeArgument, reportUnknownVariableType]
+    for d in test_data:  # pyright: ignore[reportUnknownVariableType]
+        key = (int(cast(int, d.k)), int(cast(int, d.g_target)))
+        groups.setdefault(key, []).append(d)  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
+
+    out: dict[str, dict[str, float]] = {}
+    for (k, g), items in groups.items():  # pyright: ignore[reportUnknownVariableType]
+        loader = DataLoader(items, batch_size=batch_size)  # pyright: ignore[reportUnknownArgumentType]
+        # use regression_weight=0.5 for the per-target loss (only mae/f1 matter here)
+        m = _evaluate(model, loader, device, 0.5)
+        out[f"{k}_{g}"] = {
+            "n": float(len(items)),  # pyright: ignore[reportUnknownArgumentType]
+            "mae": round(m["mae"], 4),
+            "accuracy": round(m["accuracy"], 4),
+            "precision": round(m["precision"], 4),
+            "recall": round(m["recall"], 4),
+            "f1": round(m["f1"], 4),
+        }
+    return out
+
+
 def train(
-    k: int,
-    g_target: int,
+    targets: list[tuple[int, int]],
     num_samples: int = 50000,
     max_group_order: int = 60,
     epochs: int = 100,
@@ -113,14 +189,18 @@ def train(
     print_every: int = 10,
     seed: int = 42,
     regression_weight: float = 0.5,
+    model_id_override: str | None = None,
 ) -> tuple[GirthPredictor, dict[str, object]]:
     """Train the girth predictor model. Returns (model, info_dict)."""
 
     _set_seed(seed)
     device = torch.device(get_preferred_device())
 
+    model_id = model_id_override or _derive_model_id(targets)
+
     print("=" * 60)
-    print(f"Training Girth Predictor for ({k}, {g_target})-graphs")
+    print(f"Training Girth Predictor: {model_id}")
+    print(f"  Targets: {targets}")
     print("=" * 60)
     print(f"  Device:           {device}")
     print(f"  Samples:          {num_samples}")
@@ -136,16 +216,23 @@ def train(
 
     print("Generating training data...")
     all_data, gen_stats = generate_dataset(
-        k=k,
-        g_target=g_target,
+        targets=targets,
         num_samples=num_samples,
         max_group_order=max_group_order,
         seed=seed,
     )
     print(
         f"  Produced {gen_stats['produced']}/{gen_stats['requested']} unique samples "
-        f"in {gen_stats['attempts']} attempts ({gen_stats['duplicates_skipped']} duplicates skipped)"
+        f"in {gen_stats['attempts']} attempts "
+        f"({gen_stats['duplicates_skipped']} duplicates skipped)"
     )
+    per_target_gen = cast(dict[str, dict[str, float]], gen_stats["per_target"])
+    for tkey, ts in per_target_gen.items():
+        print(
+            f"    target {tkey}: produced={int(ts['produced'])}, "
+            f"pos_rate={ts['pos_rate']:.3f}, "
+            f"dup_skipped={int(ts['duplicates_skipped'])}"
+        )
 
     # Shuffle then 80/10/10 split (post-deduplication, so no leakage)
     rng = random.Random(seed)
@@ -159,7 +246,7 @@ def train(
 
     def _stats(data_list: list) -> tuple[int, int, float]:  # pyright: ignore[reportMissingTypeArgument, reportUnknownParameterType]
         total = len(data_list)  # pyright: ignore[reportUnknownArgumentType]
-        pos = sum(1 for d in data_list if int(d.girth_class) == 1)  # pyright: ignore[reportUnknownVariableType]
+        pos = sum(1 for d in data_list if int(cast(int, d.girth_class)) == 1)  # pyright: ignore[reportUnknownVariableType]
         return total, pos, pos / max(total, 1)
 
     train_n, train_pos, train_rate = _stats(train_data)
@@ -171,25 +258,40 @@ def train(
         f"Test: {test_n} ({test_pos} pos, {test_rate * 100:.1f}%)"
     )
 
-    # Stratified sampler for training to handle class imbalance
-    if train_pos > 0 and (train_n - train_pos) > 0:
-        train_class_counts = [train_n - train_pos, train_pos]
-        sample_weights = torch.tensor(
-            [1.0 / train_class_counts[int(d.girth_class)] for d in train_data],
-            dtype=torch.float,
+    # Stratified sampler weighted by (k, g_target, girth_class) so neither
+    # high-positivity targets nor majority class dominate.
+    joint_counts: dict[tuple[int, int, int], int] = {}
+    for d in train_data:
+        key = (
+            int(cast(int, d.k)),
+            int(cast(int, d.g_target)),
+            int(cast(int, d.girth_class)),
         )
+        joint_counts[key] = joint_counts.get(key, 0) + 1
+
+    if len(joint_counts) > 1:
+        sample_weights: list[float] = []
+        for d in train_data:
+            key = (
+                int(cast(int, d.k)),
+                int(cast(int, d.g_target)),
+                int(cast(int, d.girth_class)),
+            )
+            sample_weights.append(1.0 / joint_counts[key])
         train_sampler = WeightedRandomSampler(
-            weights=sample_weights.tolist(),
+            weights=sample_weights,
             num_samples=train_n,
             replacement=True,
         )
         train_loader = DataLoader(
             train_data, batch_size=batch_size, sampler=train_sampler
         )
-        print("  Using WeightedRandomSampler (stratified) for training")
+        print(
+            f"  Using WeightedRandomSampler over {len(joint_counts)} (k,g,class) buckets"
+        )
     else:
         train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
-        print("  Using shuffled DataLoader for training (one class only)")
+        print("  Using shuffled DataLoader for training (single bucket)")
 
     val_loader = DataLoader(val_data, batch_size=batch_size)
     test_loader = DataLoader(test_data, batch_size=batch_size)
@@ -221,7 +323,6 @@ def train(
             girth_true = cast(torch.Tensor, batch.girth).float().unsqueeze(-1)
             class_true = cast(torch.Tensor, batch.girth_class).float().unsqueeze(-1)
 
-            # Normalize regression so MSE is comparable to BCE
             reg_loss = F.mse_loss(girth_pred / GIRTH_NORM, girth_true / GIRTH_NORM)
             cls_loss = F.binary_cross_entropy_with_logits(class_logit, class_true)
             loss = regression_weight * reg_loss + (1.0 - regression_weight) * cls_loss
@@ -258,7 +359,7 @@ def train(
         _ = model.load_state_dict(best_state)
         _ = model.to(device)
 
-    # Final evaluation on held-out test set
+    # Final evaluation on held-out test set (overall + per-target)
     print("\nEvaluating on held-out test set...")
     test_metrics = _evaluate(model, test_loader, device, regression_weight)
     print(
@@ -270,8 +371,16 @@ def train(
         f"F1: {test_metrics['f1']:.3f}"
     )
 
+    test_per_target = _evaluate_per_target(model, test_data, device, batch_size)
+    if len(test_per_target) > 1:
+        print("  Per-target test metrics:")
+        for tkey, m in test_per_target.items():
+            print(
+                f"    {tkey}: n={int(m['n'])}, mae={m['mae']:.2f}, "
+                f"acc={m['accuracy'] * 100:.1f}%, f1={m['f1']:.3f}"
+            )
+
     # Save model + info.json
-    model_id = f"girth_predictor_k{k}_g{g_target}"
     save_dir = os.path.join(
         os.path.dirname(__file__), "..", "..", "trained", "voltage_girth", model_id
     )
@@ -281,29 +390,37 @@ def train(
     cpu_state = {key: value.detach().cpu() for key, value in model.state_dict().items()}
     torch.save(cpu_state, weights_path)
 
+    # For backward compat, also surface single-target k/g_target fields when applicable
+    primary_k, primary_g = targets[0] if len(targets) == 1 else (None, None)
+
+    training_block: dict[str, object] = {
+        "targets": [list(t) for t in targets],
+        "samples": num_samples,
+        "epochs": epochs,
+        "batch_size": batch_size,
+        "hidden_dim": hidden_dim,
+        "num_layers": num_layers,
+        "max_group_order": max_group_order,
+        "learning_rate": lr,
+        "seed": seed,
+        "regression_weight": regression_weight,
+        "best_epoch": best_epoch,
+    }
+    if primary_k is not None:
+        training_block["k"] = primary_k
+        training_block["g_target"] = primary_g
+
     info: dict[str, object] = {
         "model_type": "voltage_girth_predictor",
         "model_id": model_id,
         "task": "voltage_girth",
-        "training": {
-            "k": k,
-            "g_target": g_target,
-            "samples": num_samples,
-            "epochs": epochs,
-            "batch_size": batch_size,
-            "hidden_dim": hidden_dim,
-            "num_layers": num_layers,
-            "max_group_order": max_group_order,
-            "learning_rate": lr,
-            "seed": seed,
-            "regression_weight": regression_weight,
-            "best_epoch": best_epoch,
-        },
+        "training": training_block,
         "data": {
             "requested": gen_stats["requested"],
             "produced": gen_stats["produced"],
             "duplicates_skipped": gen_stats["duplicates_skipped"],
             "generation_attempts": gen_stats["attempts"],
+            "per_target": per_target_gen,
             "train_samples": train_n,
             "val_samples": val_n,
             "test_samples": test_n,
@@ -323,6 +440,7 @@ def train(
             "test_fn": int(test_metrics["fn"]),
             "test_tn": int(test_metrics["tn"]),
             "best_val_loss": round(best_val_loss, 4),
+            "test_per_target": test_per_target,
         },
     }
 
@@ -342,8 +460,24 @@ def parse_args() -> argparse.Namespace:
         description="Train girth predictor for voltage graph lifts",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    _ = parser.add_argument("--k", type=int, default=3, help="Target degree")
-    _ = parser.add_argument("--g", type=int, default=7, help="Target girth")
+    _ = parser.add_argument(
+        "--k", type=int, default=None, help="Target degree (single-target mode)"
+    )
+    _ = parser.add_argument(
+        "--g", type=int, default=None, help="Target girth (single-target mode)"
+    )
+    _ = parser.add_argument(
+        "--targets",
+        type=str,
+        default=None,
+        help='Multiple targets, e.g. "3,5;3,6;4,5" (overrides --k/--g)',
+    )
+    _ = parser.add_argument(
+        "--model-id",
+        type=str,
+        default=None,
+        help="Override the auto-derived model id (save folder name)",
+    )
     _ = parser.add_argument(
         "--samples", type=int, default=50000, help="Number of training samples"
     )
@@ -374,9 +508,13 @@ def parse_args() -> argparse.Namespace:
 
 if __name__ == "__main__":
     args = parse_args()
+    targets = _parse_targets(
+        cast(str | None, args.targets),
+        cast(int | None, args.k),
+        cast(int | None, args.g),
+    )
     _ = train(
-        k=cast(int, args.k),
-        g_target=cast(int, args.g),
+        targets=targets,
         num_samples=cast(int, args.samples),
         max_group_order=cast(int, args.max_group_order),
         epochs=cast(int, args.epochs),
@@ -387,4 +525,5 @@ if __name__ == "__main__":
         print_every=cast(int, args.print_every),
         seed=cast(int, args.seed),
         regression_weight=cast(float, args.regression_weight),
+        model_id_override=cast(str | None, args.model_id),
     )

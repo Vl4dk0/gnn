@@ -8,6 +8,7 @@ the girth of the corresponding lift.
 from __future__ import annotations
 
 import random
+from typing import cast
 
 import torch
 from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
@@ -139,38 +140,59 @@ def _candidate_base_graphs(k: int) -> list[tuple[str, BaseGraph]]:
 
 
 def generate_dataset(
-    k: int,
-    g_target: int,
+    targets: list[tuple[int, int]],
     num_samples: int = 10000,
     max_group_order: int = 60,
     seed: int | None = None,
     max_attempts_multiplier: int = 5,
-) -> tuple[list[Data], dict[str, int]]:
+) -> tuple[list[Data], dict[str, object]]:
     """Generate deduplicated training data for the girth predictor.
 
-    Returns (dataset, stats) where stats reports duplicates_skipped, attempts,
-    and the requested vs actual sample count.
+    `targets` is a list of (k, g_target) pairs. Each attempt picks a target
+    uniformly at random; the produced sample carries that target in its
+    Data fields, so a single dataset can train one model across many (k, g).
 
-    Each sample is keyed by (base_name, group_name, voltage_tuple). Duplicates
-    are skipped to prevent train/val/test leakage.
+    Returns (dataset, stats). Stats reports overall counts plus a per-target
+    breakdown keyed by "k_g".
+
+    Each sample is keyed by (k, base_name, group_name, voltage_tuple) to
+    prevent train/val/test leakage across splits.
     """
+    if not targets:
+        raise ValueError("targets must be non-empty")
+
     rng = random.Random(seed)
 
-    bases = _candidate_base_graphs(k)
+    base_cache: dict[int, list[tuple[str, BaseGraph]]] = {}
     groups = _candidate_groups(max_group_order)
 
-    mb = moore_bound(k, g_target)
+    moore_cache: dict[tuple[int, int], int] = {
+        (k, g): moore_bound(k, g) for (k, g) in targets
+    }
 
     dataset: list[Data] = []
-    seen_keys: set[tuple[str, str, tuple[int, ...]]] = set()
+    seen_keys: set[tuple[int, str, str, tuple[int, ...]]] = set()
     duplicates_skipped = 0
     attempts = 0
     max_attempts = num_samples * max_attempts_multiplier
 
+    per_target: dict[str, dict[str, int]] = {
+        f"{k}_{g}": {"produced": 0, "duplicates_skipped": 0, "positives": 0}
+        for (k, g) in targets
+    }
+
     while len(dataset) < num_samples and attempts < max_attempts:
         attempts += 1
+        k, g_target = rng.choice(targets)
+        target_key = f"{k}_{g_target}"
+
+        if k not in base_cache:
+            base_cache[k] = _candidate_base_graphs(k)
+        bases = base_cache[k]
+
         base_name, base = rng.choice(bases)
 
+        mb = moore_cache[(k, g_target)]
         valid_groups = [
             g for g in groups if mb <= base.num_nodes * g.order <= max(4 * mb, mb + 200)
         ]
@@ -181,24 +203,38 @@ def generate_dataset(
         n_edges = base.num_undirected_edges()
         volt = [rng.randint(0, group.order - 1) for _ in range(n_edges)]
 
-        key = (base_name, group.name, tuple(volt))
+        key = (k, base_name, group.name, tuple(volt))
         if key in seen_keys:
             duplicates_skipped += 1
+            per_target[target_key]["duplicates_skipped"] += 1
             continue
         seen_keys.add(key)
 
         girth = compute_lift_girth(base, group, volt, max_girth=2 * g_target)
         data = base_graph_to_pyg(base, volt, group, k, g_target, girth)
-        # Track identity for debugging — small string overhead is fine
         data.base_name = base_name
         data.group_name = group.name
 
         dataset.append(data)
+        per_target[target_key]["produced"] += 1
+        if int(cast(int, data.girth_class)) == 1:
+            per_target[target_key]["positives"] += 1
 
-    stats: dict[str, int] = {
+    # Add pos_rate to per_target stats
+    per_target_out: dict[str, dict[str, float]] = {}
+    for tkey, stats_t in per_target.items():
+        produced = stats_t["produced"]
+        per_target_out[tkey] = {
+            "produced": float(produced),
+            "duplicates_skipped": float(stats_t["duplicates_skipped"]),
+            "pos_rate": round(stats_t["positives"] / max(produced, 1), 4),
+        }
+
+    stats: dict[str, object] = {
         "requested": num_samples,
         "produced": len(dataset),
         "duplicates_skipped": duplicates_skipped,
         "attempts": attempts,
+        "per_target": per_target_out,
     }
     return dataset, stats
