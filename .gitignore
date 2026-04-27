@@ -49,3 +49,6 @@ Thumbs.db
 # Environment
 .envrc
 .claude/*
+
+# Local working notes
+timestamps/
