@@ -25,6 +25,11 @@ const DEFAULT_SETTINGS: CageSettings = {
 
 const STORAGE_KEY = "cageGeneratorSettings";
 
+// Sentinel modelId for the voltage generator's "None (pure tabu + random)"
+// dropdown choice. Distinct from null (which means "no choice yet, use the
+// auto-selected default"). Stripped before reaching the backend.
+export const VOLTAGE_NO_MODEL = "__none__";
+
 type CageRunPhase =
   | "idle"
   | "starting"
@@ -79,12 +84,6 @@ const normalizeSettings = (settings: CageSettings): CageSettings => {
 export const useCageGeneration = () => {
   const editorRef = useRef<InteractiveGraphEditor | null>(null);
   const latestSessionIdRef = useRef<string | null>(null);
-  // Initialized true when loaded settings already have generatorType=voltage,
-  // so persisted choices (including an explicit None / null modelId) are
-  // preserved instead of being overwritten by the auto-select effect on
-  // mount.
-  const initialIsVoltage = readStored<CageSettings>(STORAGE_KEY, DEFAULT_SETTINGS).generatorType === "voltage";
-  const voltageAutoSelectedRef = useRef<boolean>(initialIsVoltage);
 
   const [degreeK, setDegreeK] = useState(3);
   const [girthG, setGirthG] = useState(5);
@@ -156,7 +155,7 @@ export const useCageGeneration = () => {
       try {
         const data = await fetchCageVoltageGirthModels();
         const options: ModelOption[] = [
-          { value: "", label: "None (pure tabu + random)" },
+          { value: VOLTAGE_NO_MODEL, label: "None (pure tabu + random)" },
           ...data.models.map((model) => ({
             value: model.model_id,
             label: model.model_id
@@ -165,7 +164,7 @@ export const useCageGeneration = () => {
         setVoltageGirthModelOptions(options);
         setVoltageGirthDefault(data.default ?? null);
       } catch {
-        setVoltageGirthModelOptions([{ value: "", label: "None (pure tabu + random)" }]);
+        setVoltageGirthModelOptions([{ value: VOLTAGE_NO_MODEL, label: "None (pure tabu + random)" }]);
         setVoltageGirthDefault(null);
       }
     };
@@ -174,24 +173,16 @@ export const useCageGeneration = () => {
     void loadVoltageGirthModels();
   }, []);
 
-  // Auto-select the unified girth predictor at most once per voltage
-  // session. The flag is reset when the user leaves the voltage generator,
-  // so re-entering re-arms the auto-select. While in voltage, an explicit
-  // "None (pure tabu + random)" choice sticks because the flag stays set.
-  // Reset-on-leave handles the rl→voltage→rl→voltage flow; the
-  // !voltageAutoSelectedRef.current gate handles the case where the user
-  // is already on voltage when /voltage-girth-models finally returns.
+  // Auto-select the unified girth predictor whenever the voltage generator
+  // is active and modelId is unset (null). Explicit user choices are
+  // distinguished from "unset" by the VOLTAGE_NO_MODEL sentinel produced
+  // by the dropdown, so this effect cannot overwrite an explicit None.
   useEffect(() => {
-    if (settings.generatorType !== "voltage") {
-      voltageAutoSelectedRef.current = false;
-      return;
-    }
     if (
-      !voltageAutoSelectedRef.current &&
+      settings.generatorType === "voltage" &&
       settings.modelId === null &&
       voltageGirthDefault !== null
     ) {
-      voltageAutoSelectedRef.current = true;
       setSettings((current) => ({ ...current, modelId: voltageGirthDefault }));
     }
   }, [settings.generatorType, settings.modelId, voltageGirthDefault]);
@@ -326,12 +317,16 @@ export const useCageGeneration = () => {
     const mode: CageExecutionMode = isSteppedMode ? "stepped" : "async";
 
     try {
+      const rawModelId = generatorAcceptsModel(settings.generatorType)
+        ? settings.modelId
+        : null;
+      const apiModelId = rawModelId === VOLTAGE_NO_MODEL ? null : rawModelId;
       const result = await startCageGeneration(
         degreeK,
         girthG,
         settings.generatorType,
         mode,
-        generatorAcceptsModel(settings.generatorType) ? settings.modelId : null
+        apiModelId
       );
       setSessionId(result.session_id);
 
