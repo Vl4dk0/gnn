@@ -123,6 +123,7 @@ def train_voltage_ppo(
     last_live_log_time = start_time
     last_periodic_step = 0
     save_history: list[dict[str, object]] = []
+    canonical_written = False
 
     save_dir = os.path.join("ai", "trained", "cage", name)
     os.makedirs(save_dir, exist_ok=True)
@@ -160,9 +161,12 @@ def train_voltage_ppo(
         }
 
     def _save_checkpoint(suffix: str, trigger: str) -> None:
+        nonlocal canonical_written
         path = os.path.join(save_dir, f"weights{suffix}.pt")
         cpu_state = {k: v.detach().cpu().clone() for k, v in agent.state_dict().items()}
         torch.save(cpu_state, path)
+        if suffix == "":
+            canonical_written = True
         save_history.append(
             {
                 "trigger": trigger,
@@ -399,12 +403,13 @@ def train_voltage_ppo(
         # SIGTERM, exception, or normal exit. The "best" weights.pt may
         # be older if the agent regressed, so keep both.
         _save_checkpoint("_final", "final")
-        # Guarantee a canonical weights.pt exists. SystemExit raised from
-        # the SIGTERM handler propagates through finally and skips any
-        # post-finally code, so this fallback HAS to live in finally.
-        # Only writes if no stage_best checkpoint has produced weights.pt
-        # yet — otherwise we'd clobber a higher-quality saved best.
-        if not os.path.exists(os.path.join(save_dir, "weights.pt")):
+        # Guarantee a canonical weights.pt exists for THIS run. SystemExit
+        # raised from the SIGTERM handler propagates through finally and
+        # skips any post-finally code, so this fallback HAS to live in
+        # finally. The flag is in-run state, not a disk check, so we don't
+        # accidentally treat a stale weights.pt left by a previous run that
+        # reused the same --name as if it belonged to this run.
+        if not canonical_written:
             _save_checkpoint("", "fallback_no_best")
 
     save_path = os.path.join(save_dir, "weights.pt")
