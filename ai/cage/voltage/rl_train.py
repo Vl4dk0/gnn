@@ -11,6 +11,7 @@ import argparse
 import copy
 import json
 import os
+import signal
 import sys
 import time
 from collections import defaultdict, deque
@@ -62,6 +63,7 @@ def train_voltage_ppo(
     name: str = "voltage_ppo",
     conv_type: str = "gine",
     heads: int = 4,
+    save_every: int = 50_000,
 ) -> VoltageActorCritic:
     """Train PPO agent for voltage assignment."""
     _ = configure_torch_device()
@@ -116,8 +118,73 @@ def train_voltage_ppo(
     current_ep_reward = 0.0
     start_time = time.time()
     best_avg_reward = -float("inf")
+    best_avg_reward_by_stage: dict[int, float] = {}
     best_model_state: dict[str, torch.Tensor] | None = None
     last_live_log_time = start_time
+    last_periodic_step = 0
+    save_history: list[dict[str, object]] = []
+
+    save_dir = os.path.join("ai", "trained", "cage", name)
+    os.makedirs(save_dir, exist_ok=True)
+
+    def _build_info() -> dict[str, object]:
+        return {
+            "model_type": "voltage_actor_critic",
+            "model_id": name,
+            "task": "cage",
+            "training": {
+                "input_dim": input_dim,
+                "hidden_dim": hidden_dim,
+                "num_layers": num_layers,
+                "dropout": dropout,
+                "conv_type": conv_type,
+                "heads": heads,
+                "max_action_dim": max_action_dim,
+                "steps": total_timesteps,
+                "learning_rate": lr,
+                "update_interval": update_interval,
+                "entropy_coef": entropy_coef,
+                "randomize": randomize,
+                "save_every": save_every,
+            },
+            "metrics": {
+                "best_avg_reward": round(best_avg_reward, 2),
+                "best_avg_reward_by_stage": {
+                    str(s): round(r, 2) for s, r in best_avg_reward_by_stage.items()
+                },
+                "final_step": global_step,
+                "final_episode": episode_idx,
+                "final_unlocked": env.unlocked,
+            },
+            "save_history": save_history,
+        }
+
+    def _save_checkpoint(suffix: str, trigger: str) -> None:
+        path = os.path.join(save_dir, f"weights{suffix}.pt")
+        cpu_state = {k: v.detach().cpu().clone() for k, v in agent.state_dict().items()}
+        torch.save(cpu_state, path)
+        save_history.append(
+            {
+                "trigger": trigger,
+                "suffix": suffix,
+                "step": global_step,
+                "episode": episode_idx,
+                "stage": env.unlocked,
+            }
+        )
+        with open(os.path.join(save_dir, "info.json"), "w") as f:
+            json.dump(_build_info(), f, indent=2)
+        console.print(
+            f"  [cyan]checkpoint saved[/] suffix={suffix or '(best)'} trigger={trigger} "
+            f"step={global_step} stage={env.unlocked}"
+        )
+
+    # Convert SIGTERM (SLURM time-limit kill) into a graceful exit so the
+    # finally block runs and a final checkpoint is written.
+    def _sigterm_handler(_signum: int, _frame: object) -> None:
+        raise SystemExit(0)
+
+    _ = signal.signal(signal.SIGTERM, _sigterm_handler)
 
     live_view = Live(
         "starting...", console=console, refresh_per_second=4, transient=True
@@ -173,9 +240,15 @@ def train_voltage_ppo(
                             f"[green]Unlocked stage {env.unlocked}/{len(env.configs)} "
                             f"-> {env.configs[env.unlocked - 1]}[/]"
                         )
+                        _save_checkpoint(f"_stage{env.unlocked}", "stage_unlock")
 
                     current_ep_reward = 0.0
                     obs = env.reset()
+
+                # Periodic safety checkpoint, regardless of metric progress.
+                if save_every > 0 and global_step - last_periodic_step >= save_every:
+                    last_periodic_step = global_step
+                    _save_checkpoint("_periodic", "periodic")
 
                 # Live display
                 if (
@@ -304,51 +377,36 @@ def train_voltage_ppo(
                     f"{succ_rate:5.1f}% success | avg_girth={avg_g:.1f}"
                 )
 
-            if avg_rew > best_avg_reward and episode_idx > 5:
-                best_avg_reward = avg_rew
-                best_model_state = cast(
-                    dict[str, torch.Tensor], copy.deepcopy(agent.state_dict())
+            stage = env.unlocked
+            stage_best = best_avg_reward_by_stage.get(stage, -float("inf"))
+            if avg_rew > stage_best and episode_idx > 5:
+                best_avg_reward_by_stage[stage] = avg_rew
+                if avg_rew > best_avg_reward:
+                    best_avg_reward = avg_rew
+                    best_model_state = cast(
+                        dict[str, torch.Tensor],
+                        copy.deepcopy(agent.state_dict()),
+                    )
+                console.print(
+                    f"  [green]New best for stage {stage}! avg_reward={avg_rew:.2f}[/]"
                 )
-                console.print(f"  [green]New best! avg_reward={best_avg_reward:.2f}[/]")
+                _save_checkpoint("", "stage_best")
 
     finally:
         if is_tty:
             live_view.stop()
+        # Always save a final snapshot of the current agent — runs on
+        # SIGTERM, exception, or normal exit. The "best" weights.pt may
+        # be older if the agent regressed, so keep both.
+        _save_checkpoint("_final", "final")
 
+    # If a best state was tracked, restore it and snapshot it as the canonical
+    # weights.pt. _save_checkpoint also refreshes info.json (with save_history)
+    # so the on-disk metadata matches.
+    save_path = os.path.join(save_dir, "weights.pt")
     if best_model_state is not None:
         _ = agent.load_state_dict(best_model_state)
-
-    # Save
-    save_dir = os.path.join("ai", "trained", "cage", name)
-    os.makedirs(save_dir, exist_ok=True)
-    save_path = os.path.join(save_dir, "weights.pt")
-    torch.save(agent.state_dict(), save_path)
-
-    info = {
-        "model_type": "voltage_actor_critic",
-        "model_id": name,
-        "task": "cage",
-        "training": {
-            "input_dim": input_dim,
-            "hidden_dim": hidden_dim,
-            "num_layers": num_layers,
-            "dropout": dropout,
-            "conv_type": conv_type,
-            "heads": heads,
-            "max_action_dim": max_action_dim,
-            "steps": total_timesteps,
-            "learning_rate": lr,
-            "update_interval": update_interval,
-            "entropy_coef": entropy_coef,
-            "randomize": randomize,
-        },
-        "metrics": {
-            "avg_reward": round(best_avg_reward, 2),
-        },
-    }
-    info_path = os.path.join(save_dir, "info.json")
-    with open(info_path, "w") as f:
-        json.dump(info, f, indent=2)
+        _save_checkpoint("", "best_restored")
 
     console.print(f"\nModel saved to {save_path}")
     console.print(f"Best avg reward: {best_avg_reward:.2f}")
@@ -394,6 +452,12 @@ if __name__ == "__main__":
     _ = parser.add_argument(
         "--log", type=float, default=3.0, help="Live log interval (seconds)"
     )
+    _ = parser.add_argument(
+        "--save-every",
+        type=int,
+        default=50_000,
+        help="Periodic checkpoint interval in env steps (0 disables)",
+    )
     args = parser.parse_args()
 
     _ = train_voltage_ppo(
@@ -408,4 +472,5 @@ if __name__ == "__main__":
         name=cast(str, args.name),
         conv_type=cast(str, args.conv_type),
         heads=cast(int, args.heads),
+        save_every=cast(int, args.save_every),
     )

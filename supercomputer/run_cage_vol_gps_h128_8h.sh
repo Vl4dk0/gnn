@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=cage-vol-gps
+#SBATCH --job-name=cage-vol-gps128-8h
 #SBATCH --output=training_runs/%x_%j.out
 #SBATCH --error=training_runs/%x_%j.err
 #SBATCH --partition=GPU
@@ -14,4 +14,4 @@ source .activate_scratch
 
 cd ~/gnn
 
-uv run python -u -m ai.cage.voltage.rl_train --steps 99999999 --hidden-dim 64 --conv-type gps --heads 4 --name gps_vol_h64_ppo --save-every 100000
+uv run python -u -m ai.cage.voltage.rl_train --steps 99999999 --hidden-dim 128 --conv-type gps --heads 8 --name gps_vol_h128_8h_ppo --save-every 100000
