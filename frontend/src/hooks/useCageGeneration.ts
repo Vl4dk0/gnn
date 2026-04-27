@@ -310,7 +310,7 @@ export const useCageGeneration = () => {
         girthG,
         settings.generatorType,
         mode,
-        settings.generatorType === "rl" ? settings.modelId : null
+        generatorAcceptsModel(settings.generatorType) ? settings.modelId : null
       );
       setSessionId(result.session_id);
 

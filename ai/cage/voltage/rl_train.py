@@ -400,13 +400,16 @@ def train_voltage_ppo(
         # be older if the agent regressed, so keep both.
         _save_checkpoint("_final", "final")
 
-    # If a best state was tracked, restore it and snapshot it as the canonical
-    # weights.pt. _save_checkpoint also refreshes info.json (with save_history)
-    # so the on-disk metadata matches.
+    # Always snapshot weights.pt — it's the canonical filename the registry
+    # and loaders look for. If a best state was tracked, restore it first;
+    # otherwise dump whatever the agent currently holds (so even very short
+    # runs / pre-best-trigger SIGTERMs leave a loadable model).
     save_path = os.path.join(save_dir, "weights.pt")
     if best_model_state is not None:
         _ = agent.load_state_dict(best_model_state)
         _save_checkpoint("", "best_restored")
+    else:
+        _save_checkpoint("", "fallback_no_best")
 
     console.print(f"\nModel saved to {save_path}")
     console.print(f"Best avg reward: {best_avg_reward:.2f}")
