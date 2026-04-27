@@ -23,6 +23,7 @@ export const CagePage = () => {
     settings,
     settingsOpen,
     modelOptions,
+    voltageGirthModelOptions,
     setSettingsOpen,
     saveSettings,
     status,
@@ -269,11 +270,14 @@ export const CagePage = () => {
           label="Generator Algorithm"
           value={draftSettings.generatorType}
           onChange={(event) => {
+            const newType = event.target.value as CageSettings["generatorType"];
+            const keepsModelId =
+              newType === "rl" || newType === "voltage" || newType === "voltage_rl";
             setDraftSettings((current) => ({
               ...current,
-              generatorType: event.target.value as CageSettings["generatorType"],
-              executionMode: event.target.value === "rl" ? current.executionMode : "async",
-              modelId: event.target.value === "rl" ? current.modelId : null
+              generatorType: newType,
+              executionMode: newType === "rl" ? current.executionMode : "async",
+              modelId: keepsModelId ? current.modelId : null
             }));
           }}
         >
@@ -299,6 +303,26 @@ export const CagePage = () => {
           >
             {modelOptions.map((option) => (
               <option key={option.value || "auto"} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </SelectField>
+        )}
+
+        {draftSettings.generatorType === "voltage" && (
+          <SelectField
+            id="voltageGirthModelId"
+            label="Girth Predictor (ML guidance)"
+            value={draftSettings.modelId ?? ""}
+            onChange={(event) => {
+              setDraftSettings((current) => ({
+                ...current,
+                modelId: event.target.value || null
+              }));
+            }}
+          >
+            {voltageGirthModelOptions.map((option) => (
+              <option key={option.value || "none"} value={option.value}>
                 {option.label}
               </option>
             ))}

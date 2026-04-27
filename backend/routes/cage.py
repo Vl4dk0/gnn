@@ -169,6 +169,47 @@ def _voltage_rl_model_exists(model_id: str) -> bool:
     return info.get("model_type") == "voltage_actor_critic"
 
 
+def _voltage_girth_model_exists(model_id: str) -> bool:
+    model_dir = get_trained_dir("voltage_girth") / model_id
+    info_path = model_dir / "info.json"
+    weights_path = model_dir / "weights.pt"
+    if not info_path.exists() or not weights_path.exists():
+        return False
+    with open(info_path) as f:
+        info = cast(dict[str, object], json.load(f))
+    return info.get("model_type") == "voltage_girth_predictor"
+
+
+def _list_voltage_girth_models() -> list[dict[str, object]]:
+    """Enumerate trained girth predictors with key training metadata."""
+    out: list[dict[str, object]] = []
+    base_dir = get_trained_dir("voltage_girth")
+    if not base_dir.exists():
+        return out
+    for model_dir in sorted(base_dir.iterdir()):
+        if not model_dir.is_dir():
+            continue
+        info_path = model_dir / "info.json"
+        weights_path = model_dir / "weights.pt"
+        if not info_path.exists() or not weights_path.exists():
+            continue
+        with open(info_path) as f:
+            info = cast(dict[str, object], json.load(f))
+        if info.get("model_type") != "voltage_girth_predictor":
+            continue
+        training = cast(dict[str, object], info.get("training", {}))
+        metrics = cast(dict[str, object], info.get("metrics", {}))
+        out.append(
+            {
+                "model_id": model_dir.name,
+                "targets": training.get("targets"),
+                "test_f1": metrics.get("test_f1"),
+                "test_accuracy": metrics.get("test_accuracy"),
+            }
+        )
+    return out
+
+
 def _append_latest_event(session: _Session, generator: _Generator) -> _StepEvent | None:
     event = cast("_StepEvent | None", getattr(generator, "last_event", None))
     if event is None:
@@ -240,7 +281,7 @@ def _create_generator(
     if generator_type == "astar":
         return AStarGenerator(k, g)
     if generator_type == "voltage":
-        return VoltageSearchGenerator(k, g)
+        return VoltageSearchGenerator(k, g, model_id=requested_model_id)
     if generator_type == "voltage_rl":
         return VoltageRLGenerator(k, g, model_id=requested_model_id)
     return RLGenerator(
@@ -358,6 +399,17 @@ def generate() -> Response | tuple[Response, int]:
                     )
                 }
             ), 400
+    if generator_type == "voltage" and requested_model_id is not None:
+        if not _voltage_girth_model_exists(requested_model_id):
+            return jsonify(
+                {
+                    "error": (
+                        f"Unknown voltage girth predictor model_id: "
+                        f"{requested_model_id}. Expected a model under "
+                        "voltage_girth/ with model_type=voltage_girth_predictor."
+                    )
+                }
+            ), 400
 
     # Validation
     if k < 2:
@@ -464,6 +516,21 @@ def get_models() -> Response | tuple[Response, int]:
         return jsonify({"models": models, "default": default_model})
     except Exception as e:
         return jsonify({"error": f"Failed to list cage models: {str(e)}"}), 500
+
+
+@cage_bp.route("/voltage-girth-models", methods=["GET"])
+def get_voltage_girth_models() -> Response | tuple[Response, int]:
+    """List trained voltage_girth_predictor models for the voltage generator."""
+    try:
+        models = _list_voltage_girth_models()
+        default = (
+            "girth_predictor_unified"
+            if any(m["model_id"] == "girth_predictor_unified" for m in models)
+            else (models[0]["model_id"] if models else None)
+        )
+        return jsonify({"models": models, "default": default})
+    except Exception as e:
+        return jsonify({"error": f"Failed to list voltage girth models: {str(e)}"}), 500
 
 
 @cage_bp.route("/status/<session_id>", methods=["GET"])

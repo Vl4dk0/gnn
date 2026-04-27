@@ -4,6 +4,7 @@ import type { CageExecutionMode, CageSettings, CageStatusResponse } from "../typ
 import {
   fetchCageModels,
   fetchCageStatus,
+  fetchCageVoltageGirthModels,
   startCageGeneration,
   stepCageGeneration,
   stopCageGeneration
@@ -52,6 +53,9 @@ const formatElapsed = (seconds: number): string => {
   return `${mins}m ${secs}s`;
 };
 
+const generatorAcceptsModel = (g: CageSettings["generatorType"]): boolean =>
+  g === "rl" || g === "voltage" || g === "voltage_rl";
+
 const normalizeSettings = (settings: CageSettings): CageSettings => {
   const merged = { ...DEFAULT_SETTINGS, ...settings };
   const executionMode: CageExecutionMode =
@@ -60,7 +64,7 @@ const normalizeSettings = (settings: CageSettings): CageSettings => {
   return {
     ...merged,
     executionMode,
-    modelId: merged.generatorType === "rl" ? merged.modelId : null,
+    modelId: generatorAcceptsModel(merged.generatorType) ? merged.modelId : null,
     pollingInterval: Math.max(50, Math.min(2000, merged.pollingInterval)),
     stepsPerTick: Math.max(1, Math.min(100, Math.round(merged.stepsPerTick))),
     autoStepInterval: Math.max(50, Math.min(2000, merged.autoStepInterval))
@@ -80,6 +84,10 @@ export const useCageGeneration = () => {
   const [modelOptions, setModelOptions] = useState<ModelOption[]>([
     { value: "", label: "Loading RL models..." }
   ]);
+  const [voltageGirthModelOptions, setVoltageGirthModelOptions] = useState<ModelOption[]>([
+    { value: "", label: "Loading girth predictors..." }
+  ]);
+  const [voltageGirthDefault, setVoltageGirthDefault] = useState<string | null>(null);
 
   const [status, setStatus] = useState<CageStatusResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -133,8 +141,39 @@ export const useCageGeneration = () => {
       }
     };
 
+    const loadVoltageGirthModels = async () => {
+      try {
+        const data = await fetchCageVoltageGirthModels();
+        const options: ModelOption[] = [
+          { value: "", label: "None (pure tabu + random)" },
+          ...data.models.map((model) => ({
+            value: model.model_id,
+            label: model.model_id
+          }))
+        ];
+        setVoltageGirthModelOptions(options);
+        setVoltageGirthDefault(data.default ?? null);
+      } catch {
+        setVoltageGirthModelOptions([{ value: "", label: "None (pure tabu + random)" }]);
+        setVoltageGirthDefault(null);
+      }
+    };
+
     void loadModels();
+    void loadVoltageGirthModels();
   }, []);
+
+  // Auto-select unified girth predictor when the user picks the voltage
+  // generator and hasn't already chosen a specific model.
+  useEffect(() => {
+    if (
+      settings.generatorType === "voltage" &&
+      settings.modelId === null &&
+      voltageGirthDefault !== null
+    ) {
+      setSettings((current) => ({ ...current, modelId: voltageGirthDefault }));
+    }
+  }, [settings.generatorType, settings.modelId, voltageGirthDefault]);
 
   useEffect(() => {
     if (!editorRef.current) return;
@@ -403,6 +442,7 @@ export const useCageGeneration = () => {
     settings,
     settingsOpen,
     modelOptions,
+    voltageGirthModelOptions,
     setSettingsOpen,
     saveSettings,
     status,

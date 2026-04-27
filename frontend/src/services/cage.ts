@@ -27,6 +27,11 @@ export const fetchCageModels = async (): Promise<ModelsResponse> => {
   return fetchJson<ModelsResponse>(`${runtime.cageUrl}/models`);
 };
 
+export const fetchCageVoltageGirthModels = async (): Promise<ModelsResponse> => {
+  const runtime = getRuntimeConfig();
+  return fetchJson<ModelsResponse>(`${runtime.cageUrl}/voltage-girth-models`);
+};
+
 export const fetchCageStatus = async (sessionId: string): Promise<CageStatusResponse> => {
   const runtime = getRuntimeConfig();
   return fetchJson<CageStatusResponse>(`${runtime.cageUrl}/status/${sessionId}`);

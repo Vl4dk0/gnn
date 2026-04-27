@@ -24,7 +24,11 @@ from ai.cage.voltage.cycle_analysis import (
 )
 from ai.cage.voltage.groups import FiniteGroup, cyclic_group
 from ai.cage.voltage.lift import build_lift, verify_lift
+from ai.cage.voltage.model import GirthPredictor, load_girth_predictor
+from ai.cage.voltage.search import beam_search
 from backend.utils.graph_utils import is_k_regular, moore_bound
+
+BEAM_PROBE_INTERVAL = 50
 
 
 class VoltageSearchGenerator:
@@ -52,8 +56,10 @@ class VoltageSearchGenerator:
     _configs: list[tuple[BaseGraph, FiniteGroup, str]]
     _config_idx: int
     _restarts: int
+    _model: GirthPredictor | None
+    _model_id: str | None
 
-    def __init__(self, k: int, g: int) -> None:
+    def __init__(self, k: int, g: int, model_id: str | None = None) -> None:
         self.k = k
         self.g = g
         self.step_count = 0
@@ -63,6 +69,8 @@ class VoltageSearchGenerator:
         self._best_girth = 0
         self._tabu = {}
         self._restarts = 0
+        self._model_id = model_id
+        self._model = load_girth_predictor(model_id) if model_id is not None else None
 
         # Build candidate (base_graph, group) configs
         self._configs = _build_configs(k, g)
@@ -157,6 +165,30 @@ class VoltageSearchGenerator:
         else:
             # Stuck — random restart with next config
             self._random_restart()
+
+        # ML-guided beam-search probe: when a girth predictor is loaded,
+        # periodically run a full beam search on the current (base, group)
+        # config. Cheap one-shot — beam_search is sequential and bounded.
+        if self._model is not None and self.step_count % BEAM_PROBE_INTERVAL == 0:
+            volts_b, girth_b = beam_search(
+                self._base,
+                self._group,
+                self.k,
+                self.g,
+                model=self._model,
+                beam_width=20,
+                verbose=False,
+            )
+            if isinstance(girth_b, int) and girth_b >= self.g and volts_b is not None:
+                lifted = build_lift(self._base, self._group, volts_b)
+                props = verify_lift(lifted, self.k, self.g)
+                if props["is_valid_kg"]:
+                    self._voltages = volts_b
+                    self.graph = lifted
+                    self.is_complete = True
+                    self.success = True
+                    self._best_girth = girth_b
+                    return
 
         # Check intermediate girth periodically
         if self.step_count % 20 == 0:

@@ -25,7 +25,7 @@ from .utils.device import configure_torch_device
 TRAINED_DIR = Path(__file__).parent / "trained"
 
 # Supported tasks
-TASKS = ["degree", "min_cycle", "cage"]
+TASKS = ["degree", "min_cycle", "cage", "voltage_girth"]
 
 
 class _TrainingInfo(TypedDict, total=False):
