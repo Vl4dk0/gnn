@@ -271,15 +271,16 @@ export const CagePage = () => {
           value={draftSettings.generatorType}
           onChange={(event) => {
             const newType = event.target.value as CageSettings["generatorType"];
-            // Only generator types with a visible model selector retain
-            // a chosen modelId across generator changes. voltage_rl has no
-            // selector, so its modelId is always cleared here.
-            const keepsModelId = newType === "rl" || newType === "voltage";
+            // Always clear modelId on generator change. rl, voltage, and
+            // voltage_rl use different model registries (cage/actor_critic,
+            // voltage_girth/voltage_girth_predictor, cage/voltage_actor_critic
+            // respectively) so a stale id from one would 400 against another.
+            // The hook re-populates the field via auto-select / loaded list.
             setDraftSettings((current) => ({
               ...current,
               generatorType: newType,
               executionMode: newType === "rl" ? current.executionMode : "async",
-              modelId: keepsModelId ? current.modelId : null
+              modelId: null
             }));
           }}
         >

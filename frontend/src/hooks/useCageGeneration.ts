@@ -79,6 +79,7 @@ const normalizeSettings = (settings: CageSettings): CageSettings => {
 export const useCageGeneration = () => {
   const editorRef = useRef<InteractiveGraphEditor | null>(null);
   const latestSessionIdRef = useRef<string | null>(null);
+  const previousGeneratorTypeRef = useRef<CageSettings["generatorType"] | null>(null);
 
   const [degreeK, setDegreeK] = useState(3);
   const [girthG, setGirthG] = useState(5);
@@ -168,11 +169,17 @@ export const useCageGeneration = () => {
     void loadVoltageGirthModels();
   }, []);
 
-  // Auto-select unified girth predictor when the user picks the voltage
-  // generator and hasn't already chosen a specific model.
+  // Auto-select the unified girth predictor only on TRANSITIONS into the
+  // voltage generator (or on the first render if it's already voltage).
+  // Re-firing whenever modelId becomes null would make the explicit
+  // "None (pure tabu + random)" option unselectable.
   useEffect(() => {
+    const previous = previousGeneratorTypeRef.current;
+    previousGeneratorTypeRef.current = settings.generatorType;
+    const enteringVoltage =
+      settings.generatorType === "voltage" && previous !== "voltage";
     if (
-      settings.generatorType === "voltage" &&
+      enteringVoltage &&
       settings.modelId === null &&
       voltageGirthDefault !== null
     ) {
