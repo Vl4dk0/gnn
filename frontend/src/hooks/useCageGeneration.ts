@@ -87,9 +87,19 @@ export const useCageGeneration = () => {
 
   const [degreeK, setDegreeK] = useState(3);
   const [girthG, setGirthG] = useState(5);
-  const [settings, setSettings] = useState<CageSettings>(() =>
-    normalizeSettings(readStored<CageSettings>(STORAGE_KEY, DEFAULT_SETTINGS))
-  );
+  const [settings, setSettings] = useState<CageSettings>(() => {
+    const stored = readStored<CageSettings>(STORAGE_KEY, DEFAULT_SETTINGS);
+    // Legacy persistence: previous UI versions used modelId=null to mean
+    // "explicit None" for the voltage generator. The new code reserves null
+    // for "auto-select pending" and uses VOLTAGE_NO_MODEL for explicit None.
+    // Migrate existing storage so upgrading users don't silently flip from
+    // pure tabu/random to ML-guided.
+    const migrated: CageSettings =
+      stored.generatorType === "voltage" && stored.modelId === null
+        ? { ...stored, modelId: VOLTAGE_NO_MODEL }
+        : stored;
+    return normalizeSettings(migrated);
+  });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [modelOptions, setModelOptions] = useState<ModelOption[]>([
     { value: "", label: "Loading RL models..." }
