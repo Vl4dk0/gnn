@@ -453,12 +453,26 @@ export const useCageGeneration = () => {
     editorRef.current?.clear();
   }, []);
 
-  const saveSettings = useCallback((nextSettings: CageSettings) => {
-    const safe = normalizeSettings(nextSettings);
-    setSettings(safe);
-    writeStored(STORAGE_KEY, safe);
-    setSettingsOpen(false);
-  }, []);
+  const saveSettings = useCallback(
+    (nextSettings: CageSettings) => {
+      const safe = normalizeSettings(nextSettings);
+      // If the user is saving the voltage generator with modelId still
+      // unresolved (null = auto-select pending) and the default has loaded,
+      // resolve it before persisting. Without this, a fast save followed by
+      // a reload would re-enter the legacy-migration path and flip the
+      // user from ML-guided to pure tabu/random.
+      const resolved: CageSettings =
+        safe.generatorType === "voltage" &&
+        safe.modelId === null &&
+        voltageGirthDefault !== null
+          ? { ...safe, modelId: voltageGirthDefault }
+          : safe;
+      setSettings(resolved);
+      writeStored(STORAGE_KEY, resolved);
+      setSettingsOpen(false);
+    },
+    [voltageGirthDefault]
+  );
 
   return {
     degreeK,
