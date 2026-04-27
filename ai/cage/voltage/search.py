@@ -7,12 +7,11 @@ meta-search that iterates over base graphs and groups.
 from __future__ import annotations
 
 import argparse
-import json
 import math
 import multiprocessing
 import random
-import sys
 import time
+from typing import cast
 
 import torch
 
@@ -37,7 +36,7 @@ from ai.cage.voltage.groups import (
     semidirect_product_cyclic,
 )
 from ai.cage.voltage.lift import build_lift, verify_lift
-from ai.cage.voltage.model import GirthPredictor
+from ai.cage.voltage.model import GirthPredictor, load_girth_predictor
 from backend.utils.graph_utils import moore_bound
 
 
@@ -427,6 +426,8 @@ def _search_one_config(
             voltages=volts,
             base_name=base_name,
             group_name=group.name,
+            base=base,
+            group=group,
             method=method,
         )
 
@@ -553,6 +554,8 @@ def meta_search(
                                 voltages=volts_b,
                                 base_name=base_name,
                                 group_name=group.name,
+                                base=base,
+                                group=group,
                                 method="beam",
                             )
                         )
@@ -571,43 +574,25 @@ def meta_search(
             print(f"  Voltages: {best_result['voltages']}")
             print(f"  Method: {best_result.get('method', 'unknown')}")
 
-            # Verify the best result
+            # Verify the best result. The base/group objects are carried in
+            # best_result directly (workers echo them back), so no fragile
+            # name re-parsing.
             volts_final = best_result["voltages"]
-            base_final = None
-            for bname, b in bases:
-                if bname == best_result["base_name"]:
-                    base_final = b
-                    break
-            if base_final is not None and isinstance(volts_final, list):
-                group_final = _find_group_by_name(
-                    str(best_result["group_name"]), max_group_order
-                )
-                if group_final is not None:
-                    lifted = build_lift(base_final, group_final, volts_final)
-                    props = verify_lift(lifted, k, g_target)
-                    print(f"  Verified: {props}")
+            base_final = cast(BaseGraph | None, best_result.get("base"))
+            group_final = cast(FiniteGroup | None, best_result.get("group"))
+            if (
+                base_final is not None
+                and group_final is not None
+                and isinstance(volts_final, list)
+            ):
+                lifted = build_lift(base_final, group_final, volts_final)
+                props = verify_lift(lifted, k, g_target)
+                print(f"  Verified: {props}")
         else:
             print(f"No ({k},{g_target})-graph found in search.")
         print(f"{'=' * 60}")
 
     return best_result
-
-
-def _find_group_by_name(name: str, max_order: int) -> FiniteGroup | None:
-    """Reconstruct a group from its name string."""
-    if name.startswith("Z_"):
-        n = int(name[2:])
-        return cyclic_group(n)
-    if name.startswith("D_"):
-        n = int(name[2:])
-        return dihedral_group(n)
-    if "x" in name and name.count("x") == 1:
-        parts = name.split("x")
-        g1 = _find_group_by_name(parts[0], max_order)
-        g2 = _find_group_by_name(parts[1], max_order)
-        if g1 is not None and g2 is not None:
-            return direct_product(g1, g2)
-    return None
 
 
 if __name__ == "__main__":
@@ -634,30 +619,7 @@ if __name__ == "__main__":
 
     loaded_model: GirthPredictor | None = None
     if args.model_id is not None:
-        from pathlib import Path
-
-        model_dir = (
-            Path(__file__).resolve().parents[2]
-            / "trained"
-            / "voltage_girth"
-            / str(args.model_id)
-        )
-        info_path = model_dir / "info.json"
-        weights_path = model_dir / "weights.pt"
-        if not weights_path.exists() or not info_path.exists():
-            raise FileNotFoundError(f"Predictor not found at {model_dir}")
-        with open(info_path) as f:
-            info = json.load(f)
-        training = info.get("training", {})
-        loaded_model = GirthPredictor(
-            node_feat_dim=2,
-            hidden_dim=int(training.get("hidden_dim", 64)),
-            num_layers=int(training.get("num_layers", 4)),
-            max_group_order=int(training.get("max_group_order", 60)),
-        )
-        state = torch.load(weights_path, map_location="cpu")  # pyright: ignore[reportAny]
-        _ = loaded_model.load_state_dict(state)  # pyright: ignore[reportAny]
-        _ = loaded_model.eval()
+        loaded_model = load_girth_predictor(str(args.model_id))
         print(f"Loaded girth predictor: {args.model_id}")
 
     _ = meta_search(

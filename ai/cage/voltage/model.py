@@ -7,6 +7,8 @@ the girth of the corresponding voltage graph lift.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import cast, override
 
 import torch
@@ -159,3 +161,36 @@ class GirthPredictor(nn.Module):
         girth_logit = cast(torch.Tensor, self.classify_head(combined))
 
         return girth_pred, girth_logit
+
+
+def load_girth_predictor(model_id: str) -> GirthPredictor:
+    """Load a trained girth predictor from `ai/trained/voltage_girth/<model_id>/`.
+
+    Reads the architecture parameters from the saved info.json and the weights
+    from weights.pt. Raises FileNotFoundError if either is missing.
+    """
+    model_dir = (
+        Path(__file__).resolve().parents[2]
+        / "trained"
+        / "voltage_girth"
+        / str(model_id)
+    )
+    info_path = model_dir / "info.json"
+    weights_path = model_dir / "weights.pt"
+    if not info_path.exists() or not weights_path.exists():
+        raise FileNotFoundError(
+            f"Girth predictor {model_id!r} not found at {model_dir}"
+        )
+    with open(info_path) as f:
+        info = cast(dict[str, object], json.load(f))
+    training = cast(dict[str, object], info.get("training", {}))
+    model = GirthPredictor(
+        node_feat_dim=2,
+        hidden_dim=int(cast(int, training.get("hidden_dim", 64))),
+        num_layers=int(cast(int, training.get("num_layers", 4))),
+        max_group_order=int(cast(int, training.get("max_group_order", 60))),
+    )
+    state = torch.load(weights_path, map_location="cpu")  # pyright: ignore[reportAny]
+    _ = model.load_state_dict(state)  # pyright: ignore[reportAny]
+    _ = model.eval()
+    return model
