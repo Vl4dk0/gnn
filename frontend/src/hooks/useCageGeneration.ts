@@ -53,8 +53,13 @@ const formatElapsed = (seconds: number): string => {
   return `${mins}m ${secs}s`;
 };
 
+// Generator types that have a visible model selector in the UI. voltage_rl
+// is intentionally excluded — it has no dropdown, so any modelId carried
+// over from a different generator would be stale (and likely the wrong
+// model_type, which the backend rejects with 400). The voltage_rl backend
+// path uses its own fallback when no model_id arrives.
 const generatorAcceptsModel = (g: CageSettings["generatorType"]): boolean =>
-  g === "rl" || g === "voltage" || g === "voltage_rl";
+  g === "rl" || g === "voltage";
 
 const normalizeSettings = (settings: CageSettings): CageSettings => {
   const merged = { ...DEFAULT_SETTINGS, ...settings };

@@ -399,17 +399,21 @@ def train_voltage_ppo(
         # SIGTERM, exception, or normal exit. The "best" weights.pt may
         # be older if the agent regressed, so keep both.
         _save_checkpoint("_final", "final")
+        # Guarantee a canonical weights.pt exists. SystemExit raised from
+        # the SIGTERM handler propagates through finally and skips any
+        # post-finally code, so this fallback HAS to live in finally.
+        # Only writes if no stage_best checkpoint has produced weights.pt
+        # yet — otherwise we'd clobber a higher-quality saved best.
+        if not os.path.exists(os.path.join(save_dir, "weights.pt")):
+            _save_checkpoint("", "fallback_no_best")
 
-    # Always snapshot weights.pt — it's the canonical filename the registry
-    # and loaders look for. If a best state was tracked, restore it first;
-    # otherwise dump whatever the agent currently holds (so even very short
-    # runs / pre-best-trigger SIGTERMs leave a loadable model).
     save_path = os.path.join(save_dir, "weights.pt")
+    # Restore the best in-memory state (if any) and refresh weights.pt with
+    # it. This only runs on normal exit; a SystemExit from SIGTERM bypasses
+    # this branch, but the finally above already ensured weights.pt exists.
     if best_model_state is not None:
         _ = agent.load_state_dict(best_model_state)
         _save_checkpoint("", "best_restored")
-    else:
-        _save_checkpoint("", "fallback_no_best")
 
     console.print(f"\nModel saved to {save_path}")
     console.print(f"Best avg reward: {best_avg_reward:.2f}")

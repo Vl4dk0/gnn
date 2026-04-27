@@ -271,8 +271,10 @@ export const CagePage = () => {
           value={draftSettings.generatorType}
           onChange={(event) => {
             const newType = event.target.value as CageSettings["generatorType"];
-            const keepsModelId =
-              newType === "rl" || newType === "voltage" || newType === "voltage_rl";
+            // Only generator types with a visible model selector retain
+            // a chosen modelId across generator changes. voltage_rl has no
+            // selector, so its modelId is always cleared here.
+            const keepsModelId = newType === "rl" || newType === "voltage";
             setDraftSettings((current) => ({
               ...current,
               generatorType: newType,
