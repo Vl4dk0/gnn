@@ -79,7 +79,12 @@ const normalizeSettings = (settings: CageSettings): CageSettings => {
 export const useCageGeneration = () => {
   const editorRef = useRef<InteractiveGraphEditor | null>(null);
   const latestSessionIdRef = useRef<string | null>(null);
-  const voltageAutoSelectedRef = useRef<boolean>(false);
+  // Initialized true when loaded settings already have generatorType=voltage,
+  // so persisted choices (including an explicit None / null modelId) are
+  // preserved instead of being overwritten by the auto-select effect on
+  // mount.
+  const initialIsVoltage = readStored<CageSettings>(STORAGE_KEY, DEFAULT_SETTINGS).generatorType === "voltage";
+  const voltageAutoSelectedRef = useRef<boolean>(initialIsVoltage);
 
   const [degreeK, setDegreeK] = useState(3);
   const [girthG, setGirthG] = useState(5);
