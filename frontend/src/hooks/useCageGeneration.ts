@@ -79,7 +79,7 @@ const normalizeSettings = (settings: CageSettings): CageSettings => {
 export const useCageGeneration = () => {
   const editorRef = useRef<InteractiveGraphEditor | null>(null);
   const latestSessionIdRef = useRef<string | null>(null);
-  const previousGeneratorTypeRef = useRef<CageSettings["generatorType"] | null>(null);
+  const voltageAutoSelectedRef = useRef<boolean>(false);
 
   const [degreeK, setDegreeK] = useState(3);
   const [girthG, setGirthG] = useState(5);
@@ -169,20 +169,24 @@ export const useCageGeneration = () => {
     void loadVoltageGirthModels();
   }, []);
 
-  // Auto-select the unified girth predictor only on TRANSITIONS into the
-  // voltage generator (or on the first render if it's already voltage).
-  // Re-firing whenever modelId becomes null would make the explicit
-  // "None (pure tabu + random)" option unselectable.
+  // Auto-select the unified girth predictor at most once per voltage
+  // session. The flag is reset when the user leaves the voltage generator,
+  // so re-entering re-arms the auto-select. While in voltage, an explicit
+  // "None (pure tabu + random)" choice sticks because the flag stays set.
+  // Reset-on-leave handles the rl→voltage→rl→voltage flow; the
+  // !voltageAutoSelectedRef.current gate handles the case where the user
+  // is already on voltage when /voltage-girth-models finally returns.
   useEffect(() => {
-    const previous = previousGeneratorTypeRef.current;
-    previousGeneratorTypeRef.current = settings.generatorType;
-    const enteringVoltage =
-      settings.generatorType === "voltage" && previous !== "voltage";
+    if (settings.generatorType !== "voltage") {
+      voltageAutoSelectedRef.current = false;
+      return;
+    }
     if (
-      enteringVoltage &&
+      !voltageAutoSelectedRef.current &&
       settings.modelId === null &&
       voltageGirthDefault !== null
     ) {
+      voltageAutoSelectedRef.current = true;
       setSettings((current) => ({ ...current, modelId: voltageGirthDefault }));
     }
   }, [settings.generatorType, settings.modelId, voltageGirthDefault]);
