@@ -189,6 +189,7 @@ def train(
     print_every: int = 10,
     seed: int = 42,
     regression_weight: float = 0.5,
+    weight_decay: float = 0.0,
     model_id_override: str | None = None,
 ) -> tuple[GirthPredictor, dict[str, object]]:
     """Train the girth predictor model. Returns (model, info_dict)."""
@@ -312,7 +313,7 @@ def train(
         num_layers=num_layers,
         max_group_order=max_group_order,
     ).to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
 
     best_val_loss = float("inf")
     best_state: dict[str, torch.Tensor] | None = None
@@ -413,6 +414,7 @@ def train(
         "learning_rate": lr,
         "seed": seed,
         "regression_weight": regression_weight,
+        "weight_decay": weight_decay,
         "best_epoch": best_epoch,
     }
     if primary_k is not None:
@@ -512,6 +514,12 @@ def parse_args() -> argparse.Namespace:
         default=0.5,
         help="Weight on regression loss (0=BCE only, 1=MSE only)",
     )
+    _ = parser.add_argument(
+        "--weight-decay",
+        type=float,
+        default=0.0,
+        help="AdamW weight decay (use 1e-4 to combat overfitting)",
+    )
     return parser.parse_args()
 
 
@@ -534,5 +542,6 @@ if __name__ == "__main__":
         print_every=cast(int, args.print_every),
         seed=cast(int, args.seed),
         regression_weight=cast(float, args.regression_weight),
+        weight_decay=cast(float, args.weight_decay),
         model_id_override=cast(str | None, args.model_id),
     )

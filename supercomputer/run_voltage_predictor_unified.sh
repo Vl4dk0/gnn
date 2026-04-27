@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=voltage-predictor-unified
+#SBATCH --job-name=voltage-predictor-unified-v2
 #SBATCH --output=training_runs/%x_%j.out
 #SBATCH --error=training_runs/%x_%j.err
 #SBATCH --partition=GPU
@@ -14,12 +14,14 @@ source .activate_scratch
 
 cd ~/gnn
 
-# Variant C: single unified girth predictor across the full (k, g) grid.
-# Tests whether one model can subsume all targets via context features.
-# Larger sample budget and slightly larger hidden dim absorb the extra variance.
+# Variant C retrain (v2): unified girth predictor across the full (k, g) grid.
+# Bigger sample budget (1M) plus weight decay to address the bimodal F1
+# pattern in v1 (great on easy targets, near-zero on heavily class-imbalanced
+# cells like (5,7)/(4,7)/(4,8)).
 
 uv run python -u -m ai.cage.voltage.train \
   --targets "3,5;3,6;3,7;3,8;3,9;3,10;4,5;4,6;4,7;4,8;5,5;5,6;5,7" \
-  --samples 600000 --epochs 100 --batch-size 256 \
+  --samples 1000000 --epochs 100 --batch-size 256 \
   --hidden-dim 192 --num-layers 4 --max-group-order 100 \
+  --weight-decay 1e-4 \
   --print-every 5 --seed 42
