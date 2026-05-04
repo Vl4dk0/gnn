@@ -17,12 +17,12 @@
     "update_interval": 2048,
     "randomize": true,
     "resumed": false,
-    "checkpoint_step": 2969600,
+    "checkpoint_step": 5238784,
     "partial": true
   },
   "metrics": {
-    "avg_reward": 19.12,
+    "avg_reward": 20.3,
     "fps": 30
   },
-  "created_at": "2026-04-25T15:04:34.358810"
+  "created_at": "2026-04-26T11:46:52.198305"
 }

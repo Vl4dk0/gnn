@@ -1,0 +1,100 @@
+{
+  "model_type": "voltage_girth_predictor",
+  "model_id": "girth_predictor_g7_multik",
+  "task": "voltage_girth",
+  "training": {
+    "targets": [
+      [
+        3,
+        7
+      ],
+      [
+        4,
+        7
+      ],
+      [
+        5,
+        7
+      ]
+    ],
+    "samples": 300000,
+    "epochs": 100,
+    "batch_size": 128,
+    "hidden_dim": 128,
+    "num_layers": 4,
+    "max_group_order": 60,
+    "learning_rate": 0.001,
+    "seed": 42,
+    "regression_weight": 0.5,
+    "weight_decay": 0.0001,
+    "best_epoch": 20
+  },
+  "data": {
+    "requested": 300000,
+    "produced": 300000,
+    "duplicates_skipped": 23428,
+    "generation_attempts": 323428,
+    "per_target": {
+      "3_7": {
+        "produced": 107246.0,
+        "duplicates_skipped": 610.0,
+        "pos_rate": 0.2299
+      },
+      "4_7": {
+        "produced": 85106.0,
+        "duplicates_skipped": 22816.0,
+        "pos_rate": 0.0053
+      },
+      "5_7": {
+        "produced": 107648.0,
+        "duplicates_skipped": 2.0,
+        "pos_rate": 0.0
+      }
+    },
+    "train_samples": 240000,
+    "val_samples": 30000,
+    "test_samples": 30000,
+    "train_pos_rate": 0.0834,
+    "val_pos_rate": 0.0857,
+    "test_pos_rate": 0.0843
+  },
+  "metrics": {
+    "test_loss": 0.0931,
+    "test_mae": 1.0207,
+    "test_accuracy": 0.9184,
+    "test_precision": 0.5097,
+    "test_recall": 0.8593,
+    "test_f1": 0.6399,
+    "test_tp": 2174,
+    "test_fp": 2091,
+    "test_fn": 356,
+    "test_tn": 25379,
+    "best_val_loss": 0.0919,
+    "test_per_target": {
+      "3_7": {
+        "n": 10654.0,
+        "mae": 1.3444,
+        "accuracy": 0.7786,
+        "precision": 0.5142,
+        "recall": 0.8627,
+        "f1": 0.6444
+      },
+      "5_7": {
+        "n": 10841.0,
+        "mae": 0.8404,
+        "accuracy": 1.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "4_7": {
+        "n": 8505.0,
+        "mae": 0.845,
+        "accuracy": 0.9897,
+        "precision": 0.3394,
+        "recall": 0.6981,
+        "f1": 0.4568
+      }
+    }
+  }
+}

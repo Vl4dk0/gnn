@@ -1,0 +1,44 @@
+{
+  "model_type": "voltage_girth_predictor",
+  "model_id": "girth_predictor_k3_g7",
+  "task": "voltage_girth",
+  "training": {
+    "k": 3,
+    "g_target": 7,
+    "samples": 200000,
+    "epochs": 100,
+    "batch_size": 128,
+    "hidden_dim": 128,
+    "num_layers": 4,
+    "max_group_order": 60,
+    "learning_rate": 0.001,
+    "seed": 42,
+    "regression_weight": 0.5,
+    "best_epoch": 5
+  },
+  "data": {
+    "requested": 200000,
+    "produced": 200000,
+    "duplicates_skipped": 1992,
+    "generation_attempts": 201992,
+    "train_samples": 160000,
+    "val_samples": 20000,
+    "test_samples": 20000,
+    "train_pos_rate": 0.231,
+    "val_pos_rate": 0.2313,
+    "test_pos_rate": 0.2272
+  },
+  "metrics": {
+    "test_loss": 0.2168,
+    "test_mae": 1.3892,
+    "test_accuracy": 0.7799,
+    "test_precision": 0.5092,
+    "test_recall": 0.8673,
+    "test_f1": 0.6416,
+    "test_tp": 3941,
+    "test_fp": 3799,
+    "test_fn": 603,
+    "test_tn": 11657,
+    "best_val_loss": 0.2182
+  }
+}
