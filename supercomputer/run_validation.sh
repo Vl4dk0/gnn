@@ -16,9 +16,8 @@
 # training_runs/validation/<timestamp>/ (not gitignored), so the
 # results can be committed straight from PERUN.
 
-set -euo pipefail
+set -uo pipefail
 
-source .activate_scratch
 cd ~/gnn
 
 PORT="${PORT:-5555}"
