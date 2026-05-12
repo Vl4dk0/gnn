@@ -163,7 +163,7 @@ class VoltageRLGenerator:
 
         with torch.no_grad():
             action, _, _ = self.model.get_action(
-                self.obs, action_dim=self.env.get_action_dim(), deterministic=True
+                self.obs, action_dim=self.env.get_action_dim(), deterministic=False
             )
 
         next_obs, reward, done, info = self.env.step(action)
