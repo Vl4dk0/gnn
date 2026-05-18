@@ -4,6 +4,7 @@ from .functions.astar import AStarGenerator
 from .functions.monte_carlo_search_tree import MCTSGenerator
 from .functions.rl_agent import RLGenerator
 from .functions.voltage_search import VoltageSearchGenerator
+from .functions.cayley_search import CayleySearchGenerator
 
 __all__ = [
     "RandomWalkGenerator",
@@ -12,4 +13,5 @@ __all__ = [
     "MCTSGenerator",
     "RLGenerator",
     "VoltageSearchGenerator",
+    "CayleySearchGenerator",
 ]
