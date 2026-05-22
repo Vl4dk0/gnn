@@ -21,7 +21,7 @@ import math
 import multiprocessing
 import random
 import time
-from typing import cast
+from typing import Protocol, cast
 
 import networkx as nx
 
@@ -38,7 +38,6 @@ from ai.cage.cayley.groups import (
     involutions,
     non_identity_elements,
     random_generating_set,
-    symmetric_closure,
 )
 from ai.cage.cayley.model import (
     CayleyGirthPredictor,
@@ -257,7 +256,7 @@ def tabu_search(
 # ── Heuristic interface ─────────────────────────────────────────────────
 
 
-class ScoreFn:
+class ScoreFn(Protocol):
     """Protocol: (group, generators, k, g_target) -> heuristic score (lower better)."""
 
     def __call__(
@@ -272,7 +271,7 @@ class ScoreFn:
 # ── Meta-search across groups ───────────────────────────────────────────
 
 
-def _search_one_group(
+def search_one_group(
     args: tuple[FiniteGroup, int, int, int, int],
 ) -> dict[str, object] | None:
     """Process-safe worker: run random + tabu on one group, return best hit.
@@ -369,7 +368,8 @@ def meta_search(
             if verbose:
                 print(
                     f"  ** {result['group_name']}: girth={result['girth']} "
-                    f"order={order} method={result['method']} S={result['generators']}"
+                    + f"order={order} method={result['method']} "
+                    + f"S={result['generators']}"
                 )
 
     configs: list[tuple[FiniteGroup, int, int, int, int]] = [
@@ -378,11 +378,11 @@ def meta_search(
 
     if num_workers > 1:
         with multiprocessing.Pool(num_workers) as pool:
-            for result in pool.imap_unordered(_search_one_group, configs):
+            for result in pool.imap_unordered(search_one_group, configs):
                 _update(result)
     else:
         for cfg in configs:
-            _update(_search_one_group(cfg))
+            _update(search_one_group(cfg))
 
     # Optional ML-guided refinement pass: sequential because the model
     # carries device-resident tensors that don't pickle well across workers.
@@ -416,6 +416,8 @@ def meta_search(
             )
 
     elapsed = time.time() - start
+    best["elapsed"] = elapsed
+    best["num_groups"] = len(groups)
     if verbose:
         print(f"\nCayley meta-search done in {elapsed:.1f}s.")
         if best["generators"] is not None:
@@ -444,12 +446,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     score_fn_arg: ScoreFn | None = None
-    if args.model_id is not None:
-        model: CayleyGirthPredictor = load_cayley_girth_predictor(
-            cast(str, args.model_id)
-        )
+    model_id_arg = cast("str | None", args.model_id)
+    if model_id_arg is not None:
+        model: CayleyGirthPredictor = load_cayley_girth_predictor(model_id_arg)
         score_fn_arg = make_score_fn(model)
-        print(f"Loaded Cayley girth predictor: {args.model_id}")
+        print(f"Loaded Cayley girth predictor: {model_id_arg}")
 
     _ = meta_search(
         cast(int, args.k),

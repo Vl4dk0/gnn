@@ -17,6 +17,7 @@ from ai.cage.voltage.groups import (
     dihedral_group,
     direct_product,
     pgl2,
+    semidirect_product_cyclic,
     sl2,
 )
 
@@ -62,12 +63,22 @@ def available_groups(
     include_matrix: bool = True,
     include_abelian: bool = True,
     include_dihedral: bool = True,
+    include_semidirect: bool = True,
+    abelian_cap: int = 300,
+    semidirect_cap: int = 600,
 ) -> list[FiniteGroup]:
     """Build a deduplicated catalogue of candidate finite groups.
 
-    PSL/PGL/SL families are the historically productive Cayley-graph choices
-    for high-girth (k,g)-records. Abelian/dihedral are kept for sanity checks
-    and small cases.
+    PGL/SL families are the historically productive Cayley-graph choices for
+    high-girth (k,g)-records. Abelian/dihedral are kept for sanity checks and
+    small cases; semidirect products of cyclic groups add non-abelian variety
+    at moderate order.
+
+    Each FiniteGroup carries a full O(order^2) multiplication table, so the
+    catalogue cannot materialise every cyclic group up to a large max_order
+    without exhausting memory. abelian_cap / semidirect_cap bound the order
+    of those families independently of max_order, while the matrix groups
+    (few in number, but individually large) are allowed up to max_order.
     """
     groups: list[FiniteGroup] = []
     seen: set[str] = set()
@@ -81,30 +92,44 @@ def available_groups(
         groups.append(g)
 
     if include_matrix:
-        # PGL(2, p) has order p(p^2 - 1).
-        # SL(2, p) has order p(p^2 - 1).
+        # PGL(2, p) and SL(2, p) both have order p(p^2 - 1) for prime p.
         # PSL(2, p) = SL(2, p) / {+/- I} has order p(p^2 - 1)/2 for p > 2;
         # we approximate the PSL via PGL/SL here because we don't have a
         # quotient implementation; PGL and SL together cover the useful range.
-        for p in (3, 5, 7, 11, 13):
+        for p in (3, 5, 7, 11, 13, 17):
             order_est = p * (p * p - 1)
             if order_est <= max_order:
                 _add(pgl2(p))
                 _add(sl2(p))
 
     if include_abelian:
-        for n in range(2, max_order + 1):
+        ab_cap = min(max_order, abelian_cap)
+        for n in range(2, ab_cap + 1):
             _add(cyclic_group(n))
 
-        for a in range(2, min(20, max_order)):
-            for b in range(a, min(20, max_order)):
-                if a * b <= max_order:
+        for a in range(2, min(20, ab_cap)):
+            for b in range(a, min(20, ab_cap)):
+                if a * b <= ab_cap:
                     _add(direct_product(cyclic_group(a), cyclic_group(b)))
 
     if include_dihedral:
-        for n in range(3, max_order // 2 + 1):
-            if 2 * n <= max_order:
+        dih_cap = min(max_order, abelian_cap)
+        for n in range(3, dih_cap // 2 + 1):
+            if 2 * n <= dih_cap:
                 _add(dihedral_group(n))
+
+    if include_semidirect:
+        # Z_n ⋊ Z_m with a non-trivial action phi (phi^m ≡ 1 mod n). One
+        # non-trivial action per (n, m) is enough for catalogue variety.
+        sd_cap = min(max_order, semidirect_cap)
+        for n in range(3, sd_cap + 1):
+            for m in (2, 3, 4, 5, 6):
+                if n * m > sd_cap:
+                    continue
+                for phi in range(2, n):
+                    if pow(phi, m, n) == 1:
+                        _add(semidirect_product_cyclic(n, m, phi))
+                        break
 
     return groups
 
@@ -179,6 +204,7 @@ __all__ = [
     "non_identity_elements",
     "pgl2",
     "random_generating_set",
+    "semidirect_product_cyclic",
     "sl2",
     "symmetric_closure",
 ]
