@@ -1,14 +1,12 @@
 """Training script for the voltage graph girth predictor.
 
+The predictor is trained as a single (k, g)-independent model: (k, g) are fed
+in as context features, never baked into separate weights. Always pass the
+full target grid via --targets.
+
 Usage:
-    # Single target (Variant A — per-(k,g) model)
-    uv run python -m ai.cage.voltage.train --k 3 --g 7 --samples 100000
-
-    # Per-g (Variant B — fixed g, multiple k)
-    uv run python -m ai.cage.voltage.train --targets "3,7;4,7;5,7" --samples 100000
-
-    # Unified (Variant C — full grid)
-    uv run python -m ai.cage.voltage.train --targets "3,5;3,6;4,5;4,6" --samples 200000
+    uv run python -m ai.cage.voltage.train \\
+        --targets "3,5;3,6;3,7;4,5;4,6;5,5;5,6" --samples 200000
 """
 
 from __future__ import annotations
@@ -45,39 +43,29 @@ def _set_seed(seed: int) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
-def _parse_targets(
-    targets_arg: str | None, k: int | None, g: int | None
-) -> list[tuple[int, int]]:
-    """Parse the --targets string or fall back to single (k, g)."""
-    if targets_arg:
-        out: list[tuple[int, int]] = []
-        for piece in targets_arg.split(";"):
-            piece = piece.strip()
-            if not piece:
-                continue
-            ks, gs = piece.split(",")
-            out.append((int(ks.strip()), int(gs.strip())))
-        if not out:
-            raise ValueError(f"Failed to parse --targets: {targets_arg!r}")
-        return out
-    if k is None or g is None:
-        raise ValueError("Provide either --targets or both --k and --g")
-    return [(k, g)]
+def _parse_targets(targets_arg: str | None) -> list[tuple[int, int]]:
+    """Parse the --targets string into a list of (k, g) targets."""
+    if not targets_arg:
+        raise ValueError('--targets is required, e.g. --targets "3,5;3,6;4,6"')
+    out: list[tuple[int, int]] = []
+    for piece in targets_arg.split(";"):
+        piece = piece.strip()
+        if not piece:
+            continue
+        ks, gs = piece.split(",")
+        out.append((int(ks.strip()), int(gs.strip())))
+    if not out:
+        raise ValueError(f"Failed to parse --targets: {targets_arg!r}")
+    return out
 
 
 def _derive_model_id(targets: list[tuple[int, int]]) -> str:
-    """Pick a save-folder name that reflects the target shape."""
-    if len(targets) == 1:
-        k, g = targets[0]
-        return f"girth_predictor_k{k}_g{g}"
-    ks = {k for (k, _) in targets}
-    gs = {g for (_, g) in targets}
-    if len(gs) == 1:
-        (g,) = tuple(gs)
-        return f"girth_predictor_g{g}_multik"
-    if len(ks) == 1:
-        (k,) = tuple(ks)
-        return f"girth_predictor_k{k}_multig"
+    """Save-folder name for the predictor.
+
+    The predictor is always a single (k, g)-independent model trained over a
+    grid of targets, so the id is fixed rather than encoding any one target.
+    """
+    _ = targets
     return "girth_predictor_unified"
 
 
@@ -472,16 +460,11 @@ def parse_args() -> argparse.Namespace:
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     _ = parser.add_argument(
-        "--k", type=int, default=None, help="Target degree (single-target mode)"
-    )
-    _ = parser.add_argument(
-        "--g", type=int, default=None, help="Target girth (single-target mode)"
-    )
-    _ = parser.add_argument(
         "--targets",
         type=str,
         default=None,
-        help='Multiple targets, e.g. "3,5;3,6;4,5" (overrides --k/--g)',
+        required=True,
+        help='Target grid, e.g. "3,5;3,6;4,5" (single k,g-independent model).',
     )
     _ = parser.add_argument(
         "--model-id",
@@ -525,11 +508,7 @@ def parse_args() -> argparse.Namespace:
 
 if __name__ == "__main__":
     args = parse_args()
-    targets = _parse_targets(
-        cast(str | None, args.targets),
-        cast(int | None, args.k),
-        cast(int | None, args.g),
-    )
+    targets = _parse_targets(cast(str | None, args.targets))
     _ = train(
         targets=targets,
         num_samples=cast(int, args.samples),
