@@ -1,23 +1,11 @@
-from ai.cage import RLGenerator
-import networkx as nx
+from ai.cage.rl.env import CageConstructionEnv
 
 
-def test_rl_gen():
-    print("Testing RL Generator...")
-    gen = RLGenerator(k=3, g=5, model_type="gin")
-    print("Generator initialized.")
+def test_rl_environment_smoke_run() -> None:
+    env = CageConstructionEnv(k=3, g=5, n_min=10, n_max=10, max_steps=1)
+    _ = env.reset(num_nodes=10)
 
-    for i in range(50):
-        gen.step()
-        if gen.is_complete:
-            print(f"Complete at step {i}")
-            break
+    _, _, done, info = env.step(0)
 
-    print(
-        f"Final Graph: {gen.graph.number_of_nodes()} nodes, {gen.graph.number_of_edges()} edges"
-    )
-    print(f"Success: {gen.success}")
-
-
-if __name__ == "__main__":
-    test_rl_gen()
+    assert done is True
+    assert info["done_reason"] == "max_steps"
