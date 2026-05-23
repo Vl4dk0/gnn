@@ -204,33 +204,33 @@ def group_to_pyg(
     return data
 
 
+_GroupResult = tuple[
+    int, list[int], list[int], list[int], int, list[tuple[int, int, int]]
+]
+
+
 def _gen_one_group(
-    args: tuple[FiniteGroup, list[tuple[int, int]], int, int],
-) -> list[Data]:
-    """Process-safe worker: build one Data per target for a single group."""
-    group, targets, num_random_trials, num_tabu_iters = args
+    args: tuple[int, FiniteGroup, list[tuple[int, int]], int, int],
+) -> _GroupResult:
+    """Process-safe worker: compute labels and group invariants for one group.
+
+    Returns only plain Python ints/lists (no torch tensors) — the main
+    process builds the PyG Data objects from these. Returning tensors
+    from workers triggers Unix file-descriptor passing in multiprocessing
+    which fails on PERUN with "received 0 items of ancdata".
+    """
+    group_idx, group, targets, num_random_trials, num_tabu_iters = args
     elem_orders = _element_orders(group)
     conj_sizes, num_conj = _conjugacy_data(group)
     gen_set = canonical_generating_set(group)
 
-    out: list[Data] = []
+    labels: list[tuple[int, int, int]] = []
     for k, g_target in targets:
         best_girth = best_achievable_girth(
             group, k, g_target, num_random_trials, num_tabu_iters
         )
-        out.append(
-            group_to_pyg(
-                group,
-                k,
-                g_target,
-                best_girth,
-                gen_set=gen_set,
-                elem_orders=elem_orders,
-                conj_sizes=conj_sizes,
-                num_conj=num_conj,
-            )
-        )
-    return out
+        labels.append((k, g_target, best_girth))
+    return group_idx, gen_set, elem_orders, conj_sizes, num_conj, labels
 
 
 def generate_group_dataset(
@@ -252,18 +252,39 @@ def generate_group_dataset(
         random.seed(seed)
 
     groups = available_groups(max_group_order)
-    configs: list[tuple[FiniteGroup, list[tuple[int, int]], int, int]] = [
-        (group, targets, num_random_trials, num_tabu_iters) for group in groups
+    configs: list[tuple[int, FiniteGroup, list[tuple[int, int]], int, int]] = [
+        (i, group, targets, num_random_trials, num_tabu_iters)
+        for i, group in enumerate(groups)
     ]
 
-    dataset: list[Data] = []
+    results: list[_GroupResult] = []
     if num_workers > 1:
         with multiprocessing.Pool(num_workers) as pool:
-            for group_data in pool.imap_unordered(_gen_one_group, configs):
-                dataset.extend(group_data)
+            for r in pool.imap_unordered(_gen_one_group, configs):
+                results.append(r)
     else:
         for cfg in configs:
-            dataset.extend(_gen_one_group(cfg))
+            results.append(_gen_one_group(cfg))
+
+    # Build PyG Data objects in the main process from the plain-Python
+    # invariants returned by the workers.  Keeps torch tensors entirely
+    # out of inter-process communication.
+    dataset: list[Data] = []
+    for group_idx, gen_set, elem_orders, conj_sizes, num_conj, labels in results:
+        group = groups[group_idx]
+        for k_label, g_label, best_girth in labels:
+            dataset.append(
+                group_to_pyg(
+                    group,
+                    k_label,
+                    g_label,
+                    best_girth,
+                    gen_set=gen_set,
+                    elem_orders=elem_orders,
+                    conj_sizes=conj_sizes,
+                    num_conj=num_conj,
+                )
+            )
 
     per_target_count: dict[str, int] = {}
     per_target_pos: dict[str, int] = {}
