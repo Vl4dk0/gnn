@@ -1,5 +1,7 @@
 """Tests for the group-promise predictor and group-guided Cayley search."""
 
+import json
+import pathlib
 import random
 from typing import cast
 
@@ -12,7 +14,11 @@ from ai.cage.cayley.group_data_gen import (
     group_to_pyg,
 )
 from ai.cage.cayley.group_model import GroupPromisePredictor, make_group_filter
-from ai.cage.cayley.group_search import group_guided_meta_search
+from ai.cage.cayley.group_search import (
+    group_guided_meta_search,
+    load_baseline_json,
+    run_comparison,
+)
 from ai.cage.cayley.groups import cyclic_group, dihedral_group
 
 
@@ -86,6 +92,51 @@ def test_make_group_filter_returns_finite_score() -> None:
     predict = make_group_filter(model)
     score = predict(dihedral_group(5), 3, 6)
     assert isinstance(score, float)
+
+
+def test_load_baseline_json_roundtrip(tmp_path: pathlib.Path) -> None:
+    payload = {
+        "results": [
+            {"k": 3, "g": 6, "found_order": 14, "group_name": "D_7", "elapsed": 12.3},
+            {"k": 3, "g": 7, "found_order": 30, "group_name": "Z_5_rtimes_Z_6"},
+        ]
+    }
+    path = tmp_path / "baseline.json"
+    with open(path, "w") as f:
+        json.dump(payload, f)
+
+    loaded = load_baseline_json(str(path))
+    assert (3, 6) in loaded and (3, 7) in loaded
+    assert loaded[(3, 6)]["found_order"] == 14
+    assert loaded[(3, 6)]["group_name"] == "D_7"
+
+
+def test_run_comparison_smoke() -> None:
+    random.seed(0)
+    model = GroupPromisePredictor(hidden_dim=16, num_layers=2)
+    baseline_cache: dict[tuple[int, int], dict[str, object]] = {
+        (3, 4): {"found_order": 6, "group_name": "D_3", "elapsed": 0.1}
+    }
+    rows = run_comparison(
+        [(3, 4)],
+        model,
+        baseline_results=baseline_cache,
+        max_group_order=16,
+        num_random_trials=60,
+        num_tabu_iters=40,
+        slack_values=(0.0, 99.0),
+        num_workers=1,
+        seed=0,
+        verbose=False,
+    )
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["k"] == 3 and row["g"] == 4
+    assert row["baseline_order"] == 6
+    slacks = cast(list[dict[str, object]], row["slacks"])
+    assert len(slacks) == 2
+    for s in slacks:
+        assert "found_order" in s and "groups_kept" in s and "elapsed" in s
 
 
 def test_group_guided_meta_search_smoke() -> None:
