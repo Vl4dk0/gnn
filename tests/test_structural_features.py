@@ -225,7 +225,7 @@ def test_rwpe_non_collapse_on_petersen() -> None:
     # x was [10, 2]; after adding rwpe_dim=4 columns it should be [10, 6]
     assert result.x.shape == (10, 6), f"Expected (10, 6), got {result.x.shape}"
     # RWPE values should be in (0, 1] since they are diagonal of transition matrix powers
-    rwpe_cols = result.x[:, 2:].numpy()
+    rwpe_cols = result.x[:, 2:].cpu().numpy()
     assert float(rwpe_cols.min()) >= 0.0
     assert float(rwpe_cols.max()) <= 1.0 + 1e-9
     # At least one RWPE column should be non-zero
@@ -248,8 +248,8 @@ def test_rwpe_non_collapse_path_vs_cycle() -> None:
     assert res_p4.x is not None
     assert res_c4.x is not None
 
-    rwpe_p4 = res_p4.x[:, 2:].numpy()
-    rwpe_c4 = res_c4.x[:, 2:].numpy()
+    rwpe_p4 = res_p4.x[:, 2:].cpu().numpy()
+    rwpe_c4 = res_c4.x[:, 2:].cpu().numpy()
 
     # Sort rows to make comparison structure-agnostic, then check they differ
     rwpe_p4_sorted = np.sort(rwpe_p4, axis=0)
