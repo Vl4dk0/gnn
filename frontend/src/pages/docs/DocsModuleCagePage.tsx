@@ -110,23 +110,38 @@ for succ_graph in successors:
           <code>positive score trade</code>.
         </p>
         <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
-          I also had to solve the issue with <code>disconnecting</code> the graph by{" "}
-          <code>removing an edge</code>. At first, I gave it <code>invalid action</code> penalty,
-          but that was too hard for the model to understand and it never stopped trying to
-          disconnect the graph. Then I simply <code>disallowed</code> disconnecting actions by
-          <code>removing</code> them from the <code>action space</code>. Similarly, I removed an
-          option to add an edge s.t. the girth constraint would be violated, simply to help the
-          model.
+          I also had to solve the issue with <code>disconnecting</code> the graph. At first, I gave it an <code>invalid action</code> penalty, but the model never stopped trying. Then I simply <code>disallowed</code> disconnecting actions by <code>removing</code> them from the <code>action space</code> via Action Masking. Similarly, I filtered out actions that would trivially violate the girth constraint by checking the shortest path before adding an edge.
         </p>
-        <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
-          You can determine whether the girth constraint would be validated with simple O(n)
-          algorithm. If added edge <code>breaks</code> the girth contraint, the <code>new</code>{" "}
-          shortest cycle must <code>include</code> that edge. So we can just check the{" "}
-          <code>shortest path</code> between two endpoints of that edge (before it was added), and
-          if it's shorter than <code>g-1</code>, then adding that edge would create a cycle shorter
-          than <code>g</code>. So this step wouldn't add much computational overhead, but it helps
-          filtering out a large portion of invalid actions.
-        </p>
+        <pre className="mt-2.5 overflow-x-auto rounded-lg border-2 border-line2 bg-bg1 p-1.5 text-[0.85rem]">
+          <code className="language-python">
+            {`# ai/cage/rl/env.py (simplified action masking)
+def _get_action_mask(self) -> np.ndarray:
+    mask = np.ones(self.num_actions, dtype=np.float32)
+    
+    for u in range(self.n):
+        for v in range(u + 1, self.n):
+            action_idx = self._get_action_idx(u, v)
+            
+            if self.G.has_edge(u, v):
+                # Mask out "remove edge" if it disconnects the graph
+                self.G.remove_edge(u, v)
+                if not nx.is_connected(self.G):
+                    mask[action_idx] = 0.0
+                self.G.add_edge(u, v)
+            else:
+                # Mask out "add edge" if it breaks degree or girth constraint
+                if self.G.degree(u) >= self.k or self.G.degree(v) >= self.k:
+                    mask[action_idx] = 0.0
+                else:
+                    # If shortest path is < g-1, adding edge creates cycle < g
+                    try:
+                        dist = nx.shortest_path_length(self.G, u, v)
+                        if dist < self.g - 1: mask[action_idx] = 0.0
+                    except nx.NetworkXNoPath:
+                        pass
+    return mask`}
+          </code>
+        </pre>
       </DocsCard>
 
       <DocsCard>

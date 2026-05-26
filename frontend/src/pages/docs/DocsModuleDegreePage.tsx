@@ -64,9 +64,19 @@ export const DocsModuleDegreePage = () => {
         </h2>
         <pre className="mt-2.5 overflow-x-auto rounded-lg border-2 border-line2 bg-bg1 p-1.5">
           <code className="language-python">{`# ai/degree/train.py (simplified)
+# We generate random graphs and extract node features to break symmetry
 G = generate_random_graph()
-y = torch.tensor([G.degree(i) for i in range(num_nodes)], dtype=torch.float)
+degrees = torch.tensor([G.degree(i) for i in range(num_nodes)], dtype=torch.float)
 
+# Rich node features for better learning:
+# 1. Normalized node index (0 to 1)
+# 2. Random 2D embedding
+# 3. Clustering coefficient estimate
+x = torch.cat([node_idx, random_emb, clustering], dim=1)
+
+data = Data(x=x, edge_index=edge_index, y=degrees)
+
+# Standard training step
 out = model(data).squeeze()
 loss = F.mse_loss(out, data.y)
 
@@ -76,8 +86,7 @@ optimizer.step()`}</code>
         </pre>
         <p className="mt-3 text-base leading-[1.7] text-textMuted">
           The setup is deliberately simple: random graph generation, one scalar target per node, and
-          regression loss. That simplicity makes the comparison across architectures easier to
-          interpret.
+          regression loss. We use rich node features (random embeddings and clustering estimates) because if all nodes had the same feature vector, standard message passing would fail to distinguish topologically symmetric nodes. That simplicity makes the comparison across architectures easier to interpret.
         </p>
       </DocsCard>
 

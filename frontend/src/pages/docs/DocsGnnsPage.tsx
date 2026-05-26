@@ -27,8 +27,19 @@ export const DocsGnnsPage = () => {
         </p>
         <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
           The first two are node-level regression tasks, so each graph is converted into node
-          features, connectivity, and one scalar target per node.
+          features, connectivity, and one scalar target per node. We use the PyTorch Geometric <code>Data</code> object to represent this:
         </p>
+        <pre className="mt-2.5 overflow-x-auto rounded-lg border-2 border-line2 bg-bg1 p-1.5">
+          <code className="language-python">
+            {`# A graph is represented as a single Data object in PyTorch Geometric
+data = Data(
+    x=node_features,         # Shape: [num_nodes, num_node_features]
+    edge_index=edge_index,   # Shape: [2, num_edges] (COO format)
+    y=targets,               # Shape: [num_nodes] (for node-level tasks)
+    batch=batch_vector       # Shape: [num_nodes] (maps node to graph in a batch)
+)`}
+          </code>
+        </pre>
       </DocsCard>
 
       <DocsCard>
@@ -108,6 +119,29 @@ export const DocsGnnsPage = () => {
           <code>{"{2,2,2}"}</code> if they share the same average, and max ignores everything
           except the largest value.
         </p>
+      </DocsCard>
+
+      <DocsCard>
+        <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">
+          GNN Hyperparameters and their effects
+        </h2>
+        <p className="text-base leading-[1.7] text-textMuted">
+          When training these models, several key parameters dictate how well the model learns:
+        </p>
+        <ul className="mt-2.5 ml-5 list-disc space-y-3 text-base leading-[1.7] text-textMuted">
+          <li>
+            <strong className="text-textMain">Number of layers (l):</strong> Determines the <code>receptive field</code>. With 4 layers, a node gathers information from neighbors up to 4 hops away. Too few layers means the node can't "see" far enough (critical for minimum cycle prediction). Too many layers can cause <code>over-smoothing</code>, where all node embeddings become indistinguishable.
+          </li>
+          <li>
+            <strong className="text-textMain">Hidden dimension (h):</strong> The size of the node embeddings at each layer (e.g., 32, 64, 128). This is the model's <code>capacity</code>. Larger dimensions allow the model to memorize complex graph structures, but risk overfitting on simpler tasks.
+          </li>
+          <li>
+            <strong className="text-textMain">Learning Rate:</strong> Controls the step size during gradient descent (typically 0.001).
+          </li>
+          <li>
+            <strong className="text-textMain">Dropout:</strong> Randomly zeros out elements of the hidden embeddings during training (e.g., 0.2) to prevent overfitting, forcing the model to learn general structural rules.
+          </li>
+        </ul>
       </DocsCard>
 
       <DocsCard>

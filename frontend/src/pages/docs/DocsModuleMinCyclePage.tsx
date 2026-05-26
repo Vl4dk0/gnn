@@ -47,6 +47,27 @@ export const DocsModuleMinCyclePage = () => {
           Girth (or minimum cycle length) is a global property that cannot be computed by looking at
           immediate neighbors alone.
         </p>
+        <pre className="mt-4 overflow-x-auto rounded-lg border-2 border-line2 bg-bg1 p-1.5 text-left text-[0.9rem]">
+          <code className="language-python">{`# backend/utils/graph_utils.py (BFS Girth)
+# True girth is found by running BFS from every node and detecting cross-edges:
+def _compute_girth_bfs(G: nx.Graph[int]) -> int | float:
+    min_cycle = float("inf")
+    for start_node in G.nodes():
+        visited = {start_node: 0}
+        queue = [(start_node, -1, 0)]  # (node, parent, distance)
+        while queue:
+            node, parent, dist = queue.pop(0)
+            for neighbor in G.neighbors(node):
+                if neighbor == parent: continue
+                if neighbor in visited:
+                    # Found a cycle closing!
+                    cycle_length = dist + visited[neighbor] + 1
+                    min_cycle = min(min_cycle, cycle_length)
+                else:
+                    visited[neighbor] = dist + 1
+                    queue.append((neighbor, node, dist + 1))
+    return min_cycle`}</code>
+        </pre>
       </DocsHero>
 
       <DocsCard>

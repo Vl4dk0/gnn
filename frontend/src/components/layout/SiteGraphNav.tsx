@@ -30,7 +30,7 @@ const INITIAL_NODES: GraphNode[] = [
   { id: "assess", label: "Assessment", path: "/docs/module-assessment", group: "doc" },
   { id: "cage", label: "Cage", path: "/docs/module-cage", group: "doc" },
   { id: "voltage", label: "Voltage", path: "/docs/voltage", group: "doc" },
-  { id: "train", label: "DIY", path: "/docs/training", group: "doc" },
+  { id: "cayley", label: "Cayley", path: "/docs/cayley", group: "doc" },
   // Apps (Editors)
   { id: "app-degree", label: "Editor", path: "/degree", group: "app" },
   { id: "app-cycle", label: "Editor", path: "/min_cycle", group: "app" },
@@ -47,7 +47,7 @@ const getPathNumber = (path: string): number | null => {
   if (path === "/docs/module-assessment") return 5;
   if (path === "/docs/module-cage") return 6;
   if (path === "/docs/voltage") return 7;
-  if (path === "/docs/training") return 8;
+  if (path === "/docs/cayley") return 8;
   return null;
 };
 
@@ -61,7 +61,7 @@ const INITIAL_LINKS: GraphLink[] = [
   { source: "root", target: "assess" },
   { source: "root", target: "cage" },
   { source: "root", target: "voltage" },
-  { source: "root", target: "train" },
+  { source: "root", target: "cayley" },
   // Sequential edges (docs flow in order)
   { source: "gnns", target: "arch" },
   { source: "arch", target: "degree" },
@@ -69,7 +69,7 @@ const INITIAL_LINKS: GraphLink[] = [
   { source: "cycle", target: "assess" },
   { source: "assess", target: "cage" },
   { source: "cage", target: "voltage" },
-  { source: "voltage", target: "train" },
+  { source: "voltage", target: "cayley" },
   // Branches to apps
   { source: "degree", target: "app-degree" },
   { source: "cycle", target: "app-cycle" },
@@ -158,7 +158,7 @@ export const SiteGraphNav = () => {
             const seqPairs = [
               ["gnns", "arch"], ["arch", "degree"], ["degree", "cycle"],
               ["cycle", "assess"], ["assess", "cage"], ["cage", "voltage"],
-              ["voltage", "train"]
+              ["voltage", "cayley"]
             ];
             if (seqPairs.some(([a, b]) => (src === a && tgt === b) || (src === b && tgt === a))) {
               return 65;
@@ -184,7 +184,7 @@ export const SiteGraphNav = () => {
             if (d.id === "assess") return 360;
             if (d.id === "cage") return 425;
             if (d.id === "voltage") return 490;
-            if (d.id === "train") return 555;
+            if (d.id === "cayley") return 555;
 
             return height / 2;
           })

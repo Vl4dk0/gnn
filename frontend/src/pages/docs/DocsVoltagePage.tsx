@@ -85,13 +85,25 @@ export const DocsVoltagePage = () => {
         <pre className="mt-2.5 overflow-x-auto rounded-lg border-2 border-line2 bg-bg1 p-1.5">
           <code className="language-python">
             {`# ai/cage/voltage/cycle_analysis.py (simplified)
-# Check all closed walks in base graph up to length g_target
-for walk in closed_walks(base, max_length=g_target):
-    net_voltage = identity
-    for arc in walk:
-        net_voltage = group.mult(net_voltage, arc_voltage[arc])
-    if net_voltage == identity:
-        return len(walk)  # this is the girth`}
+def count_short_identity_walks(base: BaseGraph, group: FiniteGroup, voltages, g_target):
+    # We explore all walks up to length g_target in the tiny base graph
+    # and keep a running product of the edge voltages.
+    # If the net voltage is the identity element, we found a short cycle in the lift!
+    identity = group.identity()
+    count = 0
+    for start in range(base.num_nodes):
+        frontier = [...] # init with neighbors
+        for depth in range(1, g_target):
+            next_frontier = []
+            for node, net_v, length, prev_arc in frontier:
+                if node == start and net_v == identity and length >= 3:
+                    count += 1
+                    continue
+                # explore further...
+                new_v = group.mult(net_v, arc_voltage[arc_id])
+                next_frontier.append((next_node, new_v, length + 1, arc_id))
+            frontier = next_frontier
+    return count`}
           </code>
         </pre>
         <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
@@ -255,7 +267,7 @@ if new_violations > 0:
 
       <div className="mt-10 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-5">
         <DocsNextButton href="/docs/module-cage" label="Cage generation" direction="back" />
-        <DocsNextButton href="/docs/training" label="Do It Yourself" />
+        <DocsNextButton href="/docs/cayley" label="Cayley graphs" />
       </div>
     </DocsLayout>
   );
