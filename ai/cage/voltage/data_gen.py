@@ -27,6 +27,7 @@ from ai.cage.voltage.groups import (
     dihedral_group,
     direct_product,
 )
+from ai.utils.structural_features import add_structural_features
 from backend.utils.graph_utils import moore_bound
 
 
@@ -145,6 +146,8 @@ def generate_dataset(
     max_group_order: int = 60,
     seed: int | None = None,
     max_attempts_multiplier: int = 5,
+    cycle_lengths: list[int] | None = None,
+    rwpe_dim: int = 0,
 ) -> tuple[list[Data], dict[str, object]]:
     """Generate deduplicated training data for the girth predictor.
 
@@ -215,6 +218,11 @@ def generate_dataset(
         data = base_graph_to_pyg(base, volt, group, k, g_target, girth)
         data.base_name = base_name
         data.group_name = group.name
+
+        if cycle_lengths or rwpe_dim > 0:
+            data = add_structural_features(
+                data, cycle_lengths=cycle_lengths, rwpe_dim=rwpe_dim
+            )
 
         dataset.append(data)
         per_target[target_key]["produced"] += 1

@@ -25,6 +25,7 @@ from ai.cage.voltage.cycle_analysis import (
 from ai.cage.voltage.groups import FiniteGroup, cyclic_group
 from ai.cage.voltage.lift import build_lift, verify_lift
 from ai.cage.voltage.model import GirthPredictor, load_girth_predictor
+from ai.utils.structural_features import add_structural_features
 from ai.cage.voltage.search import beam_search
 from backend.utils.graph_utils import is_k_regular, moore_bound
 
@@ -58,6 +59,8 @@ class VoltageSearchGenerator:
     _restarts: int
     _model: GirthPredictor | None
     _model_id: str | None
+    _feat_cycle_lengths: list[int] | None
+    _feat_rwpe_dim: int
 
     def __init__(self, k: int, g: int, model_id: str | None = None) -> None:
         self.k = k
@@ -70,7 +73,15 @@ class VoltageSearchGenerator:
         self._tabu = {}
         self._restarts = 0
         self._model_id = model_id
-        self._model = load_girth_predictor(model_id) if model_id is not None else None
+        self._feat_cycle_lengths = None
+        self._feat_rwpe_dim = 0
+        if model_id is not None:
+            model, feat_cl, feat_rwpe = load_girth_predictor(model_id)
+            self._model = model
+            self._feat_cycle_lengths = feat_cl
+            self._feat_rwpe_dim = feat_rwpe
+        else:
+            self._model = None
 
         # Build candidate (base_graph, group) configs
         self._configs = _build_configs(k, g)
@@ -178,6 +189,8 @@ class VoltageSearchGenerator:
                 model=self._model,
                 beam_width=20,
                 verbose=False,
+                feat_cycle_lengths=self._feat_cycle_lengths,
+                feat_rwpe_dim=self._feat_rwpe_dim,
             )
             if isinstance(girth_b, int) and girth_b >= self.g and volts_b is not None:
                 lifted = build_lift(self._base, self._group, volts_b)

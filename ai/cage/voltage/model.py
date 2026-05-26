@@ -17,6 +17,8 @@ import torch.nn.functional as F
 from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
 from torch_geometric.nn import GINEConv, global_mean_pool  # pyright: ignore[reportMissingTypeStubs]
 
+from ai.utils.structural_features import structural_feature_dim
+
 
 class GirthPredictor(nn.Module):
     """Predicts the girth of a voltage graph lift from the labeled base graph.
@@ -163,11 +165,23 @@ class GirthPredictor(nn.Module):
         return girth_pred, girth_logit
 
 
-def load_girth_predictor(model_id: str) -> GirthPredictor:
+def load_girth_predictor(
+    model_id: str,
+    *,
+    cycle_lengths: list[int] | None = None,
+    rwpe_dim: int = 0,
+) -> tuple["GirthPredictor", list[int] | None, int]:
     """Load a trained girth predictor from `ai/trained/voltage_girth/<model_id>/`.
 
     Reads the architecture parameters from the saved info.json and the weights
     from weights.pt. Raises FileNotFoundError if either is missing.
+
+    If cycle_lengths or rwpe_dim are provided they must match the feature_config
+    saved in info.json (if any). A mismatch raises ValueError so callers cannot
+    silently run inference with wrong features.
+
+    Returns (model, saved_cycle_lengths, saved_rwpe_dim). Callers must apply
+    add_structural_features with the returned config before scoring any graph.
     """
     model_dir = (
         Path(__file__).resolve().parents[2]
@@ -184,8 +198,38 @@ def load_girth_predictor(model_id: str) -> GirthPredictor:
     with open(info_path) as f:
         info = cast(dict[str, object], json.load(f))
     training = cast(dict[str, object], info.get("training", {}))
+
+    # Read saved feature_config (absent for legacy models trained without features)
+    saved_cfg = cast(dict[str, object], training.get("feature_config", {}))
+    saved_cycle_lengths_raw = saved_cfg.get("cycle_lengths", None)
+    saved_cycle_lengths: list[int] | None = (
+        [int(cast(int, v)) for v in cast(list[object], saved_cycle_lengths_raw)]
+        if saved_cycle_lengths_raw is not None
+        else None
+    )
+    saved_rwpe_dim = int(cast(int, saved_cfg.get("rwpe_dim", 0)))
+
+    # If caller supplied explicit feature config, check it matches the saved one
+    caller_supplied = cycle_lengths is not None or rwpe_dim != 0
+    if caller_supplied:
+        if (cycle_lengths or []) != (
+            saved_cycle_lengths or []
+        ) or rwpe_dim != saved_rwpe_dim:
+            raise ValueError(
+                f"Feature config mismatch for model {model_id!r}. "
+                f"Saved: cycle_lengths={saved_cycle_lengths}, rwpe_dim={saved_rwpe_dim}. "
+                f"Requested: cycle_lengths={cycle_lengths}, rwpe_dim={rwpe_dim}."
+            )
+
+    # Compute the base node_feat_dim (2 for legacy models) plus structural extras
+    base_node_feat_dim = int(cast(int, training.get("node_feat_dim", 2)))
+    extra_dim = structural_feature_dim(
+        cycle_lengths=saved_cycle_lengths, rwpe_dim=saved_rwpe_dim
+    )
+    node_feat_dim = base_node_feat_dim + extra_dim
+
     model = GirthPredictor(
-        node_feat_dim=2,
+        node_feat_dim=node_feat_dim,
         hidden_dim=int(cast(int, training.get("hidden_dim", 64))),
         num_layers=int(cast(int, training.get("num_layers", 4))),
         max_group_order=int(cast(int, training.get("max_group_order", 60))),
@@ -193,4 +237,4 @@ def load_girth_predictor(model_id: str) -> GirthPredictor:
     state = torch.load(weights_path, map_location="cpu")  # pyright: ignore[reportAny]
     _ = model.load_state_dict(state)  # pyright: ignore[reportAny]
     _ = model.eval()
-    return model
+    return model, saved_cycle_lengths, saved_rwpe_dim
