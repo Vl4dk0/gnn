@@ -167,8 +167,8 @@ def add_structural_features(
             (num_nodes, num_nodes), dtype=np.float64
         )
         if edge_index.numel() > 0:
-            rows = edge_index[0].numpy()
-            cols = edge_index[1].numpy()
+            rows = edge_index[0].cpu().numpy()
+            cols = edge_index[1].cpu().numpy()
             for row_i, col_i in zip(rows, cols):
                 adj_dense[int(row_i), int(col_i)] += 1.0
         adj = adj_dense
