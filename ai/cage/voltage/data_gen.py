@@ -13,7 +13,14 @@ from concurrent.futures import Future, ProcessPoolExecutor, as_completed
 from typing import cast
 
 import torch
+import torch.multiprocessing as torch_mp
 from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
+
+# Tensors crossing process boundaries default to "file_descriptor" sharing on
+# Linux, where each shared tensor allocates an FD. With thousands of Data
+# objects in flight per chunk we blow past ulimit -n. file_system uses /tmp
+# filenames and has no such limit.
+torch_mp.set_sharing_strategy("file_system")
 
 from ai.cage.voltage.base_graphs import (
     BaseGraph,
@@ -241,9 +248,10 @@ def generate_dataset(
     }
 
     # Submit chunks of work; each chunk produces `chunk_size` candidates.
-    # The main process dedupes across the global stream. We submit enough
-    # chunks to cover `max_attempts` candidates total.
-    chunk_size = max(64, num_samples // max(workers * 4, 1))
+    # Cap chunk size at 256 so we never have too many Data objects in flight
+    # at once (each tensor crosses the IPC boundary). With workers*2 chunks
+    # in flight this is at most ~4096 Data objects buffered.
+    chunk_size = min(max(64, num_samples // max(workers * 16, 1)), 256)
 
     def _ingest(
         candidates: list[tuple[tuple[int, int, str, str, tuple[int, ...]], Data]],
