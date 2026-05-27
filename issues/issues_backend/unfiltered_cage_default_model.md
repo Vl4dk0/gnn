@@ -42,3 +42,7 @@ def get_models() -> Response | tuple[Response, int]:
     except Exception as e:
         return jsonify({"error": f"Failed to list cage models: {str(e)}"}), 500
 ```
+
+
+## Proof
+Tested by `test_unfiltered_cage_default_model` in [tests/test_backend_issues.py](file:///home/juraj/gnn/tests/test_backend_issues.py).

@@ -17,3 +17,7 @@ V multigrafoch (viacero hrán medzi dvoma uzlami) by sa preskočili VŠETKY hran
 ## Dôsledok
 
 Pre `nx.Graph` (simple graph bez paralelných hrán) nie je dopad žiadny. Problém nastane ak by sa funkcia zavolala s `nx.MultiGraph`. Chýba ochrana na vstupe.
+
+
+## Proof
+Tested by `test_parent_check_multigraph` in [tests/test_backend_issues.py](file:///home/juraj/gnn/tests/test_backend_issues.py).

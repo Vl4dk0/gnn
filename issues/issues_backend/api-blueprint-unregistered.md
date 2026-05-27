@@ -24,3 +24,7 @@ Endpointy v `backend/routes/api.py` nikdy nedostanú požiadavku. Kód je zbyto�
 ## Oprava
 
 Odstrániť `backend/routes/api.py` ak je jeho obsah duplikátom, alebo zaregistrovať `api_bp` v `app.py` ak sú endpointy potrebné.
+
+
+## Proof
+Tested by `test_api_blueprint_registered` in [tests/test_backend_issues.py](file:///home/juraj/gnn/tests/test_backend_issues.py).

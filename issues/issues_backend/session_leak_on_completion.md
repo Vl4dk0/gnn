@@ -39,3 +39,7 @@ Set `session["stopped"] = True` inside the `finally` block of `run_generation` s
                     generation_sessions[session_id]["stopped"] = True
         print(f"Generation thread {session_id} completed.")
 ```
+
+
+## Proof
+Tested by `test_session_marked_stopped_on_completion` in [tests/test_backend_issues.py](file:///home/juraj/gnn/tests/test_backend_issues.py).

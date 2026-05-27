@@ -28,3 +28,7 @@ queue: deque[tuple[int, int, int]] = deque([(start_node, -1, 0)])
 # ...
 node, parent, dist = queue.popleft()
 ```
+
+
+## Proof
+Tested by `test_bfs_uses_deque` in [tests/test_backend_issues.py](file:///home/juraj/gnn/tests/test_backend_issues.py).
