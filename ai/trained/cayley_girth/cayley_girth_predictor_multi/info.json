@@ -1,0 +1,109 @@
+{
+  "model_type": "cayley_girth_predictor",
+  "model_id": "cayley_girth_predictor_multi",
+  "task": "cayley_girth",
+  "training": {
+    "targets": [
+      [
+        3,
+        6
+      ],
+      [
+        3,
+        7
+      ],
+      [
+        3,
+        8
+      ],
+      [
+        3,
+        9
+      ],
+      [
+        3,
+        10
+      ],
+      [
+        4,
+        6
+      ],
+      [
+        4,
+        7
+      ],
+      [
+        4,
+        8
+      ]
+    ],
+    "samples": 200000,
+    "epochs": 100,
+    "batch_size": 256,
+    "hidden_dim": 192,
+    "num_layers": 4,
+    "max_group_order": 200,
+    "learning_rate": 0.001,
+    "seed": 42,
+    "regression_weight": 0.5,
+    "weight_decay": 0.0001,
+    "best_epoch": 100
+  },
+  "data": {
+    "requested": 200000,
+    "produced": 200000,
+    "duplicates_skipped": 65446,
+    "generation_attempts": 328991,
+    "per_target": {
+      "3_6": {
+        "produced": 16443,
+        "pos_rate": 0.23110138052666787,
+        "duplicates_skipped": 12208
+      },
+      "3_7": {
+        "produced": 16734,
+        "pos_rate": 0.0007768614796223258,
+        "duplicates_skipped": 11878
+      },
+      "3_8": {
+        "produced": 16770,
+        "pos_rate": 0.00017889087656529517,
+        "duplicates_skipped": 11618
+      },
+      "3_9": {
+        "produced": 16941,
+        "pos_rate": 0.0,
+        "duplicates_skipped": 11336
+      },
+      "3_10": {
+        "produced": 17134,
+        "pos_rate": 0.0,
+        "duplicates_skipped": 11263
+      },
+      "4_6": {
+        "produced": 37817,
+        "pos_rate": 0.049845307665864556,
+        "duplicates_skipped": 3346
+      },
+      "4_7": {
+        "produced": 38829,
+        "pos_rate": 0.0,
+        "duplicates_skipped": 2084
+      },
+      "4_8": {
+        "produced": 39332,
+        "pos_rate": 0.0,
+        "duplicates_skipped": 1713
+      }
+    }
+  },
+  "metrics": {
+    "test_loss": 0.0,
+    "test_mae": 0.0175,
+    "test_accuracy": 1.0,
+    "test_precision": 1.0,
+    "test_recall": 1.0,
+    "test_f1": 1.0,
+    "best_val_loss": 0.0
+  }
+}
