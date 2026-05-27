@@ -58,7 +58,7 @@ def test_group_to_pyg_has_expected_shapes() -> None:
     assert edge_attr.shape[1] == 2
     assert int(cast(int, data.k)) == 3
     assert int(cast(int, data.g_target)) == 6
-    assert int(cast(int, data.girth_class)) == 1  # best_girth 6 >= target 6
+    assert int(cast(int, data.girth)) >= int(cast(int, data.g_target))
 
 
 def test_generate_group_dataset_smoke() -> None:
@@ -82,9 +82,8 @@ def test_group_promise_predictor_forward_pass() -> None:
     model = GroupPromisePredictor(hidden_dim=16, num_layers=2)
     _ = model.eval()
     with torch.no_grad():
-        girth_pred, girth_logit = model(data)
+        girth_pred = model(data)
     assert girth_pred.shape == (1, 1)
-    assert girth_logit.shape == (1, 1)
 
 
 def test_make_group_filter_returns_finite_score() -> None:

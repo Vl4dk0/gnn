@@ -57,7 +57,6 @@ def _evaluate(
     model: GroupPromisePredictor,
     loader: DataLoader,
     device: torch.device,
-    regression_weight: float,
 ) -> dict[str, float]:
     _ = model.eval()
     total_loss = 0.0
@@ -68,14 +67,12 @@ def _evaluate(
     with torch.no_grad():
         for batch in loader:
             batch = batch.to(device)
-            girth_pred, class_logit = model(batch)
+            girth_pred = model(batch)
 
             girth_true = cast(torch.Tensor, batch.girth).float().unsqueeze(-1)
-            class_true = cast(torch.Tensor, batch.girth_class).float().unsqueeze(-1)
+            g_target = cast(torch.Tensor, batch.g_target).float().unsqueeze(-1)
 
-            reg_loss = F.mse_loss(girth_pred / GIRTH_NORM, girth_true / GIRTH_NORM)
-            cls_loss = F.binary_cross_entropy_with_logits(class_logit, class_true)
-            loss = regression_weight * reg_loss + (1.0 - regression_weight) * cls_loss
+            loss = F.mse_loss(girth_pred / GIRTH_NORM, girth_true / GIRTH_NORM)
 
             n = int(girth_true.size(0))
             total_loss += float(loss.item()) * n
@@ -83,7 +80,8 @@ def _evaluate(
                 F.l1_loss(girth_pred, girth_true, reduction="sum").item()
             )
 
-            pred_class = (class_logit > 0).float()
+            pred_class = (girth_pred >= g_target).float()
+            class_true = (girth_true >= g_target).float()
             tp += int(
                 cast(torch.Tensor, ((pred_class == 1) & (class_true == 1)).sum()).item()
             )
@@ -126,7 +124,6 @@ def train(
     lr: float = 1e-3,
     print_every: int = 10,
     seed: int = 42,
-    regression_weight: float = 0.5,
     weight_decay: float = 1e-4,
     model_id_override: str | None = None,
 ) -> tuple[GroupPromisePredictor, dict[str, object]]:
@@ -177,24 +174,16 @@ def train(
     test_data = all_data[n_train + n_val :]
     print(f"  Train/Val/Test: {len(train_data)}/{len(val_data)}/{len(test_data)}")
 
-    # Stratified sampler over (k, g_target, girth_class) buckets.
-    joint_counts: dict[tuple[int, int, int], int] = {}
+    # Stratified sampler over (k, g_target) buckets.
+    joint_counts: dict[tuple[int, int], int] = {}
     for d in train_data:
-        key = (
-            int(cast(int, d.k)),
-            int(cast(int, d.g_target)),
-            int(cast(int, d.girth_class)),
-        )
+        key = (int(cast(int, d.k)), int(cast(int, d.g_target)))
         joint_counts[key] = joint_counts.get(key, 0) + 1
 
     if len(joint_counts) > 1:
         sample_weights: list[float] = []
         for d in train_data:
-            key = (
-                int(cast(int, d.k)),
-                int(cast(int, d.g_target)),
-                int(cast(int, d.girth_class)),
-            )
+            key = (int(cast(int, d.k)), int(cast(int, d.g_target)))
             sample_weights.append(1.0 / joint_counts[key])
         sampler = WeightedRandomSampler(
             weights=sample_weights, num_samples=len(train_data), replacement=True
@@ -222,14 +211,11 @@ def train(
         for batch in train_loader:
             batch = batch.to(device)
             optimizer.zero_grad()
-            girth_pred, class_logit = model(batch)
+            girth_pred = model(batch)
 
             girth_true = cast(torch.Tensor, batch.girth).float().unsqueeze(-1)
-            class_true = cast(torch.Tensor, batch.girth_class).float().unsqueeze(-1)
 
-            reg_loss = F.mse_loss(girth_pred / GIRTH_NORM, girth_true / GIRTH_NORM)
-            cls_loss = F.binary_cross_entropy_with_logits(class_logit, class_true)
-            loss = regression_weight * reg_loss + (1.0 - regression_weight) * cls_loss
+            loss = F.mse_loss(girth_pred / GIRTH_NORM, girth_true / GIRTH_NORM)
 
             _ = loss.backward()  # pyright: ignore[reportUnknownMemberType]
             _ = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
@@ -242,7 +228,7 @@ def train(
         avg_train_loss = train_loss / max(train_count, 1)
 
         if epoch % print_every == 0 or epoch == 1 or epoch == epochs:
-            val = _evaluate(model, val_loader, device, regression_weight)
+            val = _evaluate(model, val_loader, device)
             print(
                 f"Epoch {epoch:4d} | Train: {avg_train_loss:.4f} | "
                 + f"Val: {val['loss']:.4f} | MAE: {val['mae']:.2f} | "
@@ -261,7 +247,7 @@ def train(
         _ = model.to(device)
 
     print("\nEvaluating on test set...")
-    test_metrics = _evaluate(model, test_loader, device, regression_weight)
+    test_metrics = _evaluate(model, test_loader, device)
     print(
         f"  Test loss: {test_metrics['loss']:.4f} | MAE: {test_metrics['mae']:.2f} | "
         + f"Acc: {test_metrics['accuracy'] * 100:.1f}% | F1: {test_metrics['f1']:.3f}"
@@ -286,7 +272,6 @@ def train(
         "gen_tabu_iters": gen_tabu_iters,
         "learning_rate": lr,
         "seed": seed,
-        "regression_weight": regression_weight,
         "weight_decay": weight_decay,
         "best_epoch": best_epoch,
     }
@@ -341,7 +326,6 @@ def parse_args() -> argparse.Namespace:
     _ = parser.add_argument("--lr", type=float, default=1e-3)
     _ = parser.add_argument("--print-every", type=int, default=10)
     _ = parser.add_argument("--seed", type=int, default=42)
-    _ = parser.add_argument("--regression-weight", type=float, default=0.5)
     _ = parser.add_argument("--weight-decay", type=float, default=1e-4)
     _ = parser.add_argument("--model-id", type=str, default=None)
     return parser.parse_args()
@@ -362,7 +346,6 @@ if __name__ == "__main__":
         lr=cast(float, args.lr),
         print_every=cast(int, args.print_every),
         seed=cast(int, args.seed),
-        regression_weight=cast(float, args.regression_weight),
         weight_decay=cast(float, args.weight_decay),
         model_id_override=cast("str | None", args.model_id),
     )

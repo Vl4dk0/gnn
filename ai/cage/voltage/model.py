@@ -29,7 +29,7 @@ class GirthPredictor(nn.Module):
         3. Several GINEConv layers (GIN + edge features)
         4. Global mean pooling
         5. Concatenate with global context (k, g_target, group_order)
-        6. MLP head producing girth regression + binary classification
+        6. MLP regression head producing girth prediction
     """
 
     node_proj: nn.Linear
@@ -39,7 +39,6 @@ class GirthPredictor(nn.Module):
     bns: nn.ModuleList
     context_proj: nn.Linear
     regress_head: nn.Sequential
-    classify_head: nn.Sequential
     hidden_dim: int
     num_layers: int
     max_group_order: int
@@ -85,16 +84,8 @@ class GirthPredictor(nn.Module):
             nn.Linear(hidden_dim, 1),
         )
 
-        # Classification head: predict P(girth >= g_target)
-        self.classify_head = nn.Sequential(
-            nn.Linear(hidden_dim * 2, hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(hidden_dim, 1),
-        )
-
     @override
-    def forward(self, data: Data) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, data: Data) -> torch.Tensor:
         """Forward pass.
 
         Args:
@@ -102,7 +93,7 @@ class GirthPredictor(nn.Module):
                   and global attributes k, g_target, group_order.
 
         Returns:
-            (girth_pred, girth_class_logit) — both shape [batch_size, 1].
+            girth_pred — shape [batch_size, 1].
         """
         x = cast(torch.Tensor, data.x)
         edge_index = cast(torch.Tensor, data.edge_index)
@@ -159,10 +150,7 @@ class GirthPredictor(nn.Module):
         # Combine graph embedding with context
         combined = torch.cat([graph_emb, ctx_emb], dim=-1)
 
-        girth_pred = cast(torch.Tensor, self.regress_head(combined))
-        girth_logit = cast(torch.Tensor, self.classify_head(combined))
-
-        return girth_pred, girth_logit
+        return cast(torch.Tensor, self.regress_head(combined))
 
 
 def load_girth_predictor(

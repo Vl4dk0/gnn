@@ -79,12 +79,7 @@ def base_graph_to_pyg(
     edge_attr = torch.tensor(edge_voltage, dtype=torch.long).unsqueeze(-1)
 
     # Label — infinite girth means degenerate lift
-    if isinstance(girth, float):
-        girth_int = 0
-        girth_class = 0
-    else:
-        girth_int = int(girth)
-        girth_class = 1 if girth_int >= g_target else 0
+    girth_int = 0 if isinstance(girth, float) else int(girth)
 
     data = Data(
         x=x,
@@ -96,7 +91,6 @@ def base_graph_to_pyg(
     data.g_target = g_target
     data.group_order = group.order
     data.girth = girth_int
-    data.girth_class = girth_class
 
     return data
 
@@ -171,7 +165,6 @@ def _data_to_spec(data: Data, base_name: str, group_name: str) -> dict[str, Any]
         "g_target": int(cast(int, data.g_target)),
         "group_order": int(cast(int, data.group_order)),
         "girth": int(cast(int, data.girth)),
-        "girth_class": int(cast(int, data.girth_class)),
         "base_name": base_name,
         "group_name": group_name,
     }
@@ -194,7 +187,6 @@ def _spec_to_data(spec: dict[str, Any]) -> Data:
     data.g_target = spec["g_target"]
     data.group_order = spec["group_order"]
     data.girth = spec["girth"]
-    data.girth_class = spec["girth_class"]
     data.base_name = spec["base_name"]
     data.group_name = spec["group_name"]
     return data
@@ -313,7 +305,7 @@ def generate_dataset(
             data = _spec_to_data(spec)
             dataset.append(data)
             per_target[attempts_local_target]["produced"] += 1
-            if spec["girth_class"] == 1:
+            if int(spec["girth"]) >= int(spec["g_target"]):
                 per_target[attempts_local_target]["positives"] += 1
 
     if workers <= 1:

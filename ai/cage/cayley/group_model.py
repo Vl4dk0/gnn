@@ -9,8 +9,8 @@ search time it is used to rank/prune the group catalogue.
 
 Architecture mirrors ai.cage.cayley.model.CayleyGirthPredictor: a stack of
 GINEConv layers over the group's Cayley graph, mean-pooled, concatenated
-with a context vector, then split into a regression head (best achievable
-girth) and a binary head (P(best girth >= g_target)).
+with a context vector, then through a single regression head (best
+achievable girth).
 """
 
 from __future__ import annotations
@@ -38,7 +38,6 @@ class GroupPromisePredictor(nn.Module):
     bns: nn.ModuleList
     context_proj: nn.Linear
     regress_head: nn.Sequential
-    classify_head: nn.Sequential
     hidden_dim: int
     num_layers: int
 
@@ -77,15 +76,9 @@ class GroupPromisePredictor(nn.Module):
             nn.Dropout(dropout),
             nn.Linear(hidden_dim, 1),
         )
-        self.classify_head = nn.Sequential(
-            nn.Linear(hidden_dim * 2, hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(hidden_dim, 1),
-        )
 
     @override
-    def forward(self, data: Data) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, data: Data) -> torch.Tensor:
         x = cast(torch.Tensor, data.x)
         edge_index = cast(torch.Tensor, data.edge_index)
         edge_attr = cast(torch.Tensor, data.edge_attr)
@@ -146,8 +139,7 @@ class GroupPromisePredictor(nn.Module):
         combined = torch.cat([graph_emb, ctx_emb], dim=-1)
 
         girth_pred = cast(torch.Tensor, self.regress_head(combined))
-        girth_logit = cast(torch.Tensor, self.classify_head(combined))
-        return girth_pred, girth_logit
+        return girth_pred
 
 
 def load_group_promise_predictor(model_id: str) -> GroupPromisePredictor:
@@ -197,7 +189,7 @@ def make_group_filter(model: GroupPromisePredictor):
         data = group_to_pyg(group, k, g_target, best_girth=0)
         data = data.to(device)
         with torch.no_grad():
-            girth_pred, _logit = model(data)
+            girth_pred = model(data)
         return float(girth_pred.item())
 
     return _predict

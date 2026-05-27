@@ -85,12 +85,7 @@ def cayley_ball_to_pyg(
         else torch.zeros((0, 2), dtype=torch.float)
     )
 
-    if isinstance(girth, float):
-        girth_int = 0
-        girth_class = 0
-    else:
-        girth_int = int(girth)
-        girth_class = 1 if girth_int >= g_target else 0
+    girth_int = 0 if isinstance(girth, float) else int(girth)
 
     n_invols = int(sum(gen_is_invol))
 
@@ -106,7 +101,6 @@ def cayley_ball_to_pyg(
     data.log_group_order = math.log(max(group.order, 2))
     data.num_involutions = n_invols
     data.girth = girth_int
-    data.girth_class = girth_class
     return data
 
 
@@ -169,7 +163,7 @@ def generate_dataset(
 
         dataset.append(data)
         per_target_count[(k, g_target)] += 1
-        if data.girth_class == 1:
+        if int(data.girth) >= g_target:
             per_target_pos[(k, g_target)] += 1
 
     per_target_summary: dict[str, dict[str, float]] = {}
