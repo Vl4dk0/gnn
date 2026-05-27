@@ -10,17 +10,11 @@ from __future__ import annotations
 import os
 import random
 from concurrent.futures import Future, ProcessPoolExecutor, as_completed
-from typing import cast
+from typing import Any, cast
 
+import numpy as np
 import torch
-import torch.multiprocessing as torch_mp
 from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
-
-# Tensors crossing process boundaries default to "file_descriptor" sharing on
-# Linux, where each shared tensor allocates an FD. With thousands of Data
-# objects in flight per chunk we blow past ulimit -n. file_system uses /tmp
-# filenames and has no such limit.
-torch_mp.set_sharing_strategy("file_system")
 
 from ai.cage.voltage.base_graphs import (
     BaseGraph,
@@ -38,6 +32,13 @@ from ai.cage.voltage.groups import (
 )
 from ai.utils.structural_features import add_structural_features
 from backend.utils.graph_utils import moore_bound
+
+# Worker return type: a dedup key plus a "spec" dict of native python /
+# numpy values that reconstructs a Data object. We deliberately avoid
+# sending torch.Tensors across the IPC boundary because torch registers
+# shared-memory reducers on import, and at scale that exhausts FDs and
+# mmap mappings (RuntimeError: Cannot allocate memory).
+_DedupKey = tuple[int, int, str, str, tuple[int, ...]]
 
 
 def base_graph_to_pyg(
@@ -149,6 +150,56 @@ def _candidate_base_graphs(k: int) -> list[tuple[str, BaseGraph]]:
     return unique
 
 
+def _data_to_spec(data: Data, base_name: str, group_name: str) -> dict[str, Any]:
+    """Convert a Data object into a primitive dict (numpy arrays + python scalars).
+
+    This is what crosses the IPC boundary instead of the Data object itself.
+    """
+    x = cast(torch.Tensor, data.x)
+    edge_index = cast(torch.Tensor, data.edge_index)
+    edge_attr = data.edge_attr
+    return {
+        "x": x.cpu().numpy(),
+        "edge_index": edge_index.cpu().numpy(),
+        "edge_attr": (
+            cast(torch.Tensor, edge_attr).cpu().numpy()
+            if edge_attr is not None
+            else None
+        ),
+        "num_nodes": int(cast(int, data.num_nodes)),
+        "k": int(cast(int, data.k)),
+        "g_target": int(cast(int, data.g_target)),
+        "group_order": int(cast(int, data.group_order)),
+        "girth": int(cast(int, data.girth)),
+        "girth_class": int(cast(int, data.girth_class)),
+        "base_name": base_name,
+        "group_name": group_name,
+    }
+
+
+def _spec_to_data(spec: dict[str, Any]) -> Data:
+    """Inverse of _data_to_spec; runs in the main process."""
+    edge_attr_np = spec["edge_attr"]
+    data = Data(
+        x=torch.from_numpy(cast(np.ndarray, spec["x"])).float(),
+        edge_index=torch.from_numpy(cast(np.ndarray, spec["edge_index"])).long(),
+        edge_attr=(
+            torch.from_numpy(cast(np.ndarray, edge_attr_np)).long()
+            if edge_attr_np is not None
+            else None
+        ),
+        num_nodes=spec["num_nodes"],
+    )
+    data.k = spec["k"]
+    data.g_target = spec["g_target"]
+    data.group_order = spec["group_order"]
+    data.girth = spec["girth"]
+    data.girth_class = spec["girth_class"]
+    data.base_name = spec["base_name"]
+    data.group_name = spec["group_name"]
+    return data
+
+
 def _generate_chunk(
     chunk_seed: int,
     chunk_size: int,
@@ -156,12 +207,12 @@ def _generate_chunk(
     max_group_order: int,
     cycle_lengths: list[int] | None,
     rwpe_dim: int,
-) -> list[tuple[tuple[int, int, str, str, tuple[int, ...]], Data]]:
-    """Worker: produce `chunk_size` candidate (dedup_key, Data) pairs.
+) -> list[tuple[_DedupKey, dict[str, Any]]]:
+    """Worker: produce `chunk_size` candidate (dedup_key, spec_dict) pairs.
 
-    Returned candidates may include duplicates — the main process dedupes
-    across the global stream. Each worker maintains its own group/base
-    caches so we don't ship objects across the process boundary.
+    Workers do the expensive work (girth detection + structural features) and
+    convert the resulting Data to a primitive spec dict so IPC pickling does
+    not involve torch tensors.
     """
     rng = random.Random(chunk_seed)
     base_cache: dict[int, list[tuple[str, BaseGraph]]] = {}
@@ -170,7 +221,7 @@ def _generate_chunk(
         (k, g): moore_bound(k, g) for (k, g) in targets
     }
 
-    out: list[tuple[tuple[int, int, str, str, tuple[int, ...]], Data]] = []
+    out: list[tuple[_DedupKey, dict[str, Any]]] = []
     for _ in range(chunk_size):
         k, g_target = rng.choice(targets)
         if k not in base_cache:
@@ -192,15 +243,12 @@ def _generate_chunk(
 
         girth = compute_lift_girth(base, group, volt, max_girth=2 * g_target)
         data = base_graph_to_pyg(base, volt, group, k, g_target, girth)
-        data.base_name = base_name
-        data.group_name = group.name
-
         if cycle_lengths or rwpe_dim > 0:
             data = add_structural_features(
                 data, cycle_lengths=cycle_lengths, rwpe_dim=rwpe_dim
             )
 
-        out.append((key, data))
+        out.append((key, _data_to_spec(data, base_name, group.name)))
 
     return out
 
@@ -248,16 +296,12 @@ def generate_dataset(
     }
 
     # Submit chunks of work; each chunk produces `chunk_size` candidates.
-    # Cap chunk size at 256 so we never have too many Data objects in flight
-    # at once (each tensor crosses the IPC boundary). With workers*2 chunks
-    # in flight this is at most ~4096 Data objects buffered.
+    # Cap chunk size at 256 to bound the number of spec dicts buffered.
     chunk_size = min(max(64, num_samples // max(workers * 16, 1)), 256)
 
-    def _ingest(
-        candidates: list[tuple[tuple[int, int, str, str, tuple[int, ...]], Data]],
-    ) -> None:
+    def _ingest(candidates: list[tuple[_DedupKey, dict[str, Any]]]) -> None:
         nonlocal duplicates_skipped
-        for key, data in candidates:
+        for key, spec in candidates:
             if len(dataset) >= num_samples:
                 return
             attempts_local_target = f"{key[0]}_{key[1]}"
@@ -266,9 +310,10 @@ def generate_dataset(
                 per_target[attempts_local_target]["duplicates_skipped"] += 1
                 continue
             seen_keys.add(key)
+            data = _spec_to_data(spec)
             dataset.append(data)
             per_target[attempts_local_target]["produced"] += 1
-            if int(cast(int, data.girth_class)) == 1:
+            if spec["girth_class"] == 1:
                 per_target[attempts_local_target]["positives"] += 1
 
     if workers <= 1:
@@ -286,9 +331,7 @@ def generate_dataset(
             _ingest(batch)
     else:
         with ProcessPoolExecutor(max_workers=workers) as pool:
-            in_flight: set[
-                Future[list[tuple[tuple[int, int, str, str, tuple[int, ...]], Data]]]
-            ] = set()
+            in_flight: set[Future[list[tuple[_DedupKey, dict[str, Any]]]]] = set()
 
             def _submit() -> None:
                 fut = pool.submit(

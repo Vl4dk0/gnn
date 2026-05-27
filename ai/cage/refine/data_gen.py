@@ -22,18 +22,19 @@ from __future__ import annotations
 import os
 import random
 from concurrent.futures import Future, ProcessPoolExecutor, as_completed
+from typing import Any, cast
 
 import networkx as nx
+import numpy as np
 import torch
-import torch.multiprocessing as torch_mp
 from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
 
 from ai.cage.refine.cost import short_cycle_cost
 from ai.cage.refine.swaps import apply_2_switch, enumerate_2_switches
 from ai.utils.structural_features import add_structural_features
 
-# See ai/cage/voltage/data_gen.py for the rationale on file_system sharing.
-torch_mp.set_sharing_strategy("file_system")
+# Worker spec: primitive types only, no torch tensors across IPC.
+# See ai/cage/voltage/data_gen.py for the failure mode being avoided.
 
 
 def _random_k_regular(
@@ -84,6 +85,33 @@ def _graph_to_pyg(
     )
 
 
+def _data_to_spec(
+    data: Data, swap_idx: list[int], delta: float, g_target: int
+) -> dict[str, Any]:
+    x = cast(torch.Tensor, data.x)
+    edge_index = cast(torch.Tensor, data.edge_index)
+    return {
+        "x": x.cpu().numpy(),
+        "edge_index": edge_index.cpu().numpy(),
+        "num_nodes": int(cast(int, data.num_nodes)),
+        "swap_idx": swap_idx,
+        "delta": delta,
+        "g_target": g_target,
+    }
+
+
+def _spec_to_data(spec: dict[str, Any]) -> Data:
+    data = Data(
+        x=torch.from_numpy(cast(np.ndarray, spec["x"])).float(),
+        edge_index=torch.from_numpy(cast(np.ndarray, spec["edge_index"])).long(),
+        num_nodes=spec["num_nodes"],
+    )
+    data.swap_idx = torch.tensor(spec["swap_idx"], dtype=torch.long)
+    data.delta = torch.tensor(spec["delta"], dtype=torch.float)
+    data.g_target = spec["g_target"]
+    return data
+
+
 def _generate_one_sample(
     sample_seed: int,
     k_range: tuple[int, int],
@@ -92,8 +120,8 @@ def _generate_one_sample(
     cycle_lengths: list[int],
     rwpe_dim: int,
     max_inner_attempts: int = 20,
-) -> Data | None:
-    """Worker: produce one labeled (graph, swap, Δcost) Data, or None on failure."""
+) -> dict[str, Any] | None:
+    """Worker: produce one labeled spec dict, or None on failure."""
     rng = random.Random(sample_seed)
 
     for _ in range(max_inner_attempts):
@@ -125,13 +153,13 @@ def _generate_one_sample(
         node_idx = {v: i for i, v in enumerate(nodes)}
 
         data = _graph_to_pyg(G, cycle_lengths, rwpe_dim)
-        data.swap_idx = torch.tensor(
-            [node_idx[swap.u], node_idx[swap.v], node_idx[swap.x], node_idx[swap.y]],
-            dtype=torch.long,
-        )
-        data.delta = torch.tensor(delta, dtype=torch.float)
-        data.g_target = g_target
-        return data
+        swap_idx = [
+            node_idx[swap.u],
+            node_idx[swap.v],
+            node_idx[swap.x],
+            node_idx[swap.y],
+        ]
+        return _data_to_spec(data, swap_idx, float(delta), g_target)
 
     return None
 
@@ -197,7 +225,7 @@ def generate_dataset(
                 rwpe_dim,
             )
             if sample is not None:
-                dataset.append(sample)
+                dataset.append(_spec_to_data(sample))
         return dataset
 
     # Streamed submission: keep ~workers*4 futures in flight at any time,
@@ -206,7 +234,7 @@ def generate_dataset(
     max_in_flight = workers * 4
     max_attempts = num_samples * 2
     attempts_submitted = 0
-    in_flight: set[Future[Data | None]] = set()
+    in_flight: set[Future[dict[str, Any] | None]] = set()
 
     def _submit() -> None:
         nonlocal attempts_submitted
@@ -231,7 +259,7 @@ def generate_dataset(
             in_flight.discard(done)
             sample = done.result()
             if sample is not None:
-                dataset.append(sample)
+                dataset.append(_spec_to_data(sample))
             if len(dataset) < num_samples and attempts_submitted < max_attempts:
                 _submit()
 
