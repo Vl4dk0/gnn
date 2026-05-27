@@ -45,65 +45,64 @@
     "max_group_order": 200,
     "learning_rate": 0.001,
     "seed": 42,
-    "regression_weight": 0.5,
     "weight_decay": 0.0001,
-    "best_epoch": 100
+    "best_epoch": 90
   },
   "data": {
     "requested": 200000,
     "produced": 200000,
-    "duplicates_skipped": 65446,
-    "generation_attempts": 328991,
+    "duplicates_skipped": 39687,
+    "generation_attempts": 281594,
     "per_target": {
       "3_6": {
-        "produced": 16443,
-        "pos_rate": 0.23110138052666787,
-        "duplicates_skipped": 12208
+        "produced": 19313,
+        "pos_rate": 0.2943095324392896,
+        "duplicates_skipped": 7649
       },
       "3_7": {
-        "produced": 16734,
-        "pos_rate": 0.0007768614796223258,
-        "duplicates_skipped": 11878
+        "produced": 19500,
+        "pos_rate": 0.029897435897435896,
+        "duplicates_skipped": 7361
       },
       "3_8": {
-        "produced": 16770,
-        "pos_rate": 0.00017889087656529517,
-        "duplicates_skipped": 11618
+        "produced": 19796,
+        "pos_rate": 0.0266720549605981,
+        "duplicates_skipped": 7123
       },
       "3_9": {
-        "produced": 16941,
-        "pos_rate": 0.0,
-        "duplicates_skipped": 11336
+        "produced": 19683,
+        "pos_rate": 0.00035563684397703604,
+        "duplicates_skipped": 6820
       },
       "3_10": {
-        "produced": 17134,
-        "pos_rate": 0.0,
-        "duplicates_skipped": 11263
+        "produced": 20164,
+        "pos_rate": 0.0003471533425907558,
+        "duplicates_skipped": 6947
       },
       "4_6": {
-        "produced": 37817,
-        "pos_rate": 0.049845307665864556,
-        "duplicates_skipped": 3346
+        "produced": 33424,
+        "pos_rate": 0.09466251795117281,
+        "duplicates_skipped": 1712
       },
       "4_7": {
-        "produced": 38829,
-        "pos_rate": 0.0,
-        "duplicates_skipped": 2084
+        "produced": 33925,
+        "pos_rate": 0.0047457627118644066,
+        "duplicates_skipped": 1120
       },
       "4_8": {
-        "produced": 39332,
-        "pos_rate": 0.0,
-        "duplicates_skipped": 1713
+        "produced": 34195,
+        "pos_rate": 0.002690451820441585,
+        "duplicates_skipped": 955
       }
     }
   },
   "metrics": {
     "test_loss": 0.0,
-    "test_mae": 0.0175,
-    "test_accuracy": 1.0,
+    "test_mae": 0.0049,
+    "test_accuracy": 0.9809,
     "test_precision": 1.0,
-    "test_recall": 1.0,
-    "test_f1": 1.0,
+    "test_recall": 0.6287,
+    "test_f1": 0.772,
     "best_val_loss": 0.0
   }
 }
