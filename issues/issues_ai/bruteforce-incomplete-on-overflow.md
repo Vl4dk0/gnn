@@ -43,3 +43,8 @@ if self.graph.number_of_nodes() > self.upper_bound:
         self.success = False
     return
 ```
+
+
+## Test
+
+Proven by [`test_bruteforce_marks_complete_when_overflow_empties_stack`](../../tests/test_issues_ai.py) (test fails → bug confirmed).

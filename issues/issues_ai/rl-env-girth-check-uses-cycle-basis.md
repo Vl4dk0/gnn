@@ -47,3 +47,8 @@ def _is_girth_satisfied_active(self) -> bool:
 ## Kontext
 
 Funkcia `compute_girth` z `graph_utils.py` (riadky 136–198) implementuje BFS-based výpočet girthu, ktorý je presný. Používa ju aj `is_valid_cage()` — kanonická validácia. RL env by mala byť konzistentná s tou validáciou.
+
+
+## Test
+
+Proven by [`test_cycle_basis_disagrees_on_known_bad_graph`](../../tests/test_issues_ai.py) (test fails → bug confirmed).

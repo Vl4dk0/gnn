@@ -80,3 +80,8 @@ Example implementation block for $L = 0$:
                         L_paths.append(rotated)
                         L_atomic.append(atomic)
 ```
+
+
+## Test
+
+Proven by [`test_loopy_neighborhood_populates_direct_neighbors`](../../tests/test_issues_ai.py) (test fails → bug confirmed).

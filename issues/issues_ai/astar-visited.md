@@ -25,3 +25,8 @@ initial_hash = graph_hash(initial_graph)
 self.visited_hashes.add(initial_hash)
 heapq.heappush(self.pq, (-initial_score, self.counter, initial_graph))
 ```
+
+
+## Test
+
+Proven by [`test_astar_initial_graph_added_to_visited`](../../tests/test_issues_ai.py) (test fails → bug confirmed).

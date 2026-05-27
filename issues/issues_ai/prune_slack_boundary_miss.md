@@ -24,3 +24,8 @@ Introduce a small epsilon floor to prevent strict floating-point pruning misses:
 ```python
         if predict_fn(group, k, g_target) >= g_target - prune_slack - 1e-6:
 ```
+
+
+## Test
+
+Proven by [`test_prune_slack_zero_keeps_marginal_predictions`](../../tests/test_issues_ai.py) (test fails → bug confirmed).

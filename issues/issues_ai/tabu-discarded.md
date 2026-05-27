@@ -24,3 +24,8 @@ Tabu výsledok je zahodený vždy keď náhodné hľadanie niečo nájde, aj keb
 if best is None or int(cast(int, candidate["girth"])) > int(cast(int, best["girth"])):
     best = candidate
 ```
+
+
+## Test
+
+Proven by [`test_voltage_search_one_config_keeps_better_tabu_result`](../../tests/test_issues_ai.py) (test fails → bug confirmed).

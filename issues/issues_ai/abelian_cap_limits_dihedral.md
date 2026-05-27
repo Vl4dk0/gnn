@@ -24,3 +24,8 @@ This means that dihedral groups are capped by the same limit as abelian groups, 
 
 ## Proposed Fix
 Replace `abelian_cap` with an independent cap for dihedral groups (e.g., `dihedral_cap`), or use `max_order` directly with a separate safety cap.
+
+
+## Test
+
+Proven by [`test_abelian_cap_limits_dihedral_real_issue`](../../tests/test_issues_ai.py) (test fails → bug confirmed).

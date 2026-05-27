@@ -28,3 +28,8 @@ or:
                     ...
                     + f"time={elapsed_str} "
 ```
+
+
+## Test
+
+Proven by [`test_guided_elapsed_format_uses_safe_pattern`](../../tests/test_issues_ai.py) (test fails → bug confirmed).

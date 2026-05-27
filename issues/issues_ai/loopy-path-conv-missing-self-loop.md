@@ -32,3 +32,8 @@ Uchovať pôvodnú hodnotu `x` (vlastnú črtu) a spočítať kombináciu s agre
         # Apply MLP and sum over path
         x = cast(Tensor, self.mlp((1 + self.eps) * x + agg))
 ```
+
+
+## Test
+
+Proven by [`test_pathconv_preserves_self_contribution`](../../tests/test_issues_ai.py) (test fails → bug confirmed).

@@ -30,3 +30,8 @@ self.is_terminal = (
     and compute_girth(self.graph) == self.g
 )
 ```
+
+
+## Test
+
+Proven by [`test_mcts_terminal_requires_correct_girth`](../../tests/test_issues_ai.py) (test fails → bug confirmed).

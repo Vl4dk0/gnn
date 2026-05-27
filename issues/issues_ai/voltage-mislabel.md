@@ -27,3 +27,8 @@ if isinstance(girth, float):
     girth_int = 2 * g_target   # dolný odhad
     girth_class = 1             # girth > 2×g_target ≥ g_target
 ```
+
+
+## Test
+
+Proven by [`test_base_graph_to_pyg_labels_inf_as_positive`](../../tests/test_issues_ai.py) (test fails → bug confirmed).

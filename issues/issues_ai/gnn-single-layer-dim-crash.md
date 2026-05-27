@@ -36,3 +36,8 @@ else:
         self.convs.append(GCNConv(hidden_dim, hidden_dim))
     self.convs.append(GCNConv(hidden_dim, output_dim))
 ```
+
+
+## Test
+
+Proven by [`test_single_layer_forward_does_not_crash`](../../tests/test_issues_ai.py) (test fails → bug confirmed).

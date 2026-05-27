@@ -40,3 +40,8 @@ Use the dictionary `.get()` method with a fallback value:
             return cache.get(group.name, 0.0)
 ```
 or log a warning and return a conservative fallback.
+
+
+## Test
+
+Proven by [`test_cached_helper_uses_safe_dict_get`](../../tests/test_issues_ai.py) (test fails → bug confirmed).

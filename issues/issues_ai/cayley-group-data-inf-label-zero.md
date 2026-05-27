@@ -38,3 +38,8 @@ if gens_t is not None:
     if effective_t > best and nx.is_connected(cay) and cay.degree(0) == k:
         best = effective_t
 ```
+
+
+## Test
+
+Proven by [`test_best_achievable_girth_does_not_drop_inf_label`](../../tests/test_issues_ai.py) (test fails → bug confirmed).

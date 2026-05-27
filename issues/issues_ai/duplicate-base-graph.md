@@ -31,3 +31,8 @@ Upraviť bezpodmienečné pridávanie tak, aby sa `dumbbell(k)` pridával iba vt
     else:
         bases.append((f"dumbbell({k})", dumbbell(k)))
 ```
+
+
+## Test
+
+Proven by [`test_candidate_bases_no_duplicate_for_k3`](../../tests/test_issues_ai.py) (test fails → bug confirmed).

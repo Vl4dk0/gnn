@@ -35,3 +35,8 @@ elif current_girth > self.g:
 else:
     girth_score = 0.0
 ```
+
+
+## Test
+
+Proven by [`test_astar_inf_girth_branch_lower_than_above_target_branch`](../../tests/test_issues_ai.py) (test fails → bug confirmed).

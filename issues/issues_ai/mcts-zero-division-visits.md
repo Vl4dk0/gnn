@@ -36,3 +36,8 @@ def best_child(self, c_param: float = 1.414) -> "MCTSNode | None":
     ]
     return self.children[choices_weights.index(max(choices_weights))]
 ```
+
+
+## Test
+
+Proven by [`test_mcts_best_child_safe_with_zero_visits`](../../tests/test_issues_ai.py) (test fails → bug confirmed).

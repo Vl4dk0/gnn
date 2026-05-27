@@ -43,3 +43,8 @@ def _is_girth_satisfied_active(self) -> bool:
         return False   # strom tiež nespĺňa podmienku girthu
     return min(len(c) for c in cycles) >= self.g
 ```
+
+
+## Test
+
+Proven by [`test_rl_env_girth_unsatisfied_for_empty_graph`](../../tests/test_issues_ai.py) (test fails → bug confirmed).

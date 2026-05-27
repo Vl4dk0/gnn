@@ -34,3 +34,8 @@ num_convs = 1 if shared else r   # r konvolúcií pre L=1..r
 # forward:
 conv_idx = 0 if shared else (L - 1)   # L=1→0, L=2→1, ..., L=r→r-1
 ```
+
+
+## Test
+
+Proven by [`test_loopy_layer_has_distinct_conv_per_path_length`](../../tests/test_issues_ai.py) (test fails → bug confirmed).

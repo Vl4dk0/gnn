@@ -27,3 +27,8 @@ if voltage_idx.max().item() >= self.max_group_order:
         f"max_group_order={self.max_group_order}"
     )
 ```
+
+
+## Test
+
+Proven by [`test_voltage_model_rejects_out_of_range_voltage`](../../tests/test_issues_ai.py) (test fails → bug confirmed).

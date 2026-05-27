@@ -27,3 +27,8 @@ def _add_edge_between_low_degree(self, low_degree_nodes: list[int]) -> None:
         return
     # ... zvyšok funkcie
 ```
+
+
+## Test
+
+Proven by [`test_random_walk_add_edge_handles_single_low_degree_node`](../../tests/test_issues_ai.py) (test fails → bug confirmed).

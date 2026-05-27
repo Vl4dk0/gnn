@@ -34,3 +34,8 @@ def _make_gin_conv(self, in_dim: int, out_dim: int, *, is_output: bool = False) 
         )
     return GINConv(mlp, train_eps=True)
 ```
+
+
+## Test
+
+Proven by [`test_gin_output_layer_has_no_relu_bottleneck`](../../tests/test_issues_ai.py) (test fails → bug confirmed).

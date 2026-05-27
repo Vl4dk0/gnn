@@ -32,3 +32,8 @@ lift_graph = build_lift(base, group, volt)
 if not is_k_regular(lift_graph, k):
     continue   # preskočiť neregulárny lift
 ```
+
+
+## Test
+
+Proven by [`test_voltage_dataset_does_not_label_nonregular_lift_as_positive`](../../tests/test_issues_ai.py) (test fails → bug confirmed).

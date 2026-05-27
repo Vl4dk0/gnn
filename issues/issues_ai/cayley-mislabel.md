@@ -26,3 +26,8 @@ if isinstance(girth, float):
     girth_int = 2 * g_target + 2   # dolný odhad skutočného girthu
     girth_class = 1                 # girth > max_girth ≥ g_target
 ```
+
+
+## Test
+
+Proven by [`test_cayley_ball_to_pyg_labels_inf_as_positive`](../../tests/test_issues_ai.py) (test fails → bug confirmed).

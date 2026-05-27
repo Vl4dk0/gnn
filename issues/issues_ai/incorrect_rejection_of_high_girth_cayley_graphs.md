@@ -50,3 +50,8 @@ For `tabu_search` and generators, when `cost == 0` is reached, verify the graph 
             # Graph is valid, retrieve exact finite girth if needed or treat as >= g_target
             ...
 ```
+
+
+## Test
+
+Proven by [`test_cayley_random_search_does_not_discard_inf_girth`](../../tests/test_issues_ai.py) (test fails → bug confirmed).
