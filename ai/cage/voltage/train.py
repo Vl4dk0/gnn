@@ -182,6 +182,7 @@ def train(
     model_id_override: str | None = None,
     cycle_lengths: list[int] | None = None,
     rwpe_dim: int = 0,
+    workers: int | None = None,
 ) -> tuple[GirthPredictor, dict[str, object]]:
     """Train the girth predictor model. Returns (model, info_dict)."""
 
@@ -216,6 +217,7 @@ def train(
         seed=seed,
         cycle_lengths=cycle_lengths,
         rwpe_dim=rwpe_dim,
+        workers=workers,
     )
     print(
         f"  Produced {gen_stats['produced']}/{gen_stats['requested']} unique samples "
@@ -530,6 +532,12 @@ def parse_args() -> argparse.Namespace:
         default=0,
         help="Dimension K for Random-Walk Positional Encoding. 0 = disabled.",
     )
+    _ = parser.add_argument(
+        "--workers",
+        type=int,
+        default=None,
+        help="Data-gen worker count; default = os.cpu_count(). Set 1 to disable.",
+    )
     return parser.parse_args()
 
 
@@ -558,4 +566,5 @@ if __name__ == "__main__":
         model_id_override=cast(str | None, args.model_id),
         cycle_lengths=parsed_cycle_lengths,
         rwpe_dim=cast(int, args.rwpe_dim),
+        workers=cast("int | None", args.workers),
     )

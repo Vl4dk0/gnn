@@ -7,7 +7,9 @@ the girth of the corresponding lift.
 
 from __future__ import annotations
 
+import os
 import random
+from concurrent.futures import Future, ProcessPoolExecutor, as_completed
 from typing import cast
 
 import torch
@@ -140,6 +142,62 @@ def _candidate_base_graphs(k: int) -> list[tuple[str, BaseGraph]]:
     return unique
 
 
+def _generate_chunk(
+    chunk_seed: int,
+    chunk_size: int,
+    targets: list[tuple[int, int]],
+    max_group_order: int,
+    cycle_lengths: list[int] | None,
+    rwpe_dim: int,
+) -> list[tuple[tuple[int, int, str, str, tuple[int, ...]], Data]]:
+    """Worker: produce `chunk_size` candidate (dedup_key, Data) pairs.
+
+    Returned candidates may include duplicates — the main process dedupes
+    across the global stream. Each worker maintains its own group/base
+    caches so we don't ship objects across the process boundary.
+    """
+    rng = random.Random(chunk_seed)
+    base_cache: dict[int, list[tuple[str, BaseGraph]]] = {}
+    groups = _candidate_groups(max_group_order)
+    moore_cache: dict[tuple[int, int], int] = {
+        (k, g): moore_bound(k, g) for (k, g) in targets
+    }
+
+    out: list[tuple[tuple[int, int, str, str, tuple[int, ...]], Data]] = []
+    for _ in range(chunk_size):
+        k, g_target = rng.choice(targets)
+        if k not in base_cache:
+            base_cache[k] = _candidate_base_graphs(k)
+        bases = base_cache[k]
+        base_name, base = rng.choice(bases)
+
+        mb = moore_cache[(k, g_target)]
+        valid_groups = [
+            g for g in groups if mb <= base.num_nodes * g.order <= max(4 * mb, mb + 200)
+        ]
+        if not valid_groups:
+            valid_groups = groups
+
+        group = rng.choice(valid_groups)
+        n_edges = base.num_undirected_edges()
+        volt = [rng.randint(0, group.order - 1) for _ in range(n_edges)]
+        key = (k, g_target, base_name, group.name, tuple(volt))
+
+        girth = compute_lift_girth(base, group, volt, max_girth=2 * g_target)
+        data = base_graph_to_pyg(base, volt, group, k, g_target, girth)
+        data.base_name = base_name
+        data.group_name = group.name
+
+        if cycle_lengths or rwpe_dim > 0:
+            data = add_structural_features(
+                data, cycle_lengths=cycle_lengths, rwpe_dim=rwpe_dim
+            )
+
+        out.append((key, data))
+
+    return out
+
+
 def generate_dataset(
     targets: list[tuple[int, int]],
     num_samples: int = 10000,
@@ -148,6 +206,7 @@ def generate_dataset(
     max_attempts_multiplier: int = 5,
     cycle_lengths: list[int] | None = None,
     rwpe_dim: int = 0,
+    workers: int | None = None,
 ) -> tuple[list[Data], dict[str, object]]:
     """Generate deduplicated training data for the girth predictor.
 
@@ -165,14 +224,10 @@ def generate_dataset(
     if not targets:
         raise ValueError("targets must be non-empty")
 
+    if workers is None:
+        workers = max(os.cpu_count() or 1, 1)
+
     rng = random.Random(seed)
-
-    base_cache: dict[int, list[tuple[str, BaseGraph]]] = {}
-    groups = _candidate_groups(max_group_order)
-
-    moore_cache: dict[tuple[int, int], int] = {
-        (k, g): moore_bound(k, g) for (k, g) in targets
-    }
 
     dataset: list[Data] = []
     seen_keys: set[tuple[int, int, str, str, tuple[int, ...]]] = set()
@@ -185,49 +240,74 @@ def generate_dataset(
         for (k, g) in targets
     }
 
-    while len(dataset) < num_samples and attempts < max_attempts:
-        attempts += 1
-        k, g_target = rng.choice(targets)
-        target_key = f"{k}_{g_target}"
+    # Submit chunks of work; each chunk produces `chunk_size` candidates.
+    # The main process dedupes across the global stream. We submit enough
+    # chunks to cover `max_attempts` candidates total.
+    chunk_size = max(64, num_samples // max(workers * 4, 1))
 
-        if k not in base_cache:
-            base_cache[k] = _candidate_base_graphs(k)
-        bases = base_cache[k]
+    def _ingest(
+        candidates: list[tuple[tuple[int, int, str, str, tuple[int, ...]], Data]],
+    ) -> None:
+        nonlocal duplicates_skipped
+        for key, data in candidates:
+            if len(dataset) >= num_samples:
+                return
+            attempts_local_target = f"{key[0]}_{key[1]}"
+            if key in seen_keys:
+                duplicates_skipped += 1
+                per_target[attempts_local_target]["duplicates_skipped"] += 1
+                continue
+            seen_keys.add(key)
+            dataset.append(data)
+            per_target[attempts_local_target]["produced"] += 1
+            if int(cast(int, data.girth_class)) == 1:
+                per_target[attempts_local_target]["positives"] += 1
 
-        base_name, base = rng.choice(bases)
-
-        mb = moore_cache[(k, g_target)]
-        valid_groups = [
-            g for g in groups if mb <= base.num_nodes * g.order <= max(4 * mb, mb + 200)
-        ]
-        if not valid_groups:
-            valid_groups = groups
-
-        group = rng.choice(valid_groups)
-        n_edges = base.num_undirected_edges()
-        volt = [rng.randint(0, group.order - 1) for _ in range(n_edges)]
-
-        key = (k, g_target, base_name, group.name, tuple(volt))
-        if key in seen_keys:
-            duplicates_skipped += 1
-            per_target[target_key]["duplicates_skipped"] += 1
-            continue
-        seen_keys.add(key)
-
-        girth = compute_lift_girth(base, group, volt, max_girth=2 * g_target)
-        data = base_graph_to_pyg(base, volt, group, k, g_target, girth)
-        data.base_name = base_name
-        data.group_name = group.name
-
-        if cycle_lengths or rwpe_dim > 0:
-            data = add_structural_features(
-                data, cycle_lengths=cycle_lengths, rwpe_dim=rwpe_dim
+    if workers <= 1:
+        # Serial fallback (also exercised by tests).
+        while len(dataset) < num_samples and attempts < max_attempts:
+            batch = _generate_chunk(
+                rng.randint(0, 2**31 - 1),
+                chunk_size,
+                targets,
+                max_group_order,
+                cycle_lengths,
+                rwpe_dim,
             )
+            attempts += len(batch)
+            _ingest(batch)
+    else:
+        with ProcessPoolExecutor(max_workers=workers) as pool:
+            in_flight: set[
+                Future[list[tuple[tuple[int, int, str, str, tuple[int, ...]], Data]]]
+            ] = set()
 
-        dataset.append(data)
-        per_target[target_key]["produced"] += 1
-        if int(cast(int, data.girth_class)) == 1:
-            per_target[target_key]["positives"] += 1
+            def _submit() -> None:
+                fut = pool.submit(
+                    _generate_chunk,
+                    rng.randint(0, 2**31 - 1),
+                    chunk_size,
+                    targets,
+                    max_group_order,
+                    cycle_lengths,
+                    rwpe_dim,
+                )
+                in_flight.add(fut)
+
+            for _ in range(workers * 2):
+                _submit()
+
+            while in_flight and len(dataset) < num_samples and attempts < max_attempts:
+                done = next(as_completed(in_flight))
+                in_flight.discard(done)
+                batch = done.result()
+                attempts += len(batch)
+                _ingest(batch)
+                if len(dataset) < num_samples and attempts < max_attempts:
+                    _submit()
+
+            for fut in in_flight:
+                _ = fut.cancel()
 
     # Add pos_rate to per_target stats
     per_target_out: dict[str, dict[str, float]] = {}

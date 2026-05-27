@@ -29,5 +29,6 @@ uv run python -u -m ai.cage.voltage.train \
   --hidden-dim 192 --num-layers 4 --max-group-order 100 \
   --weight-decay 1e-4 \
   --cycle-lengths "3,4,5,6,7,8" --rwpe-dim 8 \
+  --workers 8 \
   --model-id "${MODEL_ID:?set MODEL_ID, e.g. MODEL_ID=girth_predictor_struct}" \
   --print-every 5 --seed 42

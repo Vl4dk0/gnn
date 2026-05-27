@@ -19,7 +19,9 @@ Source graphs are sampled from:
 
 from __future__ import annotations
 
+import os
 import random
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import networkx as nx
 import torch
@@ -78,6 +80,58 @@ def _graph_to_pyg(
     )
 
 
+def _generate_one_sample(
+    sample_seed: int,
+    k_range: tuple[int, int],
+    n_range: tuple[int, int],
+    g_target_range: tuple[int, int],
+    cycle_lengths: list[int],
+    rwpe_dim: int,
+    max_inner_attempts: int = 20,
+) -> Data | None:
+    """Worker: produce one labeled (graph, swap, Δcost) Data, or None on failure."""
+    rng = random.Random(sample_seed)
+
+    for _ in range(max_inner_attempts):
+        k = rng.randint(k_range[0], k_range[1])
+        n = rng.randint(n_range[0], n_range[1])
+        g_target = rng.randint(g_target_range[0], g_target_range[1])
+        graph_seed = rng.randint(0, 2**31 - 1)
+
+        try:
+            G = _random_k_regular(k, n, seed=graph_seed)
+        except nx.NetworkXError:
+            continue
+
+        base_cost = short_cycle_cost(G, g_target)
+
+        swaps = list(enumerate_2_switches(G, sample_size=20))
+        if not swaps:
+            continue
+
+        swap = rng.choice(swaps)
+        try:
+            G2 = apply_2_switch(G, swap)
+            new_cost = short_cycle_cost(G2, g_target)
+        except Exception:
+            continue
+
+        delta = new_cost - base_cost
+        nodes = sorted(G.nodes())
+        node_idx = {v: i for i, v in enumerate(nodes)}
+
+        data = _graph_to_pyg(G, cycle_lengths, rwpe_dim)
+        data.swap_idx = torch.tensor(
+            [node_idx[swap.u], node_idx[swap.v], node_idx[swap.x], node_idx[swap.y]],
+            dtype=torch.long,
+        )
+        data.delta = torch.tensor(delta, dtype=torch.float)
+        data.g_target = g_target
+        return data
+
+    return None
+
+
 def generate_dataset(
     num_samples: int,
     k_range: tuple[int, int] = (3, 5),
@@ -86,6 +140,7 @@ def generate_dataset(
     cycle_lengths: list[int] | None = None,
     rwpe_dim: int = 8,
     seed: int = 42,
+    workers: int | None = None,
 ) -> list[Data]:
     """Generate a supervised dataset of (graph, swap, Δcost) tuples.
 
@@ -118,52 +173,45 @@ def generate_dataset(
     if cycle_lengths is None:
         cycle_lengths = [3, 4, 5, 6, 7, 8]
 
+    if workers is None:
+        workers = max(os.cpu_count() or 1, 1)
+
     rng = random.Random(seed)
+    # Pre-allocate seeds so each worker is deterministic and reproducible.
+    # We allocate 2x num_samples seeds to allow for retries on worker failures.
+    worker_seeds = [rng.randint(0, 2**31 - 1) for _ in range(num_samples * 2)]
+
     dataset: list[Data] = []
-    attempts = 0
-    max_attempts = num_samples * 20
+    if workers <= 1:
+        for s in worker_seeds:
+            if len(dataset) >= num_samples:
+                break
+            sample = _generate_one_sample(
+                s, k_range, n_range, g_target_range, cycle_lengths, rwpe_dim
+            )
+            if sample is not None:
+                dataset.append(sample)
+        return dataset
 
-    while len(dataset) < num_samples and attempts < max_attempts:
-        attempts += 1
+    with ProcessPoolExecutor(max_workers=workers) as pool:
+        futures = [
+            pool.submit(
+                _generate_one_sample,
+                s,
+                k_range,
+                n_range,
+                g_target_range,
+                cycle_lengths,
+                rwpe_dim,
+            )
+            for s in worker_seeds
+        ]
+        for fut in as_completed(futures):
+            if len(dataset) >= num_samples:
+                _ = fut.cancel()
+                continue
+            sample = fut.result()
+            if sample is not None:
+                dataset.append(sample)
 
-        k = rng.randint(k_range[0], k_range[1])
-        n = rng.randint(n_range[0], n_range[1])
-        g_target = rng.randint(g_target_range[0], g_target_range[1])
-        graph_seed = rng.randint(0, 2**31 - 1)
-
-        try:
-            G = _random_k_regular(k, n, seed=graph_seed)
-        except nx.NetworkXError:
-            continue
-
-        base_cost = short_cycle_cost(G, g_target)
-
-        # Pick a random valid 2-switch
-        swaps = list(enumerate_2_switches(G, sample_size=20))
-        if not swaps:
-            continue
-
-        swap = rng.choice(swaps)
-        try:
-            G2 = apply_2_switch(G, swap)
-            new_cost = short_cycle_cost(G2, g_target)
-        except Exception:
-            continue
-
-        delta = new_cost - base_cost
-
-        # Build PyG data for the original graph
-        nodes = sorted(G.nodes())
-        node_idx = {v: i for i, v in enumerate(nodes)}
-
-        data = _graph_to_pyg(G, cycle_lengths, rwpe_dim)
-        data.swap_idx = torch.tensor(
-            [node_idx[swap.u], node_idx[swap.v], node_idx[swap.x], node_idx[swap.y]],
-            dtype=torch.long,
-        )
-        data.delta = torch.tensor(delta, dtype=torch.float)
-        data.g_target = g_target
-
-        dataset.append(data)
-
-    return dataset
+    return dataset[:num_samples]

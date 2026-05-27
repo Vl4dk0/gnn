@@ -42,6 +42,7 @@ def train(
     rwpe_dim: int = 8,
     seed: int = 42,
     save_dir: Path | None = None,
+    workers: int | None = None,
 ) -> MoveOracle:
     """Train a MoveOracle and return it.
 
@@ -60,6 +61,7 @@ def train(
         cycle_lengths=cycle_lengths,
         rwpe_dim=rwpe_dim,
         seed=seed,
+        workers=workers,
     )
     print(f"Generated {len(dataset)} samples in {time.time() - t0:.1f}s")
 
@@ -155,6 +157,12 @@ def main() -> None:
     _ = parser.add_argument("--cycle-lengths", type=str, default="3,4,5,6,7,8")
     _ = parser.add_argument("--rwpe-dim", type=int, default=8)
     _ = parser.add_argument("--seed", type=int, default=42)
+    _ = parser.add_argument(
+        "--workers",
+        type=int,
+        default=None,
+        help="Data-gen worker count; default = os.cpu_count(). Set 1 to disable.",
+    )
     args = parser.parse_args()
 
     cycle_lengths = [int(x.strip()) for x in args.cycle_lengths.split(",")]
@@ -169,6 +177,7 @@ def main() -> None:
         cycle_lengths=cycle_lengths,
         rwpe_dim=args.rwpe_dim,
         seed=args.seed,
+        workers=args.workers,
     )
 
 

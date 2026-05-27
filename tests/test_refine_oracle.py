@@ -31,7 +31,7 @@ class TestMoveOracleSmoke:
             cycle_lengths=[3, 4, 5],
             rwpe_dim=4,
             seed=0,
-            save_dir=save_dir,
+            save_dir=save_dir, workers=1,
         )
         assert (save_dir / "weights.pt").exists()
         assert (save_dir / "info.json").exists()
@@ -47,7 +47,7 @@ class TestMoveOracleSmoke:
             cycle_lengths=[3, 4, 5],
             rwpe_dim=4,
             seed=0,
-            save_dir=save_dir,
+            save_dir=save_dir, workers=1,
         )
         with open(save_dir / "info.json") as f:
             info = json.load(f)
@@ -66,7 +66,7 @@ class TestMoveOracleSmoke:
             cycle_lengths=[3, 4, 5],
             rwpe_dim=4,
             seed=0,
-            save_dir=save_dir,
+            save_dir=save_dir, workers=1,
         )
         loaded, cycle_lengths, rwpe_dim = load_move_oracle(save_dir)
         assert isinstance(loaded, MoveOracle)

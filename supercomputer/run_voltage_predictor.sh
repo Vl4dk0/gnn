@@ -24,4 +24,5 @@ uv run python -u -m ai.cage.voltage.train \
   --samples 1000000 --epochs 100 --batch-size 256 \
   --hidden-dim 192 --num-layers 4 --max-group-order 100 \
   --weight-decay 1e-4 \
+  --workers 8 \
   --print-every 5 --seed 42
