@@ -50,10 +50,10 @@ const STORY_ITEMS = [
     description: "An algebraic shortcut: tiny blueprints + groups to generate large regular graphs."
   },
   {
-    href: "/docs/training",
+    href: "/docs/cayley",
     index: 8,
-    title: "Do It Yourself",
-    description: "A minimal example you can run in a clean folder."
+    title: "Cayley graphs",
+    description: "Algebraic generation and group-promise GNNs."
   }
 ];
 

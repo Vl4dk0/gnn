@@ -12,7 +12,7 @@ import { DocsModuleMinCyclePage } from "./pages/docs/DocsModuleMinCyclePage";
 import { DocsModuleAssessmentPage } from "./pages/docs/DocsModuleAssessmentPage";
 import { DocsModuleCagePage } from "./pages/docs/DocsModuleCagePage";
 import { DocsVoltagePage } from "./pages/docs/DocsVoltagePage";
-import { DocsTrainingPage } from "./pages/docs/DocsTrainingPage";
+import { DocsCayleyPage } from "./pages/docs/DocsCayleyPage";
 import { PredictionPage } from "./pages/apps/PredictionPage";
 import { CagePage } from "./pages/apps/CagePage";
 
@@ -42,7 +42,7 @@ const AppRoutes = () => {
           <Route path="/docs/module-assessment" element={<DocsModuleAssessmentPage />} />
           <Route path="/docs/module-cage" element={<DocsModuleCagePage />} />
           <Route path="/docs/voltage" element={<DocsVoltagePage />} />
-          <Route path="/docs/training" element={<DocsTrainingPage />} />
+          <Route path="/docs/cayley" element={<DocsCayleyPage />} />
 
           {/* Apps Routes */}
           <Route

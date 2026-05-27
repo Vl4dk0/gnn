@@ -1,8 +1,11 @@
 import { DocsCard, DocsHero } from "../../components/docs/DocsCard";
 import { DocsLayout } from "../../components/docs/DocsLayout";
 import { DocsNextButton } from "../../components/docs/DocsNextButton";
+import { useHighlight } from "../../hooks/useHighlight";
 
 export const DocsArchitecturePage = () => {
+  useHighlight();
+
   return (
     <DocsLayout>
       <DocsHero>
@@ -74,6 +77,33 @@ export const DocsArchitecturePage = () => {
           stable but can dampen raw counting signals — the model struggles to distinguish a node
           with 3 neighbors from one with 5 if the normalized values end up similar.
         </p>
+        <pre className="mt-2.5 overflow-x-auto rounded-lg border-2 border-line2 bg-bg1 p-1.5">
+          <code className="language-python">
+            {`# ai/models/gcn.py (simplified)
+class GCN_GNN(BaseGNN):
+    def __init__(self, input_dim, hidden_dim, output_dim, num_layers):
+        # First layer
+        self.convs.append(GCNConv(input_dim, hidden_dim))
+        self.bns.append(nn.BatchNorm1d(hidden_dim))
+        
+        # Hidden layers
+        for _ in range(num_layers - 2):
+            self.convs.append(GCNConv(hidden_dim, hidden_dim))
+            self.bns.append(nn.BatchNorm1d(hidden_dim))
+            
+        # Output layer
+        self.convs.append(GCNConv(hidden_dim, output_dim))
+
+    def forward(self, data):
+        x, edge_index = data.x, data.edge_index
+        for i in range(self.num_layers - 1):
+            x = self.convs[i](x, edge_index)
+            x = self.bns[i](x)
+            x = F.relu(x)
+        x = self.convs[-1](x, edge_index)
+        return x`}
+          </code>
+        </pre>
       </DocsCard>
 
       <DocsCard>
@@ -86,6 +116,21 @@ export const DocsArchitecturePage = () => {
           unseen nodes and dynamic graphs without retraining. In practice it uses a learned mean
           aggregation followed by concatenation with the node's own features.
         </p>
+        <pre className="mt-2.5 overflow-x-auto rounded-lg border-2 border-line2 bg-bg1 p-1.5">
+          <code className="language-python">
+            {`# ai/models/sage.py
+class SAGE_GNN(BaseGNN):
+    def __init__(self, input_dim, hidden_dim, output_dim, num_layers):
+        # Notice aggr="add". This sum aggregation preserves neighbor count information,
+        # making it very suitable for degree-related predictions.
+        self.convs.append(SAGEConv(input_dim, hidden_dim, aggr="add"))
+        
+        for _ in range(num_layers - 2):
+            self.convs.append(SAGEConv(hidden_dim, hidden_dim, aggr="add"))
+            
+        self.convs.append(SAGEConv(hidden_dim, output_dim, aggr="add"))`}
+          </code>
+        </pre>
       </DocsCard>
 
       <DocsCard>
@@ -100,6 +145,21 @@ export const DocsArchitecturePage = () => {
           that 1-WL can distinguish, making it one of the most expressive standard GNN
           architectures.
         </p>
+        <pre className="mt-2.5 overflow-x-auto rounded-lg border-2 border-line2 bg-bg1 p-1.5">
+          <code className="language-python">
+            {`# ai/models/gin.py
+class GIN_GNN(BaseGNN):
+    def _make_gin_conv(self, in_dim: int, out_dim: int) -> GINConv:
+        """Create a GINConv layer with 2-layer MLP."""
+        mlp = nn.Sequential(
+            nn.Linear(in_dim, out_dim),
+            nn.ReLU(),
+            nn.Linear(out_dim, out_dim),
+        )
+        # train_eps=True enables the learnable (1 + eps) self-loop weight
+        return GINConv(mlp, train_eps=True)`}
+          </code>
+        </pre>
       </DocsCard>
 
       <DocsCard>
@@ -113,6 +173,29 @@ export const DocsArchitecturePage = () => {
           <code>global view</code> of the graph in a single layer — unlike purely local
           architectures that need many layers stacked to propagate information across distant nodes.
         </p>
+        <pre className="mt-2.5 overflow-x-auto rounded-lg border-2 border-line2 bg-bg1 p-1.5">
+          <code className="language-python">
+            {`# ai/models/gps.py
+class GPS_GNN(BaseGNN):
+    def __init__(self, ... conv_type="gin", heads=4):
+        # GPS layers
+        for _ in range(num_layers):
+            inner_conv = self._make_inner_conv(hidden_dim)
+            layer = GPSConv(
+                channels=hidden_dim,
+                conv=inner_conv,
+                heads=heads,
+                dropout=dropout,
+                act="relu",
+            )
+            self.gps_layers.append(layer)
+
+    def forward(self, data: Data) -> torch.Tensor:
+        # Each GPS layer combines local conv + global attention
+        for layer in self.gps_layers:
+            x = layer(x, edge_index, batch=data.batch)`}
+          </code>
+        </pre>
       </DocsCard>
 
       <DocsCard>
@@ -125,6 +208,24 @@ export const DocsArchitecturePage = () => {
           GNNs provably cannot count cycles, but Loopy can. The trade-off is that it needs
           sufficient hidden dimensions to leverage this extra information effectively.
         </p>
+        <pre className="mt-2.5 overflow-x-auto rounded-lg border-2 border-line2 bg-bg1 p-1.5">
+          <code className="language-python">
+            {`# ai/models/loopy.py (simplified PathConv + Scatter)
+for L in range(self.r + 1):
+    key = f"loopyN{L}" # Precomputed r-neighborhood paths
+    paths = data[key]
+    
+    # Process node embeddings along each path
+    path_embeddings = x[paths[1:]]
+    contribution = path_conv(path_embeddings, path_atomic)
+    
+    # Aggregate contributions back to center nodes
+    center_nodes = paths[0]
+    node_contribution = scatter(contribution, center_nodes, reduce="sum")
+    
+    r_contribution = r_contribution + (1 + self.r_eps[L]) * node_contribution`}
+          </code>
+        </pre>
       </DocsCard>
 
       <DocsCard>

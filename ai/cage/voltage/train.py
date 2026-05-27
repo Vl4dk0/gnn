@@ -30,6 +30,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../.."))
 from ai.cage.voltage.data_gen import generate_dataset
 from ai.cage.voltage.model import GirthPredictor
 from ai.utils.device import get_preferred_device
+from ai.utils.structural_features import structural_feature_dim
 
 GIRTH_NORM = 12.0  # Normalization constant so MSE loss is comparable to BCE
 
@@ -66,7 +67,7 @@ def _derive_model_id(targets: list[tuple[int, int]]) -> str:
     grid of targets, so the id is fixed rather than encoding any one target.
     """
     _ = targets
-    return "girth_predictor_unified"
+    return "girth_predictor"
 
 
 def _evaluate(
@@ -179,6 +180,9 @@ def train(
     regression_weight: float = 0.5,
     weight_decay: float = 0.0,
     model_id_override: str | None = None,
+    cycle_lengths: list[int] | None = None,
+    rwpe_dim: int = 0,
+    workers: int | None = None,
 ) -> tuple[GirthPredictor, dict[str, object]]:
     """Train the girth predictor model. Returns (model, info_dict)."""
 
@@ -201,6 +205,8 @@ def train(
     print(f"  Learning rate:    {lr}")
     print(f"  Seed:             {seed}")
     print(f"  Regression weight: {regression_weight}")
+    print(f"  Cycle lengths:    {cycle_lengths or []}")
+    print(f"  RWPE dim:         {rwpe_dim}")
     print("=" * 60)
 
     print("Generating training data...")
@@ -209,6 +215,9 @@ def train(
         num_samples=num_samples,
         max_group_order=max_group_order,
         seed=seed,
+        cycle_lengths=cycle_lengths,
+        rwpe_dim=rwpe_dim,
+        workers=workers,
     )
     print(
         f"  Produced {gen_stats['produced']}/{gen_stats['requested']} unique samples "
@@ -294,9 +303,12 @@ def train(
     val_loader = DataLoader(val_data, batch_size=batch_size)
     test_loader = DataLoader(test_data, batch_size=batch_size)
 
-    # Model
+    # Model — base node_feat_dim is 2, plus any structural feature columns
+    base_node_feat_dim = 2
+    extra_dim = structural_feature_dim(cycle_lengths=cycle_lengths, rwpe_dim=rwpe_dim)
+    node_feat_dim = base_node_feat_dim + extra_dim
     model = GirthPredictor(
-        node_feat_dim=2,
+        node_feat_dim=node_feat_dim,
         hidden_dim=hidden_dim,
         num_layers=num_layers,
         max_group_order=max_group_order,
@@ -398,12 +410,17 @@ def train(
         "batch_size": batch_size,
         "hidden_dim": hidden_dim,
         "num_layers": num_layers,
+        "node_feat_dim": node_feat_dim,
         "max_group_order": max_group_order,
         "learning_rate": lr,
         "seed": seed,
         "regression_weight": regression_weight,
         "weight_decay": weight_decay,
         "best_epoch": best_epoch,
+        "feature_config": {
+            "cycle_lengths": cycle_lengths if cycle_lengths else [],
+            "rwpe_dim": rwpe_dim,
+        },
     }
     if primary_k is not None:
         training_block["k"] = primary_k
@@ -503,12 +520,36 @@ def parse_args() -> argparse.Namespace:
         default=0.0,
         help="AdamW weight decay (use 1e-4 to combat overfitting)",
     )
+    _ = parser.add_argument(
+        "--cycle-lengths",
+        type=str,
+        default="",
+        help='Comma-separated list of cycle lengths to add as node features, e.g. "3,4,5,6,7,8". Empty = no cycle features.',
+    )
+    _ = parser.add_argument(
+        "--rwpe-dim",
+        type=int,
+        default=0,
+        help="Dimension K for Random-Walk Positional Encoding. 0 = disabled.",
+    )
+    _ = parser.add_argument(
+        "--workers",
+        type=int,
+        default=None,
+        help="Data-gen worker count; default = os.cpu_count(). Set 1 to disable.",
+    )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
     targets = _parse_targets(cast(str | None, args.targets))
+    raw_cycle_lengths = cast(str, args.cycle_lengths).strip()
+    parsed_cycle_lengths: list[int] | None = (
+        [int(x) for x in raw_cycle_lengths.split(",") if x.strip()]
+        if raw_cycle_lengths
+        else None
+    )
     _ = train(
         targets=targets,
         num_samples=cast(int, args.samples),
@@ -523,4 +564,7 @@ if __name__ == "__main__":
         regression_weight=cast(float, args.regression_weight),
         weight_decay=cast(float, args.weight_decay),
         model_id_override=cast(str | None, args.model_id),
+        cycle_lengths=parsed_cycle_lengths,
+        rwpe_dim=cast(int, args.rwpe_dim),
+        workers=cast("int | None", args.workers),
     )

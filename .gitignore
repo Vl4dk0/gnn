@@ -53,3 +53,5 @@ Thumbs.db
 # Local working notes
 timestamps/
 /validation_runs
+*/todo.md
+/ai/trained/excision_repair/

@@ -28,6 +28,7 @@ from ai.cage.voltage.cycle_analysis import (
     count_short_identity_walks,
 )
 from ai.cage.voltage.data_gen import base_graph_to_pyg
+from ai.utils.structural_features import add_structural_features
 from ai.cage.voltage.groups import (
     FiniteGroup,
     cyclic_group,
@@ -278,11 +279,16 @@ def beam_search(
     model: GirthPredictor,
     beam_width: int = 100,
     verbose: bool = False,
+    feat_cycle_lengths: list[int] | None = None,
+    feat_rwpe_dim: int = 0,
 ) -> tuple[list[int] | None, int | float]:
     """Beam search over voltage assignments guided by the girth predictor.
 
     Assigns voltages one edge at a time, keeping the top-B partial
     assignments according to the model's predicted girth.
+
+    feat_cycle_lengths / feat_rwpe_dim: structural feature config that was used
+    during training. Must match the saved feature_config in the model's info.json.
     """
     m = base.num_undirected_edges()
     order = group.order
@@ -307,6 +313,12 @@ def beam_search(
                     data = base_graph_to_pyg(
                         base, full_volts, group, k, g_target, girth=0
                     )
+                    if feat_cycle_lengths or feat_rwpe_dim > 0:
+                        data = add_structural_features(
+                            data,
+                            cycle_lengths=feat_cycle_lengths,
+                            rwpe_dim=feat_rwpe_dim,
+                        )
                     data = data.to(device)
                     girth_pred, class_logit = model(data)
                     score = float(girth_pred.item()) + float(
@@ -465,6 +477,8 @@ def meta_search(
     max_group_order: int = 100,
     verbose: bool = True,
     num_workers: int = 1,
+    feat_cycle_lengths: list[int] | None = None,
+    feat_rwpe_dim: int = 0,
 ) -> dict[str, object]:
     """Search over base graphs and groups for small (k, g)-graphs.
 
@@ -538,6 +552,8 @@ def meta_search(
                     model=model,
                     beam_width=beam_width,
                     verbose=False,
+                    feat_cycle_lengths=feat_cycle_lengths,
+                    feat_rwpe_dim=feat_rwpe_dim,
                 )
                 if (
                     isinstance(girth_b, int)
@@ -618,8 +634,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     loaded_model: GirthPredictor | None = None
+    loaded_feat_cl: list[int] | None = None
+    loaded_feat_rwpe: int = 0
     if args.model_id is not None:
-        loaded_model = load_girth_predictor(str(args.model_id))
+        loaded_model, loaded_feat_cl, loaded_feat_rwpe = load_girth_predictor(
+            str(args.model_id)
+        )
         print(f"Loaded girth predictor: {args.model_id}")
 
     _ = meta_search(
@@ -631,4 +651,6 @@ if __name__ == "__main__":
         verbose=True,
         num_workers=args.workers,
         beam_width=args.beam_width,
+        feat_cycle_lengths=loaded_feat_cl,
+        feat_rwpe_dim=loaded_feat_rwpe,
     )
