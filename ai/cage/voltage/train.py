@@ -67,7 +67,7 @@ def _derive_model_id(targets: list[tuple[int, int]]) -> str:
     grid of targets, so the id is fixed rather than encoding any one target.
     """
     _ = targets
-    return "girth_predictor_unified"
+    return "girth_predictor"
 
 
 def _evaluate(

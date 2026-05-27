@@ -524,8 +524,8 @@ def get_voltage_girth_models() -> Response | tuple[Response, int]:
     try:
         models = _list_voltage_girth_models()
         default = (
-            "girth_predictor_unified"
-            if any(m["model_id"] == "girth_predictor_unified" for m in models)
+            "girth_predictor"
+            if any(m["model_id"] == "girth_predictor" for m in models)
             else (models[0]["model_id"] if models else None)
         )
         return jsonify({"models": models, "default": default})

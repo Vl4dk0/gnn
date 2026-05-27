@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=voltage-predictor-unified-v2
+#SBATCH --job-name=voltage-predictor
 #SBATCH --output=training_runs/%x_%j.out
 #SBATCH --error=training_runs/%x_%j.err
 #SBATCH --partition=GPU
@@ -14,7 +14,7 @@ source .activate_scratch
 
 cd ~/gnn
 
-# Variant C retrain (v2): unified girth predictor across the full (k, g) grid.
+# Retrain the girth predictor across the full (k, g) grid.
 # Bigger sample budget (1M) plus weight decay to address the bimodal F1
 # pattern in v1 (great on easy targets, near-zero on heavily class-imbalanced
 # cells like (5,7)/(4,7)/(4,8)).
