@@ -2,6 +2,7 @@
 
 import os
 import random
+from collections import deque
 from typing import cast
 
 import networkx as nx
@@ -142,7 +143,13 @@ def compute_girth(G: nx.Graph[int]) -> int | float:
 
     Returns:
         Girth as an integer, or float('inf') if the graph is acyclic
+
+    Raises:
+        TypeError: If G is a MultiGraph (parallel edges not supported)
     """
+    if isinstance(G, nx.MultiGraph):
+        raise TypeError("compute_girth does not support MultiGraph inputs")
+
     if len(G.nodes()) == 0:
         return float("inf")
 
@@ -171,15 +178,15 @@ def _compute_girth_bfs(G: nx.Graph[int]) -> int | float:
     for start_node in G.nodes():
         # BFS to find shortest cycle containing start_node
         visited: dict[int, int] = {start_node: 0}
-        queue: list[tuple[int, int, int]] = [
-            (start_node, -1, 0)
-        ]  # (node, parent, distance)
+        queue: deque[tuple[int, int, int]] = deque(
+            [(start_node, -1, 0)]
+        )  # (node, parent, distance)
 
         while queue:
             node: int
             parent: int
             dist: int
-            node, parent, dist = queue.pop(0)
+            node, parent, dist = queue.popleft()
 
             neighbor: int
             for neighbor in G.neighbors(node):
