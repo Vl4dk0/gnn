@@ -9,6 +9,7 @@ from flask_cors import CORS
 from backend.routes.degree import degree_bp
 from backend.routes.cage import cage_bp
 from backend.routes.min_cycle import min_cycle_bp
+from backend.routes.api import api_bp
 from ai.registry import list_trained_models
 
 _ = load_dotenv()
@@ -29,6 +30,7 @@ def create_app() -> Flask:
     app.register_blueprint(degree_bp)
     app.register_blueprint(cage_bp)
     app.register_blueprint(min_cycle_bp)
+    app.register_blueprint(api_bp)
 
     def resolve_api_base_url() -> str:
         configured = os.getenv("API_BASE_URL", "").strip().rstrip("/")

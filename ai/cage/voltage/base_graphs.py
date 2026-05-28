@@ -11,6 +11,7 @@ opposing arcs).  The voltage for the reverse arc is computed automatically.
 
 from __future__ import annotations
 
+from collections import deque
 from dataclasses import dataclass, field
 
 
@@ -81,7 +82,7 @@ class BaseGraph:
             return []
 
         visited = {0}
-        queue = [0]
+        queue: deque[int] = deque([0])
         tree_indices: list[int] = []
 
         # Build lookup: for each undirected edge index, what nodes does it connect?
@@ -91,7 +92,7 @@ class BaseGraph:
             edge_endpoints.append((arc.src, arc.dst))
 
         while queue and len(visited) < self.num_nodes:
-            node = queue.pop(0)
+            node = queue.popleft()
             for idx, (u, v) in enumerate(edge_endpoints):
                 if idx in tree_indices:
                     continue

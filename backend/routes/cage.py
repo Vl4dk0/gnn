@@ -340,6 +340,10 @@ def run_generation(session_id: str) -> None:
     except Exception as e:
         print(f"Error in generation thread {session_id}: {e}")
     finally:
+        with session_lock:
+            if session_id in generation_sessions:
+                with generation_sessions[session_id]["lock"]:
+                    generation_sessions[session_id]["stopped"] = True
         print(f"Generation thread {session_id} completed.")
 
 
@@ -512,7 +516,7 @@ def get_models() -> Response | tuple[Response, int]:
             for model in list_trained_models("cage")
             if model.get("model_type") == "actor_critic"
         ]
-        default_model = get_best_model_id("cage")
+        default_model = models[0]["model_id"] if models else None
         return jsonify({"models": models, "default": default_model})
     except Exception as e:
         return jsonify({"error": f"Failed to list cage models: {str(e)}"}), 500
