@@ -168,6 +168,8 @@ class RandomWalkGenerator:
 
     def _add_edge_between_low_degree(self, low_degree_nodes: list[int]) -> None:
         """Try to add an edge between two low-degree nodes."""
+        if len(low_degree_nodes) < 2:
+            return
         # Try multiple pairs to find valid edge
         attempts = min(50, len(low_degree_nodes) * len(low_degree_nodes))
 

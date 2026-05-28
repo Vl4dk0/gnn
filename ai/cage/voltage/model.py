@@ -105,8 +105,10 @@ class GirthPredictor(nn.Module):
         # Embed edge voltages
         # edge_attr is [num_edges, 1] with integer voltage indices
         voltage_idx = edge_attr.squeeze(-1).long()
-        # Clamp to valid range
-        voltage_idx = voltage_idx.clamp(0, self.max_group_order - 1)
+        if voltage_idx.max().item() >= self.max_group_order:
+            raise ValueError(
+                f"Voltage index {voltage_idx.max().item()} exceeds max_group_order={self.max_group_order}"
+            )
         edge_h = self.edge_proj(self.edge_embed(voltage_idx))
 
         # Message passing

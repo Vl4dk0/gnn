@@ -66,7 +66,7 @@ def random_search(
         if gens is None or len(gens) != k:
             continue
         girth = cayley_girth(group, gens, max_girth=2 * g_target)
-        if isinstance(girth, float) or girth <= best_girth:
+        if girth <= best_girth:
             continue
 
         cay = build_cayley(group, gens)

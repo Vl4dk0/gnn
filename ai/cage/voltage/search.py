@@ -410,8 +410,8 @@ def _candidate_bases(k: int) -> list[tuple[str, BaseGraph]]:
         bases.append(("cubic_4nodes", cubic_multigraph_4nodes()))
         bases.append(("prism", prism_base()))
         bases.append(("petersen_base", moebius_kantor_base()))
-
-    bases.append((f"dumbbell({k})", dumbbell(k)))
+    else:
+        bases.append((f"dumbbell({k})", dumbbell(k)))
 
     if k % 2 == 0:
         bases.append((f"bouquet({k // 2})", bouquet(k // 2)))
@@ -460,7 +460,9 @@ def _search_one_config(
         props = verify_lift(lifted, k, g_target)
         if props["is_valid_kg"]:
             candidate = _make_result(volts_t, props["girth"], "tabu")
-            if best is None or lift_size < int(str(best.get("order", 999999))):
+            if best is None or int(cast(int, candidate["girth"])) > int(
+                cast(int, best["girth"])
+            ):
                 best = candidate
 
     return best

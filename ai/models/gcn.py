@@ -46,17 +46,21 @@ class GCN_GNN(BaseGNN):
         self.convs = nn.ModuleList()
         self.bns = nn.ModuleList()
 
-        # First layer
-        _ = self.convs.append(GCNConv(input_dim, hidden_dim))
-        _ = self.bns.append(nn.BatchNorm1d(hidden_dim))
-
-        # Hidden layers
-        for _ in range(num_layers - 2):
-            _ = self.convs.append(GCNConv(hidden_dim, hidden_dim))
+        if num_layers == 1:
+            # Single layer: input directly to output
+            _ = self.convs.append(GCNConv(input_dim, output_dim))
+        else:
+            # First layer
+            _ = self.convs.append(GCNConv(input_dim, hidden_dim))
             _ = self.bns.append(nn.BatchNorm1d(hidden_dim))
 
-        # Output layer (no batch norm after this)
-        _ = self.convs.append(GCNConv(hidden_dim, output_dim))
+            # Hidden layers
+            for _ in range(num_layers - 2):
+                _ = self.convs.append(GCNConv(hidden_dim, hidden_dim))
+                _ = self.bns.append(nn.BatchNorm1d(hidden_dim))
+
+            # Output layer (no batch norm after this)
+            _ = self.convs.append(GCNConv(hidden_dim, output_dim))
 
     @override
     def forward(self, data: Data) -> torch.Tensor:

@@ -113,7 +113,7 @@ def available_groups(
                     _add(direct_product(cyclic_group(a), cyclic_group(b)))
 
     if include_dihedral:
-        dih_cap = min(max_order, abelian_cap)
+        dih_cap = max_order
         for n in range(3, dih_cap // 2 + 1):
             if 2 * n <= dih_cap:
                 _add(dihedral_group(n))

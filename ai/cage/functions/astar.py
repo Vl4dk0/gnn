@@ -87,6 +87,7 @@ class AStarGenerator:
 
         # Add initial state to queue
         initial_score = self._score_graph(initial_graph)
+        self.visited_hashes.add(graph_hash(initial_graph))
         heapq.heappush(self.pq, (-initial_score, self.counter, initial_graph))
         self.counter += 1
 
@@ -254,10 +255,10 @@ class AStarGenerator:
         current_girth = compute_girth(graph)
         if current_girth == self.g:
             girth_score = 1.0
-        elif current_girth > self.g:
-            girth_score = 0.8  # Good but not perfect
         elif current_girth == float("inf"):
             girth_score = 0.5  # No cycles yet
+        elif current_girth > self.g:
+            girth_score = 0.8  # Good but not perfect
         else:
             girth_score = 0.0  # Girth too small - bad
 

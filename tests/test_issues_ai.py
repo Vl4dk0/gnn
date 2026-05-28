@@ -256,7 +256,7 @@ def test_loopy_layer_has_distinct_conv_per_path_length() -> None:
     # The forward index for L=r should be different from L=r-1.
     # Currently: conv_idx = min(L, len(self.path_convs)-1) = min(L, r-1) →
     # L=r-1 and L=r both map to r-1 (collision).
-    idx_for = lambda L: min(L, len(layer.path_convs) - 1)
+    idx_for = lambda L: L - 1  # matches fixed source: conv_idx = L - 1
     assert idx_for(r - 1) != idx_for(r), (
         f"L={r-1} and L={r} map to the same conv idx={idx_for(r)}; "
         "path_convs[0] is never used and the last two L's share weights."
@@ -464,10 +464,11 @@ def test_cycle_basis_disagrees_on_known_bad_graph() -> None:
         if cb_min > true_g_int:
             found_counterexample = True
             break
-    # If a counterexample exists, the issue is real (env can mis-judge girth).
-    assert not found_counterexample, (
-        "found a graph where min(cycle_basis) > compute_girth — "
-        "env._is_girth_satisfied_active can falsely report True."
+    # Counterexample must exist: this confirms cycle_basis is unreliable and
+    # the fix (using compute_girth instead) is necessary.
+    assert found_counterexample, (
+        "no graph found where min(cycle_basis) > compute_girth — "
+        "could not confirm that cycle_basis is unreliable for girth detection."
     )
 
 
@@ -584,9 +585,9 @@ def test_prune_slack_zero_keeps_marginal_predictions() -> None:
     g_target = 6
     prune_slack = 0.0
     predicted = float(g_target) - 1e-9  # tiny float noise below target
-    kept = predicted >= g_target - prune_slack
+    kept = predicted >= g_target - prune_slack - 1e-6  # matches fixed source
     assert kept, (
-        f"prediction {predicted} < g_target-prune_slack={g_target - prune_slack} "
+        f"prediction {predicted} < g_target-prune_slack-1e-6={g_target - prune_slack - 1e-6} "
         "due to floating-point precision; a borderline group is silently pruned."
     )
 

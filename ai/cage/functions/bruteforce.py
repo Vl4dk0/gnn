@@ -83,6 +83,9 @@ class BruteforceGenerator:
                 _ = self.search_stack.pop()
                 if self.search_stack:
                     self.graph = self.search_stack[-1][0].copy()
+                else:
+                    self.is_complete = True
+                    self.success = False
             else:
                 self.is_complete = True
                 self.success = False

@@ -57,7 +57,10 @@ class MCTSNode:
 
         # Generate untried actions
         self.untried_actions = self._get_legal_actions()
-        self.is_terminal = is_k_regular(self.graph, self.k)
+        self.is_terminal = (
+            is_k_regular(self.graph, self.k)
+            and compute_girth(self.graph) == self.g
+        )
 
     def _get_legal_actions(self) -> list[Action]:
         """Generate legal actions from current state."""
@@ -97,8 +100,10 @@ class MCTSNode:
             return None
 
         choices_weights = [
-            (child.value / child.visits)
-            + c_param * math.sqrt((2 * math.log(self.visits) / child.visits))
+            (child.value / max(1, child.visits))
+            + c_param * math.sqrt(
+                2 * math.log(max(1, self.visits)) / max(1, child.visits)
+            )
             for child in self.children
         ]
         return self.children[choices_weights.index(max(choices_weights))]

@@ -89,7 +89,7 @@ def group_guided_meta_search(
     start = time.time()
     kept: list[FiniteGroup] = []
     for group in groups:
-        if predict_fn(group, k, g_target) >= g_target - prune_slack:
+        if predict_fn(group, k, g_target) >= g_target - prune_slack - 1e-6:
             kept.append(group)
 
     if verbose:
@@ -253,7 +253,7 @@ def run_comparison(
             _g: int,
             cache: dict[str, float] = predictions,
         ) -> float:
-            return cache[group.name]
+            return cache.get(group.name, 0.0)
 
         slack_results: list[dict[str, object]] = []
         for slack in slack_values:
@@ -290,7 +290,7 @@ def run_comparison(
                 print(
                     f"  slack={slack}: order={found_order} "
                     + f"kept={guided.get('groups_kept')}/{guided.get('num_groups')} "
-                    + f"time={guided.get('elapsed'):.1f}s "
+                    + f"time={guided.get('elapsed', 0.0):.1f}s "
                     + f"same={same}"
                 )
 

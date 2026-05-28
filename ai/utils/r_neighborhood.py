@@ -48,19 +48,30 @@ def compute_r_neighborhood(G: nx.Graph[int], r: int = 3) -> dict[str, torch.Tens
         L_paths: list[list[int]] = []
         L_atomic: list[list[int]] = []
 
-        for cycle in cycles:
-            if len(cycle) == path_length:
-                # Generate all cyclic rotations (one for each starting node)
-                for start_idx in range(len(cycle)):
-                    # Rotate so cycle starts at different node each time
-                    rotated = cycle[start_idx:] + cycle[:start_idx]
-                    center = rotated[0]
+        if L == 0:
+            for u, v in G.edges():
+                if u != v:
+                    L_paths.append([u, v])
+                    L_atomic.append([0, 1])
+                    L_paths.append([v, u])
+                    L_atomic.append([0, 1])
+                else:
+                    L_paths.append([u, u])
+                    L_atomic.append([0, 0])
+        else:
+            for cycle in cycles:
+                if len(cycle) == path_length:
+                    # Generate all cyclic rotations (one for each starting node)
+                    for start_idx in range(len(cycle)):
+                        # Rotate so cycle starts at different node each time
+                        rotated = cycle[start_idx:] + cycle[:start_idx]
+                        center = rotated[0]
 
-                    # Compute distances from center for each node in path
-                    atomic = [distances[center][node] for node in rotated]
+                        # Compute distances from center for each node in path
+                        atomic = [distances[center][node] for node in rotated]
 
-                    L_paths.append(rotated)
-                    L_atomic.append(atomic)
+                        L_paths.append(rotated)
+                        L_atomic.append(atomic)
 
         if L_paths:
             # Convert to tensors, transpose to (path_length, num_paths)
