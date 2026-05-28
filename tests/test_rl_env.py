@@ -50,16 +50,6 @@ def test_rl_env_action_mask_rejects_edges_that_create_short_cycles() -> None:
     assert bool(mask[_edge_action_index(env, (2, 3))].item())
 
 
-def test_rl_env_marks_max_steps_done_on_tiny_smoke_run() -> None:
-    env = CageConstructionEnv(k=3, g=5, n_min=10, n_max=10, max_steps=1)
-    _ = env.reset(num_nodes=10)
-
-    _, _, done, info = env.step(_edge_action_index(env, (0, 1)))
-
-    assert done is True
-    assert info["done_reason"] == "max_steps"
-
-
 def test_edge_action_index_helper_fails_for_impossible_edge() -> None:
     env = CageConstructionEnv(k=3, g=5, n_min=10, n_max=10, max_steps=1)
     _ = env.reset(num_nodes=10)

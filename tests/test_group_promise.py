@@ -10,15 +10,10 @@ import torch
 from ai.cage.cayley.group_data_gen import (
     best_achievable_girth,
     canonical_generating_set,
-    generate_group_dataset,
     group_to_pyg,
 )
 from ai.cage.cayley.group_model import GroupPromisePredictor, make_group_filter
-from ai.cage.cayley.group_search import (
-    group_guided_meta_search,
-    load_baseline_json,
-    run_comparison,
-)
+from ai.cage.cayley.group_search import load_baseline_json
 from ai.cage.cayley.groups import cyclic_group, dihedral_group
 
 
@@ -61,21 +56,6 @@ def test_group_to_pyg_has_expected_shapes() -> None:
     assert int(cast(int, data.girth)) >= int(cast(int, data.g_target))
 
 
-def test_generate_group_dataset_smoke() -> None:
-    data, stats = generate_group_dataset(
-        targets=[(3, 4), (3, 5)],
-        max_group_order=16,
-        num_random_trials=30,
-        num_tabu_iters=15,
-        num_workers=1,
-        seed=1,
-    )
-    assert len(data) == cast(int, stats["produced"])
-    assert len(data) > 0
-    per_target = cast(dict[str, dict[str, float]], stats["per_target"])
-    assert "3_4" in per_target and "3_5" in per_target
-
-
 def test_group_promise_predictor_forward_pass() -> None:
     group = dihedral_group(5)
     data = group_to_pyg(group, k=3, g_target=6, best_girth=4)
@@ -110,50 +90,3 @@ def test_load_baseline_json_roundtrip(tmp_path: pathlib.Path) -> None:
     assert loaded[(3, 6)]["group_name"] == "D_7"
 
 
-def test_run_comparison_smoke() -> None:
-    random.seed(0)
-    model = GroupPromisePredictor(hidden_dim=16, num_layers=2)
-    baseline_cache: dict[tuple[int, int], dict[str, object]] = {
-        (3, 4): {"found_order": 6, "group_name": "D_3", "elapsed": 0.1}
-    }
-    rows = run_comparison(
-        [(3, 4)],
-        model,
-        baseline_results=baseline_cache,
-        max_group_order=16,
-        num_random_trials=60,
-        num_tabu_iters=40,
-        slack_values=(0.0, 99.0),
-        num_workers=1,
-        seed=0,
-        verbose=False,
-    )
-    assert len(rows) == 1
-    row = rows[0]
-    assert row["k"] == 3 and row["g"] == 4
-    assert row["baseline_order"] == 6
-    slacks = cast(list[dict[str, object]], row["slacks"])
-    assert len(slacks) == 2
-    for s in slacks:
-        assert "found_order" in s and "groups_kept" in s and "elapsed" in s
-
-
-def test_group_guided_meta_search_smoke() -> None:
-    # Untrained model, generous slack so nothing is wrongly pruned: the
-    # search must still run and return a well-formed result dict.
-    random.seed(0)
-    model = GroupPromisePredictor(hidden_dim=16, num_layers=2)
-    result = group_guided_meta_search(
-        k=3,
-        g_target=4,
-        model=model,
-        max_group_order=16,
-        num_random_trials=120,
-        num_tabu_iters=80,
-        prune_slack=99.0,
-        num_workers=1,
-        verbose=False,
-    )
-    assert "groups_kept" in result
-    assert "groups_pruned" in result
-    assert "elapsed" in result

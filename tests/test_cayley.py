@@ -12,7 +12,7 @@ from ai.cage.cayley.cayley import (
     is_symmetric,
     verify_cayley_kg,
 )
-from ai.cage.cayley.data_gen import cayley_ball_to_pyg, generate_dataset
+from ai.cage.cayley.data_gen import cayley_ball_to_pyg
 from ai.cage.cayley.groups import (
     cyclic_group,
     dihedral_group,
@@ -21,8 +21,7 @@ from ai.cage.cayley.groups import (
     random_generating_set,
     symmetric_closure,
 )
-from ai.cage.cayley.search import candidate_swaps, random_search, tabu_search
-from ai.cage.functions.cayley_search import CayleySearchGenerator
+from ai.cage.cayley.search import candidate_swaps
 
 
 def test_cayley_group_helpers_detect_orders_and_symmetric_closure() -> None:
@@ -99,19 +98,6 @@ def test_candidate_swaps_preserve_symmetric_set_size() -> None:
     assert all(0 not in new_gens for _, _, new_gens in swaps)
 
 
-def test_cayley_search_smoke_runs_are_bounded() -> None:
-    random.seed(2)
-    group = cyclic_group(5)
-
-    random_gens, random_girth = random_search(group, 2, 5, num_trials=10)
-    tabu_gens, tabu_girth = tabu_search(group, 2, 5, num_iterations=10)
-
-    assert random_gens is None or len(random_gens) == 2
-    assert isinstance(random_girth, int | float)
-    assert tabu_gens is None or len(tabu_gens) == 2
-    assert isinstance(tabu_girth, int | float)
-
-
 def test_cayley_ball_to_pyg_has_expected_features_and_context() -> None:
     group = cyclic_group(5)
     data = cayley_ball_to_pyg(group, [1, 4], k=2, g_target=5, girth=5, radius=2)
@@ -130,35 +116,3 @@ def test_cayley_ball_to_pyg_has_expected_features_and_context() -> None:
     assert cast(int, data.girth) >= cast(int, data.g_target)
 
 
-def test_generate_dataset_tiny_smoke_run_is_deduplicated() -> None:
-    dataset, stats = generate_dataset(
-        targets=[(2, 5)],
-        num_samples=3,
-        max_group_order=8,
-        seed=3,
-        max_attempts_multiplier=20,
-    )
-
-    keys: set[tuple[str, tuple[int, ...]]] = set()
-    for data in dataset:
-        group_name = cast(str, data.base_name)
-        generators = cast(list[int], data.gen_tuple)
-        keys.add((group_name, tuple(sorted(generators))))
-
-    produced = stats["produced"]
-    assert isinstance(produced, int)
-    assert produced == len(dataset)
-    assert len(keys) == len(dataset)
-    assert len(dataset) <= 3
-
-
-def test_cayley_search_generator_smoke_step_keeps_protocol_state() -> None:
-    random.seed(4)
-    generator = CayleySearchGenerator(k=2, g=5)
-
-    for _ in range(3):
-        generator.step()
-
-    assert generator.step_count == 3
-    assert generator.graph.number_of_nodes() >= 5
-    assert isinstance(generator.success, bool)

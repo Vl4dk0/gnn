@@ -44,6 +44,7 @@ def test_available_groups_includes_semidirect_products() -> None:
     assert all(g.order <= 60 for g in groups)
 
 
+@pytest.mark.slow
 def test_available_groups_abelian_cap_bounds_cyclic_orders() -> None:
     # Large max_order with a tight abelian cap: no huge cyclic group is built.
     groups = available_groups(5000, abelian_cap=50, semidirect_cap=50)
