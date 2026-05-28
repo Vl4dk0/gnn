@@ -19,3 +19,8 @@ dependencies = [
     "torch>=2.9.1",
     "torch-geometric>=2.7.0",
 ]
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests that take a long time to run; skipped unless '--all' is passed",
+]

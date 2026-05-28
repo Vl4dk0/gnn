@@ -24,6 +24,7 @@ import torch.nn as nn
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.slow
 def test_abelian_cap_limits_dihedral_real_issue() -> None:
     """WANTED: With large max_order and small abelian_cap, dihedral groups
     should still be generated up to max_order (not capped by abelian_cap)."""
