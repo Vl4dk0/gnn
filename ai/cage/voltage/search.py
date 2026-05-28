@@ -320,10 +320,8 @@ def beam_search(
                             rwpe_dim=feat_rwpe_dim,
                         )
                     data = data.to(device)
-                    girth_pred, class_logit = model(data)
-                    score = float(girth_pred.item()) + float(
-                        torch.sigmoid(class_logit).item()
-                    )
+                    girth_pred = model(data)
+                    score = float(girth_pred.item())
 
                     new_candidates.append((extended, score))
 

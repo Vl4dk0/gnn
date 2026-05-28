@@ -1,0 +1,108 @@
+{
+  "model_type": "cayley_girth_predictor",
+  "model_id": "cayley_girth_predictor_multi",
+  "task": "cayley_girth",
+  "training": {
+    "targets": [
+      [
+        3,
+        6
+      ],
+      [
+        3,
+        7
+      ],
+      [
+        3,
+        8
+      ],
+      [
+        3,
+        9
+      ],
+      [
+        3,
+        10
+      ],
+      [
+        4,
+        6
+      ],
+      [
+        4,
+        7
+      ],
+      [
+        4,
+        8
+      ]
+    ],
+    "samples": 200000,
+    "epochs": 100,
+    "batch_size": 256,
+    "hidden_dim": 192,
+    "num_layers": 4,
+    "max_group_order": 200,
+    "learning_rate": 0.001,
+    "seed": 42,
+    "weight_decay": 0.0001,
+    "best_epoch": 90
+  },
+  "data": {
+    "requested": 200000,
+    "produced": 200000,
+    "duplicates_skipped": 39687,
+    "generation_attempts": 281594,
+    "per_target": {
+      "3_6": {
+        "produced": 19313,
+        "pos_rate": 0.2943095324392896,
+        "duplicates_skipped": 7649
+      },
+      "3_7": {
+        "produced": 19500,
+        "pos_rate": 0.029897435897435896,
+        "duplicates_skipped": 7361
+      },
+      "3_8": {
+        "produced": 19796,
+        "pos_rate": 0.0266720549605981,
+        "duplicates_skipped": 7123
+      },
+      "3_9": {
+        "produced": 19683,
+        "pos_rate": 0.00035563684397703604,
+        "duplicates_skipped": 6820
+      },
+      "3_10": {
+        "produced": 20164,
+        "pos_rate": 0.0003471533425907558,
+        "duplicates_skipped": 6947
+      },
+      "4_6": {
+        "produced": 33424,
+        "pos_rate": 0.09466251795117281,
+        "duplicates_skipped": 1712
+      },
+      "4_7": {
+        "produced": 33925,
+        "pos_rate": 0.0047457627118644066,
+        "duplicates_skipped": 1120
+      },
+      "4_8": {
+        "produced": 34195,
+        "pos_rate": 0.002690451820441585,
+        "duplicates_skipped": 955
+      }
+    }
+  },
+  "metrics": {
+    "test_loss": 0.0,
+    "test_mae": 0.0049,
+    "test_accuracy": 0.9809,
+    "test_precision": 1.0,
+    "test_recall": 0.6287,
+    "test_f1": 0.772,
+    "best_val_loss": 0.0
+  }
+}

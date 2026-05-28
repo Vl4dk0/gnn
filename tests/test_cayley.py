@@ -127,7 +127,7 @@ def test_cayley_ball_to_pyg_has_expected_features_and_context() -> None:
     assert cast(int, data.group_order) == 5
     assert cast(int, data.num_involutions) == 0
     assert cast(int, data.girth) == 5
-    assert cast(int, data.girth_class) == 1
+    assert cast(int, data.girth) >= cast(int, data.g_target)
 
 
 def test_generate_dataset_tiny_smoke_run_is_deduplicated() -> None:

@@ -46,9 +46,8 @@
     "gen_tabu_iters": 600,
     "learning_rate": 0.001,
     "seed": 42,
-    "regression_weight": 0.5,
     "weight_decay": 0.0001,
-    "best_epoch": 180
+    "best_epoch": 175
   },
   "data": {
     "produced": 10312,
@@ -84,17 +83,17 @@
       },
       "5_6": {
         "produced": 1289,
-        "pos_rate": 0.3894491854150504
+        "pos_rate": 0.3886733902249806
       }
     }
   },
   "metrics": {
-    "test_loss": 0.0207,
-    "test_mae": 0.4056,
-    "test_accuracy": 0.9855,
-    "test_precision": 0.9753,
-    "test_recall": 0.9783,
-    "test_f1": 0.9768,
-    "best_val_loss": 0.0246
+    "test_loss": 0.001,
+    "test_mae": 0.2301,
+    "test_accuracy": 0.8789,
+    "test_precision": 0.9896,
+    "test_recall": 0.607,
+    "test_f1": 0.7525,
+    "best_val_loss": 0.001
   }
 }

@@ -74,7 +74,6 @@ def _evaluate(
     model: GirthPredictor,
     loader: DataLoader,
     device: torch.device,
-    regression_weight: float,
 ) -> dict[str, float]:
     """Evaluate model and return overall metrics."""
     _ = model.eval()
@@ -89,14 +88,12 @@ def _evaluate(
     with torch.no_grad():
         for batch in loader:
             batch = batch.to(device)
-            girth_pred, class_logit = model(batch)
+            girth_pred = model(batch)
 
             girth_true = cast(torch.Tensor, batch.girth).float().unsqueeze(-1)
-            class_true = cast(torch.Tensor, batch.girth_class).float().unsqueeze(-1)
+            g_target = cast(torch.Tensor, batch.g_target).float().unsqueeze(-1)
 
-            reg_loss = F.mse_loss(girth_pred / GIRTH_NORM, girth_true / GIRTH_NORM)
-            cls_loss = F.binary_cross_entropy_with_logits(class_logit, class_true)
-            loss = regression_weight * reg_loss + (1.0 - regression_weight) * cls_loss
+            loss = F.mse_loss(girth_pred / GIRTH_NORM, girth_true / GIRTH_NORM)
 
             n = int(girth_true.size(0))
             total_loss += float(loss.item()) * n
@@ -104,7 +101,8 @@ def _evaluate(
                 F.l1_loss(girth_pred, girth_true, reduction="sum").item()
             )
 
-            pred_class = (class_logit > 0).float()
+            pred_class = (girth_pred >= g_target).float()
+            class_true = (girth_true >= g_target).float()
             tp += int(
                 cast(torch.Tensor, ((pred_class == 1) & (class_true == 1)).sum()).item()
             )
@@ -153,8 +151,7 @@ def _evaluate_per_target(
     out: dict[str, dict[str, float]] = {}
     for (k, g), items in groups.items():  # pyright: ignore[reportUnknownVariableType]
         loader = DataLoader(items, batch_size=batch_size)  # pyright: ignore[reportUnknownArgumentType]
-        # use regression_weight=0.5 for the per-target loss (only mae/f1 matter here)
-        m = _evaluate(model, loader, device, 0.5)
+        m = _evaluate(model, loader, device)
         out[f"{k}_{g}"] = {
             "n": float(len(items)),  # pyright: ignore[reportUnknownArgumentType]
             "mae": round(m["mae"], 4),
@@ -177,7 +174,6 @@ def train(
     lr: float = 1e-3,
     print_every: int = 10,
     seed: int = 42,
-    regression_weight: float = 0.5,
     weight_decay: float = 0.0,
     model_id_override: str | None = None,
     cycle_lengths: list[int] | None = None,
@@ -204,7 +200,6 @@ def train(
     print(f"  Layers:           {num_layers}")
     print(f"  Learning rate:    {lr}")
     print(f"  Seed:             {seed}")
-    print(f"  Regression weight: {regression_weight}")
     print(f"  Cycle lengths:    {cycle_lengths or []}")
     print(f"  RWPE dim:         {rwpe_dim}")
     print("=" * 60)
@@ -253,7 +248,11 @@ def train(
 
     def _stats(data_list: list) -> tuple[int, int, float]:  # pyright: ignore[reportMissingTypeArgument, reportUnknownParameterType]
         total = len(data_list)  # pyright: ignore[reportUnknownArgumentType]
-        pos = sum(1 for d in data_list if int(cast(int, d.girth_class)) == 1)  # pyright: ignore[reportUnknownVariableType]
+        pos = sum(
+            1
+            for d in data_list  # pyright: ignore[reportUnknownVariableType]
+            if int(cast(int, d.girth)) >= int(cast(int, d.g_target))
+        )
         return total, pos, pos / max(total, 1)
 
     train_n, train_pos, train_rate = _stats(train_data)
@@ -265,14 +264,13 @@ def train(
         f"Test: {test_n} ({test_pos} pos, {test_rate * 100:.1f}%)"
     )
 
-    # Stratified sampler weighted by (k, g_target, girth_class) so neither
-    # high-positivity targets nor majority class dominate.
-    joint_counts: dict[tuple[int, int, int], int] = {}
+    # Stratified sampler weighted by (k, g_target) so high-sample-count
+    # targets do not dominate.
+    joint_counts: dict[tuple[int, int], int] = {}
     for d in train_data:
         key = (
             int(cast(int, d.k)),
             int(cast(int, d.g_target)),
-            int(cast(int, d.girth_class)),
         )
         joint_counts[key] = joint_counts.get(key, 0) + 1
 
@@ -282,7 +280,6 @@ def train(
             key = (
                 int(cast(int, d.k)),
                 int(cast(int, d.g_target)),
-                int(cast(int, d.girth_class)),
             )
             sample_weights.append(1.0 / joint_counts[key])
         train_sampler = WeightedRandomSampler(
@@ -293,9 +290,7 @@ def train(
         train_loader = DataLoader(
             train_data, batch_size=batch_size, sampler=train_sampler
         )
-        print(
-            f"  Using WeightedRandomSampler over {len(joint_counts)} (k,g,class) buckets"
-        )
+        print(f"  Using WeightedRandomSampler over {len(joint_counts)} (k,g) buckets")
     else:
         train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
         print("  Using shuffled DataLoader for training (single bucket)")
@@ -328,14 +323,11 @@ def train(
             batch = batch.to(device)
             optimizer.zero_grad()
 
-            girth_pred, class_logit = model(batch)
+            girth_pred = model(batch)
 
             girth_true = cast(torch.Tensor, batch.girth).float().unsqueeze(-1)
-            class_true = cast(torch.Tensor, batch.girth_class).float().unsqueeze(-1)
 
-            reg_loss = F.mse_loss(girth_pred / GIRTH_NORM, girth_true / GIRTH_NORM)
-            cls_loss = F.binary_cross_entropy_with_logits(class_logit, class_true)
-            loss = regression_weight * reg_loss + (1.0 - regression_weight) * cls_loss
+            loss = F.mse_loss(girth_pred / GIRTH_NORM, girth_true / GIRTH_NORM)
 
             _ = loss.backward()  # pyright: ignore[reportUnknownMemberType]
             _ = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
@@ -348,7 +340,7 @@ def train(
         avg_train_loss = train_loss / max(train_count, 1)
 
         if epoch % print_every == 0 or epoch == 1 or epoch == epochs:
-            val = _evaluate(model, val_loader, device, regression_weight)
+            val = _evaluate(model, val_loader, device)
             print(
                 f"Epoch {epoch:4d} | Train: {avg_train_loss:.4f} | "
                 f"Val: {val['loss']:.4f} | MAE: {val['mae']:.2f} | "
@@ -371,7 +363,7 @@ def train(
 
     # Final evaluation on held-out test set (overall + per-target)
     print("\nEvaluating on held-out test set...")
-    test_metrics = _evaluate(model, test_loader, device, regression_weight)
+    test_metrics = _evaluate(model, test_loader, device)
     print(
         f"  Test loss: {test_metrics['loss']:.4f} | "
         f"MAE: {test_metrics['mae']:.2f} | "
@@ -414,7 +406,6 @@ def train(
         "max_group_order": max_group_order,
         "learning_rate": lr,
         "seed": seed,
-        "regression_weight": regression_weight,
         "weight_decay": weight_decay,
         "best_epoch": best_epoch,
         "feature_config": {
@@ -509,12 +500,6 @@ def parse_args() -> argparse.Namespace:
     )
     _ = parser.add_argument("--seed", type=int, default=42, help="Random seed")
     _ = parser.add_argument(
-        "--regression-weight",
-        type=float,
-        default=0.5,
-        help="Weight on regression loss (0=BCE only, 1=MSE only)",
-    )
-    _ = parser.add_argument(
         "--weight-decay",
         type=float,
         default=0.0,
@@ -561,7 +546,6 @@ if __name__ == "__main__":
         lr=cast(float, args.lr),
         print_every=cast(int, args.print_every),
         seed=cast(int, args.seed),
-        regression_weight=cast(float, args.regression_weight),
         weight_decay=cast(float, args.weight_decay),
         model_id_override=cast(str | None, args.model_id),
         cycle_lengths=parsed_cycle_lengths,

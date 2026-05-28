@@ -199,7 +199,6 @@ def group_to_pyg(
     data.num_involutions = n_invols
     data.num_conj = num_conj
     data.girth = int(best_girth)
-    data.girth_class = 1 if best_girth >= g_target else 0
     data.group_name = group.name
     return data
 
@@ -289,9 +288,11 @@ def generate_group_dataset(
     per_target_count: dict[str, int] = {}
     per_target_pos: dict[str, int] = {}
     for d in dataset:
-        key = f"{int(d.k)}_{int(d.g_target)}"  # pyright: ignore[reportAny]
+        k_d = int(d.k)  # pyright: ignore[reportAny]
+        g_d = int(d.g_target)  # pyright: ignore[reportAny]
+        key = f"{k_d}_{g_d}"
         per_target_count[key] = per_target_count.get(key, 0) + 1
-        if int(d.girth_class) == 1:  # pyright: ignore[reportAny]
+        if int(d.girth) >= g_d:  # pyright: ignore[reportAny]
             per_target_pos[key] = per_target_pos.get(key, 0) + 1
 
     per_target_summary: dict[str, dict[str, float]] = {}

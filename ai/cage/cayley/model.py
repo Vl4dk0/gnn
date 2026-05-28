@@ -2,8 +2,8 @@
 
 Architecture mirrors ai.cage.voltage.model.GirthPredictor: GINEConv stacks
 over the truncated Cayley ball, pooled, concatenated with a global context
-vector (k, g_target, |G|, log|G|, #involutions_in_S), then split into a
-regression head (predicted girth) and a binary head (P(girth >= g_target)).
+vector (k, g_target, |G|, log|G|, #involutions_in_S), then through a
+single regression head (predicted girth).
 
 This model is the Cayley analogue of the voltage girth predictor: it
 provides a cheap heuristic that ranks candidate generating-set swaps
@@ -36,7 +36,6 @@ class CayleyGirthPredictor(nn.Module):
     bns: nn.ModuleList
     context_proj: nn.Linear
     regress_head: nn.Sequential
-    classify_head: nn.Sequential
     hidden_dim: int
     num_layers: int
 
@@ -75,15 +74,9 @@ class CayleyGirthPredictor(nn.Module):
             nn.Dropout(dropout),
             nn.Linear(hidden_dim, 1),
         )
-        self.classify_head = nn.Sequential(
-            nn.Linear(hidden_dim * 2, hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(hidden_dim, 1),
-        )
 
     @override
-    def forward(self, data: Data) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, data: Data) -> torch.Tensor:
         x = cast(torch.Tensor, data.x)
         edge_index = cast(torch.Tensor, data.edge_index)
         edge_attr = cast(torch.Tensor, data.edge_attr)
@@ -142,8 +135,7 @@ class CayleyGirthPredictor(nn.Module):
         combined = torch.cat([graph_emb, ctx_emb], dim=-1)
 
         girth_pred = cast(torch.Tensor, self.regress_head(combined))
-        girth_logit = cast(torch.Tensor, self.classify_head(combined))
-        return girth_pred, girth_logit
+        return girth_pred
 
 
 def load_cayley_girth_predictor(model_id: str) -> CayleyGirthPredictor:
@@ -170,12 +162,11 @@ def load_cayley_girth_predictor(model_id: str) -> CayleyGirthPredictor:
     return model
 
 
-def make_score_fn(model: CayleyGirthPredictor):  # pyright: ignore[reportUnknownParameterType]
+def make_score_fn(model: CayleyGirthPredictor):
     """Wrap a trained model into a ScoreFn for tabu_search.
 
-    Lower score = more promising. We use the negated regression head plus
-    the negated classification probability, so candidates with high
-    predicted girth or high P(girth>=g_target) sort to the top.
+    Lower score = more promising. We negate the regression output so that
+    candidates with higher predicted girth sort to the top.
     """
     device = next(model.parameters()).device
     _ = model.eval()
@@ -189,8 +180,8 @@ def make_score_fn(model: CayleyGirthPredictor):  # pyright: ignore[reportUnknown
         data = cayley_ball_to_pyg(group, generators, k, g_target, girth=0)
         data = data.to(device)
         with torch.no_grad():
-            girth_pred, class_logit = model(data)
-        return -float(girth_pred.item()) - float(torch.sigmoid(class_logit).item())
+            girth_pred = model(data)
+        return -float(girth_pred.item())
 
     return _score
 
