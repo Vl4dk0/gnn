@@ -45,17 +45,21 @@ class SAGE_GNN(BaseGNN):
         self.convs = nn.ModuleList()
         self.bns = nn.ModuleList()
 
-        # First layer
-        _ = self.convs.append(SAGEConv(input_dim, hidden_dim, aggr="add"))
-        _ = self.bns.append(nn.BatchNorm1d(hidden_dim))
-
-        # Hidden layers
-        for _ in range(num_layers - 2):
-            _ = self.convs.append(SAGEConv(hidden_dim, hidden_dim, aggr="add"))
+        if num_layers == 1:
+            # Single layer: input directly to output
+            _ = self.convs.append(SAGEConv(input_dim, output_dim, aggr="add"))
+        else:
+            # First layer
+            _ = self.convs.append(SAGEConv(input_dim, hidden_dim, aggr="add"))
             _ = self.bns.append(nn.BatchNorm1d(hidden_dim))
 
-        # Output layer
-        _ = self.convs.append(SAGEConv(hidden_dim, output_dim, aggr="add"))
+            # Hidden layers
+            for _ in range(num_layers - 2):
+                _ = self.convs.append(SAGEConv(hidden_dim, hidden_dim, aggr="add"))
+                _ = self.bns.append(nn.BatchNorm1d(hidden_dim))
+
+            # Output layer
+            _ = self.convs.append(SAGEConv(hidden_dim, output_dim, aggr="add"))
 
     @override
     def forward(self, data: Data) -> torch.Tensor:

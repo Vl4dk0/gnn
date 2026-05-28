@@ -145,7 +145,7 @@ class LoopyLayer(nn.Module):
         self.r_eps = nn.Parameter(torch.zeros(r + 1))
 
         # Path processors (one per path length, or shared)
-        num_convs = 1 if shared else max(r, 1)
+        num_convs = 1 if shared else r
         self.path_convs = nn.ModuleList(
             [
                 PathConv(in_channels, out_channels, max_distance=r + 1)
@@ -183,7 +183,7 @@ class LoopyLayer(nn.Module):
             if self.shared:
                 conv = self.path_convs[0]
             else:
-                conv_idx = min(L, len(self.path_convs) - 1)
+                conv_idx = L - 1
                 conv = self.path_convs[conv_idx]
 
             if L == 0:
@@ -254,10 +254,10 @@ class PathConv(nn.Module):
         x = cast(Tensor, self.pre_transform(torch.cat([x, dist_emb], dim=-1)))
 
         # Propagate along path using 1D conv with kernel [1, 0, 1]
-        x = self._path_propagate(x)
+        agg = self._path_propagate(x)
 
         # Apply MLP and sum over path
-        x = cast(Tensor, self.mlp((1 + self.eps) * x))
+        x = cast(Tensor, self.mlp((1 + self.eps) * x + agg))
 
         return x.sum(dim=0)  # (num_paths, hidden_dim)
 

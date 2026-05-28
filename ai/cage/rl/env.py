@@ -10,7 +10,7 @@ import torch
 from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
 
 from ai.utils.device import get_preferred_device
-from backend.utils.graph_utils import moore_bound
+from backend.utils.graph_utils import compute_girth, moore_bound
 
 # (k, g) pairs sorted by moore_bound ascending, filtered to mb <= 60, k >= 3
 PROGRESSIVE_PAIRS: list[tuple[int, int]] = [
@@ -153,11 +153,11 @@ class CageConstructionEnv:
     def _is_girth_satisfied_active(self) -> bool:
         sg = self._active_subgraph()
         if sg.number_of_edges() == 0:
-            return True
-        cycles = nx.cycle_basis(sg)
-        if not cycles:
-            return True
-        return min(len(c) for c in cycles) >= self.g
+            return False
+        g = compute_girth(sg)
+        if isinstance(g, float):
+            return False
+        return g >= self.g
 
     def _potential(self) -> float:
         """Potential function measuring cage construction progress."""

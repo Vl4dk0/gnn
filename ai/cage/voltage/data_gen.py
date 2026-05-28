@@ -24,6 +24,7 @@ from ai.cage.voltage.base_graphs import (
     prism_base,
 )
 from ai.cage.voltage.cycle_analysis import compute_lift_girth
+from ai.cage.voltage.lift import build_lift
 from ai.cage.voltage.groups import (
     FiniteGroup,
     cyclic_group,
@@ -31,7 +32,7 @@ from ai.cage.voltage.groups import (
     direct_product,
 )
 from ai.utils.structural_features import add_structural_features
-from backend.utils.graph_utils import moore_bound
+from backend.utils.graph_utils import is_k_regular, moore_bound
 
 # Worker return type: a dedup key plus a "spec" dict of native python /
 # numpy values that reconstructs a Data object. We deliberately avoid
@@ -78,8 +79,8 @@ def base_graph_to_pyg(
     edge_index = torch.tensor([src_list, dst_list], dtype=torch.long)
     edge_attr = torch.tensor(edge_voltage, dtype=torch.long).unsqueeze(-1)
 
-    # Label — infinite girth means degenerate lift
-    girth_int = 0 if isinstance(girth, float) else int(girth)
+    # Label — infinite girth means girth > 2*g_target, treat as lower bound
+    girth_int = 2 * g_target if isinstance(girth, float) else int(girth)
 
     data = Data(
         x=x,
@@ -91,6 +92,15 @@ def base_graph_to_pyg(
     data.g_target = g_target
     data.group_order = group.order
     data.girth = girth_int
+    if isinstance(girth, float):
+        # girth=inf means girth > 2*g_target >= g_target: positive
+        data.girth_class = 1
+    elif girth_int >= g_target:
+        # finite high girth: only positive if lift is actually k-regular
+        lift_graph = build_lift(base, group, voltages)
+        data.girth_class = 1 if is_k_regular(lift_graph, k) else 0
+    else:
+        data.girth_class = 0
 
     return data
 
@@ -233,6 +243,9 @@ def _generate_chunk(
         volt = [rng.randint(0, group.order - 1) for _ in range(n_edges)]
         key = (k, g_target, base_name, group.name, tuple(volt))
 
+        lift_graph = build_lift(base, group, volt)
+        if not is_k_regular(lift_graph, k):
+            continue
         girth = compute_lift_girth(base, group, volt, max_girth=2 * g_target)
         data = base_graph_to_pyg(base, volt, group, k, g_target, girth)
         if cycle_lengths or rwpe_dim > 0:

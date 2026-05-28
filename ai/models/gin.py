@@ -48,25 +48,32 @@ class GIN_GNN(BaseGNN):
         self.convs = nn.ModuleList()
         self.bns = nn.ModuleList()
 
-        # First layer
-        _ = self.convs.append(self._make_gin_conv(input_dim, hidden_dim))
-        _ = self.bns.append(nn.BatchNorm1d(hidden_dim))
-
-        # Hidden layers
-        for _ in range(num_layers - 2):
-            _ = self.convs.append(self._make_gin_conv(hidden_dim, hidden_dim))
+        if num_layers == 1:
+            # Single layer: input directly to output
+            _ = self.convs.append(self._make_gin_conv(input_dim, output_dim, is_output=True))
+        else:
+            # First layer
+            _ = self.convs.append(self._make_gin_conv(input_dim, hidden_dim))
             _ = self.bns.append(nn.BatchNorm1d(hidden_dim))
 
-        # Output layer
-        _ = self.convs.append(self._make_gin_conv(hidden_dim, output_dim))
+            # Hidden layers
+            for _ in range(num_layers - 2):
+                _ = self.convs.append(self._make_gin_conv(hidden_dim, hidden_dim))
+                _ = self.bns.append(nn.BatchNorm1d(hidden_dim))
 
-    def _make_gin_conv(self, in_dim: int, out_dim: int) -> GINConv:
+            # Output layer
+            _ = self.convs.append(self._make_gin_conv(hidden_dim, output_dim, is_output=True))
+
+    def _make_gin_conv(self, in_dim: int, out_dim: int, *, is_output: bool = False) -> GINConv:
         """Create a GINConv layer with 2-layer MLP."""
-        mlp = nn.Sequential(
-            nn.Linear(in_dim, out_dim),
-            nn.ReLU(),
-            nn.Linear(out_dim, out_dim),
-        )
+        if is_output:
+            mlp = nn.Sequential(nn.Linear(in_dim, out_dim))
+        else:
+            mlp = nn.Sequential(
+                nn.Linear(in_dim, out_dim),
+                nn.ReLU(),
+                nn.Linear(out_dim, out_dim),
+            )
         return GINConv(mlp, train_eps=True)
 
     @override
