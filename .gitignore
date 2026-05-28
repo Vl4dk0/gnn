@@ -54,3 +54,5 @@ timestamps/
 /validation_runs
 */todo.md
 /ai/trained/excision_repair/
+/.claude/settings.local.json
+/.claude/skills/typst/SKILL.md
