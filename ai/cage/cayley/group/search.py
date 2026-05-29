@@ -39,7 +39,7 @@ from ai.cage.cayley.group.model import (
     make_group_filter,
 )
 from ai.cage.cayley.groups import FiniteGroup, available_groups
-from ai.cage.train_utils import parse_targets
+from ai.cage.utils import parse_targets
 from backend.utils.graph_utils import moore_bound
 
 PredictFn = Callable[[FiniteGroup, int, int], float]

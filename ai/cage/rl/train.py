@@ -29,7 +29,7 @@ from ai.utils.device import configure_torch_device
 from ai.utils.r_neighborhood import apply_r_neighborhood
 from dotenv import load_dotenv
 
-from ai.cage.ppo_utils import compute_gae
+from ai.cage.utils import compute_gae
 
 _ = load_dotenv()
 

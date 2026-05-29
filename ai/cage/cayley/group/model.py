@@ -26,8 +26,7 @@ from torch_geometric.nn import global_mean_pool  # pyright: ignore[reportMissing
 
 from ai.cage.cayley.group.data_gen import group_to_pyg
 from ai.cage.cayley.groups import FiniteGroup
-from ai.cage.gnn_utils import build_gine_stack
-from ai.cage.train_utils import load_predictor_artifacts
+from ai.cage.utils import build_gine_stack, load_predictor_artifacts
 
 
 class GroupPromisePredictor(nn.Module):

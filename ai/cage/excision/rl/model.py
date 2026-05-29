@@ -27,7 +27,7 @@ import torch.nn.functional as F
 from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
 from torch_geometric.nn import global_mean_pool  # pyright: ignore[reportMissingTypeStubs]
 
-from ai.cage.gnn_utils import build_gine_stack
+from ai.cage.utils import build_gine_stack
 
 
 class RepairActorCritic(nn.Module):

@@ -27,7 +27,7 @@ import time
 from typing import cast
 
 from ai.cage.cayley.generators.search import meta_search
-from ai.cage.train_utils import parse_targets
+from ai.cage.utils import parse_targets
 
 # Orders of the known (k, g)-cages. The known cage is not necessarily a
 # Cayley graph, so these are reference values, not search targets the

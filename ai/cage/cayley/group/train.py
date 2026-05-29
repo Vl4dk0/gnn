@@ -24,7 +24,7 @@ from torch_geometric.loader import DataLoader  # pyright: ignore[reportMissingTy
 
 from ai.cage.cayley.group.data_gen import generate_group_dataset
 from ai.cage.cayley.group.model import GroupPromisePredictor
-from ai.cage.train_utils import (
+from ai.cage.utils import (
     GIRTH_NORM,
     evaluate_girth_predictor,
     make_stratified_loader,

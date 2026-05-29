@@ -34,7 +34,7 @@ from typing import Any, cast
 import networkx as nx
 import numpy as np
 
-from ai.cage.ppo_utils import compute_gae
+from ai.cage.utils import compute_gae
 import torch
 import torch.optim as optim
 from rich.console import Console

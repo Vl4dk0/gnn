@@ -25,7 +25,7 @@ from torch_geometric.loader import DataLoader  # pyright: ignore[reportMissingTy
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../.."))
 
-from ai.cage.train_utils import (
+from ai.cage.utils import (
     GIRTH_NORM,
     evaluate_girth_predictor,
     make_stratified_loader,

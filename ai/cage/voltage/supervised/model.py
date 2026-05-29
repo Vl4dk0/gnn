@@ -16,8 +16,7 @@ import torch.nn.functional as F
 from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
 from torch_geometric.nn import global_mean_pool  # pyright: ignore[reportMissingTypeStubs]
 
-from ai.cage.gnn_utils import build_gine_stack
-from ai.cage.train_utils import load_predictor_artifacts
+from ai.cage.utils import build_gine_stack, load_predictor_artifacts
 from ai.utils.structural_features import structural_feature_dim
 
 

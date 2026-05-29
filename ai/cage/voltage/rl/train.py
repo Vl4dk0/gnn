@@ -28,7 +28,7 @@ from torch_geometric.data import Batch, Data  # pyright: ignore[reportMissingTyp
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../.."))
 
-from ai.cage.ppo_utils import compute_gae
+from ai.cage.utils import compute_gae
 from ai.cage.voltage.rl.env import VoltageAssignmentEnv
 from ai.cage.voltage.rl.model import VoltageActorCritic
 from ai.utils.device import configure_torch_device
