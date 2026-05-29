@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import random
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
+from pathlib import Path
 from typing import TypeVar, cast
 
 import numpy as np
@@ -145,3 +147,36 @@ def evaluate_girth_predictor(
         "fn": float(fn),
         "tn": float(tn),
     }
+
+
+def save_predictor_artifacts(
+    model: torch.nn.Module,
+    save_dir: Path,
+    info: Mapping[str, object],
+) -> tuple[Path, Path]:
+    """Write weights.pt (CPU state_dict) and info.json to save_dir."""
+    save_dir.mkdir(parents=True, exist_ok=True)
+    weights_path = save_dir / "weights.pt"
+    info_path = save_dir / "info.json"
+    cpu_state = {k: v.detach().cpu() for k, v in model.state_dict().items()}
+    torch.save(cpu_state, weights_path)
+    with open(info_path, "w") as f:
+        json.dump(info, f, indent=2)
+    return weights_path, info_path
+
+
+def load_predictor_artifacts(
+    model_dir: Path,
+) -> tuple[dict[str, object], dict[str, torch.Tensor]]:
+    """Read info.json and weights.pt from model_dir.
+
+    Raises FileNotFoundError if either file is missing.
+    """
+    info_path = model_dir / "info.json"
+    weights_path = model_dir / "weights.pt"
+    if not info_path.exists() or not weights_path.exists():
+        raise FileNotFoundError(f"Missing weights.pt or info.json in {model_dir}")
+    with open(info_path) as f:
+        info = cast(dict[str, object], json.load(f))
+    state = cast(dict[str, torch.Tensor], torch.load(weights_path, map_location="cpu"))
+    return info, state

@@ -12,10 +12,10 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import random
 import sys
+from pathlib import Path
 from typing import cast
 
 import torch
@@ -30,6 +30,7 @@ from ai.cage.train_utils import (
     evaluate_girth_predictor,
     make_stratified_loader,
     parse_targets,
+    save_predictor_artifacts,
     set_seed,
 )
 from ai.cage.voltage.supervised.data_gen import generate_dataset
@@ -269,21 +270,9 @@ def train(
                 f"acc={m['accuracy'] * 100:.1f}%, f1={m['f1']:.3f}"
             )
 
-    # Save model + info.json
-    save_dir = os.path.join(
-        os.path.dirname(__file__),
-        "..",
-        "..",
-        "..",
-        "trained",
-        "voltage_girth",
-        model_id,
+    save_dir = (
+        Path(__file__).resolve().parents[3] / "trained" / "voltage_girth" / model_id
     )
-    os.makedirs(save_dir, exist_ok=True)
-    weights_path = os.path.join(save_dir, "weights.pt")
-
-    cpu_state = {key: value.detach().cpu() for key, value in model.state_dict().items()}
-    torch.save(cpu_state, weights_path)
 
     # For backward compat, also surface single-target k/g_target fields when applicable
     primary_k, primary_g = targets[0] if len(targets) == 1 else (None, None)
@@ -344,9 +333,7 @@ def train(
         },
     }
 
-    info_path = os.path.join(save_dir, "info.json")
-    with open(info_path, "w") as f:
-        json.dump(info, f, indent=2)
+    weights_path, info_path = save_predictor_artifacts(model, save_dir, info)
 
     print(f"\nModel saved to {weights_path}")
     print(f"Info saved to  {info_path}")

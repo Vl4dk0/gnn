@@ -12,7 +12,6 @@ during tabu search, with classical verification of the top-K.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import cast, override
 
@@ -24,6 +23,7 @@ from torch_geometric.nn import GINEConv, global_mean_pool  # pyright: ignore[rep
 
 from ai.cage.cayley.generators.data_gen import cayley_ball_to_pyg
 from ai.cage.cayley.groups import FiniteGroup
+from ai.cage.train_utils import load_predictor_artifacts
 
 
 class CayleyGirthPredictor(nn.Module):
@@ -142,21 +142,18 @@ def load_cayley_girth_predictor(model_id: str) -> CayleyGirthPredictor:
     model_dir = (
         Path(__file__).resolve().parents[3] / "trained" / "cayley_girth" / str(model_id)
     )
-    info_path = model_dir / "info.json"
-    weights_path = model_dir / "weights.pt"
-    if not info_path.exists() or not weights_path.exists():
+    try:
+        info, state = load_predictor_artifacts(model_dir)
+    except FileNotFoundError:
         raise FileNotFoundError(
             f"Cayley girth predictor {model_id!r} not found at {model_dir}"
         )
-    with open(info_path) as f:
-        info = cast(dict[str, object], json.load(f))
     training = cast(dict[str, object], info.get("training", {}))
     model = CayleyGirthPredictor(
         hidden_dim=int(cast(int, training.get("hidden_dim", 64))),
         num_layers=int(cast(int, training.get("num_layers", 4))),
     )
-    state = torch.load(weights_path, map_location="cpu")  # pyright: ignore[reportAny]
-    _ = model.load_state_dict(state)  # pyright: ignore[reportAny]
+    _ = model.load_state_dict(state)
     _ = model.eval()
     return model
 

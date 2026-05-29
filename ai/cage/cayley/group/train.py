@@ -14,9 +14,8 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
-import os
 import random
+from pathlib import Path
 from typing import cast
 
 import torch
@@ -30,6 +29,7 @@ from ai.cage.train_utils import (
     evaluate_girth_predictor,
     make_stratified_loader,
     parse_targets,
+    save_predictor_artifacts,
     set_seed,
 )
 from ai.utils.device import get_preferred_device
@@ -165,19 +165,9 @@ def train(
         + f"Acc: {test_metrics['accuracy'] * 100:.1f}% | F1: {test_metrics['f1']:.3f}"
     )
 
-    save_dir = os.path.join(
-        os.path.dirname(__file__),
-        "..",
-        "..",
-        "..",
-        "trained",
-        "group_promise",
-        model_id,
+    save_dir = (
+        Path(__file__).resolve().parents[3] / "trained" / "group_promise" / model_id
     )
-    os.makedirs(save_dir, exist_ok=True)
-    weights_path = os.path.join(save_dir, "weights.pt")
-    cpu_state = {k: v.detach().cpu() for k, v in model.state_dict().items()}
-    torch.save(cpu_state, weights_path)
 
     training_block: dict[str, object] = {
         "targets": [list(t) for t in targets],
@@ -215,9 +205,7 @@ def train(
         },
     }
 
-    info_path = os.path.join(save_dir, "info.json")
-    with open(info_path, "w") as f:
-        json.dump(info, f, indent=2)
+    weights_path, info_path = save_predictor_artifacts(model, save_dir, info)
 
     print(f"\nModel saved to {weights_path}")
     print(f"Info saved to  {info_path}")

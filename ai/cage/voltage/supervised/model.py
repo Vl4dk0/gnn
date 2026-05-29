@@ -7,7 +7,6 @@ the girth of the corresponding voltage graph lift.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import cast, override
 
@@ -17,6 +16,7 @@ import torch.nn.functional as F
 from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
 from torch_geometric.nn import GINEConv, global_mean_pool  # pyright: ignore[reportMissingTypeStubs]
 
+from ai.cage.train_utils import load_predictor_artifacts
 from ai.utils.structural_features import structural_feature_dim
 
 
@@ -179,14 +179,12 @@ def load_girth_predictor(
         / "voltage_girth"
         / str(model_id)
     )
-    info_path = model_dir / "info.json"
-    weights_path = model_dir / "weights.pt"
-    if not info_path.exists() or not weights_path.exists():
+    try:
+        info, state = load_predictor_artifacts(model_dir)
+    except FileNotFoundError:
         raise FileNotFoundError(
             f"Girth predictor {model_id!r} not found at {model_dir}"
         )
-    with open(info_path) as f:
-        info = cast(dict[str, object], json.load(f))
     training = cast(dict[str, object], info.get("training", {}))
 
     # Read saved feature_config (absent for legacy models trained without features)
@@ -224,7 +222,6 @@ def load_girth_predictor(
         num_layers=int(cast(int, training.get("num_layers", 4))),
         max_group_order=int(cast(int, training.get("max_group_order", 60))),
     )
-    state = torch.load(weights_path, map_location="cpu")  # pyright: ignore[reportAny]
-    _ = model.load_state_dict(state)  # pyright: ignore[reportAny]
+    _ = model.load_state_dict(state)
     _ = model.eval()
     return model, saved_cycle_lengths, saved_rwpe_dim
