@@ -56,7 +56,9 @@ def _petersen_graph() -> nx.Graph[int]:
     return graph
 
 
-def test_parse_and_serialize_edge_list_preserves_isolated_vertices_and_self_loops() -> None:
+def test_parse_and_serialize_edge_list_preserves_isolated_vertices_and_self_loops() -> (
+    None
+):
     graph = parse_edge_list("3\n2 0\n1 1\n0 3")
 
     assert sorted(graph.nodes()) == [0, 1, 2, 3]
@@ -107,10 +109,10 @@ def test_moore_bound_known_small_values(k: int, g: int, expected: int) -> None:
 
 @pytest.mark.parametrize(
     ("k", "g", "expected"),
-        [
-            (3, 5, 16),
-            (3, 6, 32),
-            (4, 5, 54),
+    [
+        (3, 5, 16),
+        (3, 6, 32),
+        (4, 5, 54),
     ],
 )
 def test_moore_hoffman_upper_bound_known_small_values(

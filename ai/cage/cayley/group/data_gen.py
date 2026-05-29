@@ -114,8 +114,8 @@ def best_achievable_girth(
     _gens_r, girth_r = random_search(
         group, k, g_target, num_trials=num_random_trials, verbose=False
     )
-    if isinstance(girth_r, int) or girth_r == float('inf'):
-        effective = int(2 * g_target + 1) if girth_r == float('inf') else int(girth_r)
+    if isinstance(girth_r, int) or girth_r == float("inf"):
+        effective = int(2 * g_target + 1) if girth_r == float("inf") else int(girth_r)
         if effective > best:
             best = effective
 
@@ -123,7 +123,11 @@ def best_achievable_girth(
         group, k, g_target, num_iterations=num_tabu_iters, verbose=False
     )
     if gens_t is not None:
-        effective_t = int(2 * g_target + 1) if girth_t == float('inf') else (int(girth_t) if isinstance(girth_t, int) else 0)
+        effective_t = (
+            int(2 * g_target + 1)
+            if girth_t == float("inf")
+            else (int(girth_t) if isinstance(girth_t, int) else 0)
+        )
         if effective_t > best:
             cay = build_cayley(group, gens_t)
             if nx.is_connected(cay) and cay.degree(0) == k:

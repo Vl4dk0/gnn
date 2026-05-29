@@ -114,5 +114,3 @@ def test_cayley_ball_to_pyg_has_expected_features_and_context() -> None:
     assert cast(int, data.num_involutions) == 0
     assert cast(int, data.girth) == 5
     assert cast(int, data.girth) >= cast(int, data.g_target)
-
-

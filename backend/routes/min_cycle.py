@@ -15,7 +15,9 @@ class _AnalyzeRequest(TypedDict, total=False):
     model_id: str
 
 
-def _read_generate_request(data: dict[str, object]) -> tuple[int, int, float, float, bool]:
+def _read_generate_request(
+    data: dict[str, object],
+) -> tuple[int, int, float, float, bool]:
     min_nodes_raw = data.get("minNodes", 5)
     max_nodes_raw = data.get("maxNodes", 12)
     min_prob_raw = data.get("minProb", 0.15)
@@ -102,7 +104,9 @@ def generate_random_graph_endpoint():
     try:
         data = cast(dict[str, object], request.get_json() or {})
 
-        min_nodes, max_nodes, min_prob, max_prob, allow_self_loops = _read_generate_request(data)
+        min_nodes, max_nodes, min_prob, max_prob, allow_self_loops = (
+            _read_generate_request(data)
+        )
 
         # Use centralized graph generation
         G = generate_random_graph(

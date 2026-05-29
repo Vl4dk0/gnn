@@ -39,7 +39,9 @@ def pytest_collection_modifyitems(
 
 
 @pytest.fixture(autouse=True)
-def _enforce_per_test_timeout(request: pytest.FixtureRequest) -> Generator[None, None, None]:
+def _enforce_per_test_timeout(
+    request: pytest.FixtureRequest,
+) -> Generator[None, None, None]:
     if request.node.get_closest_marker("slow") is not None:
         yield
         return

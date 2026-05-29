@@ -94,7 +94,14 @@ def _draw_edge(ax, p1, p2, color=EDGE_COLOR, lw=EDGE_LW):
 
 
 def _draw_arrow(
-    ax, start, end, color=ARROW_COLOR, lw: float = 2, radius_a: float = 0.28, radius_b: float = 0.28, gap: float = 0.06
+    ax,
+    start,
+    end,
+    color=ARROW_COLOR,
+    lw: float = 2,
+    radius_a: float = 0.28,
+    radius_b: float = 0.28,
+    gap: float = 0.06,
 ):
     """Draw arrow from edge of circle A to edge of circle B, with a gap."""
     dx = end[0] - start[0]

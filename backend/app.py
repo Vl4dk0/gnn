@@ -21,7 +21,9 @@ def create_app() -> Flask:
     project_root = os.path.dirname(backend_dir)
     frontend_dir = os.path.join(project_root, "frontend")
     frontend_dist_dir = os.path.join(frontend_dir, "dist")
-    static_dir = frontend_dist_dir if os.path.exists(frontend_dist_dir) else frontend_dir
+    static_dir = (
+        frontend_dist_dir if os.path.exists(frontend_dist_dir) else frontend_dir
+    )
 
     app = Flask(__name__, static_folder=None)
     _ = CORS(app)  # Enable CORS for all routes

@@ -88,5 +88,3 @@ def test_load_baseline_json_roundtrip(tmp_path: pathlib.Path) -> None:
     assert (3, 6) in loaded and (3, 7) in loaded
     assert loaded[(3, 6)]["found_order"] == 14
     assert loaded[(3, 6)]["group_name"] == "D_7"
-
-
