@@ -86,11 +86,9 @@ def cayley_ball_to_pyg(
     )
 
     if isinstance(girth, float):
-        girth_int = 2 * g_target + 2   # lower-bound estimate of actual girth
-        girth_class = 1                 # girth > max_girth >= g_target
+        girth_int = 2 * g_target + 2  # lower-bound estimate of actual girth
     else:
         girth_int = int(girth)
-        girth_class = 1 if girth_int >= g_target else 0
 
     n_invols = int(sum(gen_is_invol))
 
@@ -106,7 +104,6 @@ def cayley_ball_to_pyg(
     data.log_group_order = math.log(max(group.order, 2))
     data.num_involutions = n_invols
     data.girth = girth_int
-    data.girth_class = girth_class
     return data
 
 

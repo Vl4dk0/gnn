@@ -92,16 +92,6 @@ def base_graph_to_pyg(
     data.g_target = g_target
     data.group_order = group.order
     data.girth = girth_int
-    if isinstance(girth, float):
-        # girth=inf means girth > 2*g_target >= g_target: positive
-        data.girth_class = 1
-    elif girth_int >= g_target:
-        # finite high girth: only positive if lift is actually k-regular
-        lift_graph = build_lift(base, group, voltages)
-        data.girth_class = 1 if is_k_regular(lift_graph, k) else 0
-    else:
-        data.girth_class = 0
-
     return data
 
 
