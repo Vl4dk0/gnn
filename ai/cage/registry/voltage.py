@@ -24,9 +24,9 @@ from ai.cage.voltage.cycle_analysis import (
 )
 from ai.cage.voltage.groups import FiniteGroup, cyclic_group
 from ai.cage.voltage.lift import build_lift, verify_lift
-from ai.cage.voltage.model import GirthPredictor, load_girth_predictor
+from ai.cage.voltage.supervised.model import GirthPredictor, load_girth_predictor
 from ai.utils.structural_features import add_structural_features
-from ai.cage.voltage.search import beam_search
+from ai.cage.voltage.supervised.search import beam_search
 from backend.utils.graph_utils import is_k_regular, moore_bound
 
 BEAM_PROBE_INTERVAL = 50

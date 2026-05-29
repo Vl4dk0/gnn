@@ -7,13 +7,13 @@ from typing import cast
 
 import torch
 
-from ai.cage.cayley.group_data_gen import (
+from ai.cage.cayley.group.data_gen import (
     best_achievable_girth,
     canonical_generating_set,
     group_to_pyg,
 )
-from ai.cage.cayley.group_model import GroupPromisePredictor, make_group_filter
-from ai.cage.cayley.group_search import load_baseline_json
+from ai.cage.cayley.group.model import GroupPromisePredictor, make_group_filter
+from ai.cage.cayley.group.search import load_baseline_json
 from ai.cage.cayley.groups import cyclic_group, dihedral_group
 
 

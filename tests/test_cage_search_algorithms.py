@@ -1,6 +1,6 @@
 import networkx as nx
 
-from ai.cage.functions.astar import graph_hash
+from ai.cage.registry.astar import graph_hash
 
 
 def _path_graph(n: int) -> nx.Graph[int]:

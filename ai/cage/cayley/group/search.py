@@ -32,13 +32,13 @@ import time
 from collections.abc import Callable
 from typing import cast
 
-from ai.cage.cayley.group_model import (
+from ai.cage.cayley.group.model import (
     GroupPromisePredictor,
     load_group_promise_predictor,
     make_group_filter,
 )
 from ai.cage.cayley.groups import FiniteGroup, available_groups
-from ai.cage.cayley.search import meta_search, search_one_group
+from ai.cage.cayley.generators.search import meta_search, search_one_group
 from backend.utils.graph_utils import moore_bound
 
 PredictFn = Callable[[FiniteGroup, int, int], float]

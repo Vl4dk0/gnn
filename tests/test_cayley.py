@@ -12,7 +12,7 @@ from ai.cage.cayley.cayley import (
     is_symmetric,
     verify_cayley_kg,
 )
-from ai.cage.cayley.data_gen import cayley_ball_to_pyg
+from ai.cage.cayley.generators.data_gen import cayley_ball_to_pyg
 from ai.cage.cayley.groups import (
     cyclic_group,
     dihedral_group,
@@ -21,7 +21,7 @@ from ai.cage.cayley.groups import (
     random_generating_set,
     symmetric_closure,
 )
-from ai.cage.cayley.search import candidate_swaps
+from ai.cage.cayley.generators.search import candidate_swaps
 
 
 def test_cayley_group_helpers_detect_orders_and_symmetric_closure() -> None:

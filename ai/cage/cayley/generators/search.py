@@ -39,7 +39,7 @@ from ai.cage.cayley.groups import (
     non_identity_elements,
     random_generating_set,
 )
-from ai.cage.cayley.model import (
+from ai.cage.cayley.generators.model import (
     CayleyGirthPredictor,
     load_cayley_girth_predictor,
     make_score_fn,

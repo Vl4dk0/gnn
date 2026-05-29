@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import networkx as nx
 
-from ai.cage.excision.baseline_repair import backtracking_repair, greedy_match_repair
+from ai.cage.excision.baseline import backtracking_repair, greedy_match_repair
 from ai.cage.excision.excise import excise_tree
 
 

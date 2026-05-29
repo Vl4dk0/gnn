@@ -1,6 +1,6 @@
 """GNN girth predictor for Cayley graphs.
 
-Architecture mirrors ai.cage.voltage.model.GirthPredictor: GINEConv stacks
+Architecture mirrors ai.cage.voltage.supervised.model.GirthPredictor: GINEConv stacks
 over the truncated Cayley ball, pooled, concatenated with a global context
 vector (k, g_target, |G|, log|G|, #involutions_in_S), then through a
 single regression head (predicted girth).
@@ -23,7 +23,7 @@ from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
 from torch_geometric.nn import GINEConv, global_mean_pool  # pyright: ignore[reportMissingTypeStubs]
 
 from ai.cage.cayley.cayley import cayley_girth
-from ai.cage.cayley.data_gen import cayley_ball_to_pyg
+from ai.cage.cayley.generators.data_gen import cayley_ball_to_pyg
 from ai.cage.cayley.groups import FiniteGroup, involutions
 
 
@@ -141,7 +141,7 @@ class CayleyGirthPredictor(nn.Module):
 def load_cayley_girth_predictor(model_id: str) -> CayleyGirthPredictor:
     """Load a trained Cayley girth predictor from ai/trained/cayley_girth/<model_id>/."""
     model_dir = (
-        Path(__file__).resolve().parents[2] / "trained" / "cayley_girth" / str(model_id)
+        Path(__file__).resolve().parents[3] / "trained" / "cayley_girth" / str(model_id)
     )
     info_path = model_dir / "info.json"
     weights_path = model_dir / "weights.pt"

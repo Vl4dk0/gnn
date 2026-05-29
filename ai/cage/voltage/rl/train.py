@@ -1,8 +1,8 @@
 """PPO training for voltage assignment RL.
 
 Usage:
-    python -m ai.cage.voltage.rl_train --steps 50000
-    python -m ai.cage.voltage.rl_train --steps 200000 --hidden-dim 128
+    python -m ai.cage.voltage.rl.train --steps 50000
+    python -m ai.cage.voltage.rl.train --steps 200000 --hidden-dim 128
 """
 
 from __future__ import annotations
@@ -26,10 +26,10 @@ from torch.distributions import Categorical
 from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
 
 # Add project root to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../.."))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../.."))
 
-from ai.cage.voltage.rl_env import VoltageAssignmentEnv
-from ai.cage.voltage.rl_model import VoltageActorCritic
+from ai.cage.voltage.rl.env import VoltageAssignmentEnv
+from ai.cage.voltage.rl.model import VoltageActorCritic
 from ai.utils.device import configure_torch_device
 
 

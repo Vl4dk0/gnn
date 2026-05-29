@@ -1,11 +1,14 @@
-"""Training script for the Cayley graph girth predictor.
+"""Training script for the group-promise predictor.
 
-Mirrors ai.cage.voltage.train: produces a multi-target predictor that can
-be loaded by ai.cage.cayley.search to guide tabu search.
+The model learns to predict, for a finite group G and target (k, g), the
+best girth achievable by any degree-k symmetric generating set of G. The
+labels come from the classical inner search (group_data_gen), so dataset
+generation is CPU-heavy and benefits from --gen-workers; training itself
+runs on the preferred device (GPU when available).
 
 Usage:
-    uv run python -m ai.cage.cayley.train --k 3 --g 8 --samples 50000
-    uv run python -m ai.cage.cayley.train --targets "3,6;3,7;3,8" --samples 80000
+    uv run python -m ai.cage.cayley.group.train \\
+        --targets "3,6;3,7;3,8" --max-group-order 600 --gen-workers 8
 """
 
 from __future__ import annotations
@@ -22,8 +25,8 @@ import torch.nn.functional as F
 from torch.utils.data import WeightedRandomSampler
 from torch_geometric.loader import DataLoader  # pyright: ignore[reportMissingTypeStubs]
 
-from ai.cage.cayley.data_gen import generate_dataset
-from ai.cage.cayley.model import CayleyGirthPredictor
+from ai.cage.cayley.group.data_gen import generate_group_dataset
+from ai.cage.cayley.group.model import GroupPromisePredictor
 from ai.utils.device import get_preferred_device
 
 GIRTH_NORM = 12.0
@@ -37,34 +40,21 @@ def _set_seed(seed: int) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
-def _parse_targets(
-    targets_arg: str | None, k: int | None, g: int | None
-) -> list[tuple[int, int]]:
-    if targets_arg:
-        out: list[tuple[int, int]] = []
-        for piece in targets_arg.split(";"):
-            piece = piece.strip()
-            if not piece:
-                continue
-            ks, gs = piece.split(",")
-            out.append((int(ks.strip()), int(gs.strip())))
-        if not out:
-            raise ValueError(f"Failed to parse --targets: {targets_arg!r}")
-        return out
-    if k is None or g is None:
-        raise ValueError("Provide either --targets or both --k and --g")
-    return [(k, g)]
-
-
-def _derive_model_id(targets: list[tuple[int, int]]) -> str:
-    if len(targets) == 1:
-        k, g = targets[0]
-        return f"cayley_girth_predictor_k{k}_g{g}"
-    return "cayley_girth_predictor_multi"
+def _parse_targets(targets_arg: str) -> list[tuple[int, int]]:
+    out: list[tuple[int, int]] = []
+    for piece in targets_arg.split(";"):
+        piece = piece.strip()
+        if not piece:
+            continue
+        ks, gs = piece.split(",")
+        out.append((int(ks.strip()), int(gs.strip())))
+    if not out:
+        raise ValueError(f"Failed to parse --targets: {targets_arg!r}")
+    return out
 
 
 def _evaluate(
-    model: CayleyGirthPredictor,
+    model: GroupPromisePredictor,
     loader: DataLoader,
     device: torch.device,
 ) -> dict[str, float]:
@@ -123,45 +113,55 @@ def _evaluate(
 
 def train(
     targets: list[tuple[int, int]],
-    num_samples: int = 50000,
-    max_group_order: int = 200,
-    epochs: int = 100,
-    batch_size: int = 64,
-    hidden_dim: int = 64,
+    max_group_order: int = 600,
+    gen_random_trials: int = 800,
+    gen_tabu_iters: int = 800,
+    gen_workers: int = 1,
+    epochs: int = 150,
+    batch_size: int = 32,
+    hidden_dim: int = 96,
     num_layers: int = 4,
     lr: float = 1e-3,
     print_every: int = 10,
     seed: int = 42,
-    weight_decay: float = 0.0,
+    weight_decay: float = 1e-4,
     model_id_override: str | None = None,
-) -> tuple[CayleyGirthPredictor, dict[str, object]]:
+) -> tuple[GroupPromisePredictor, dict[str, object]]:
     _set_seed(seed)
     device = torch.device(get_preferred_device())
-    model_id = model_id_override or _derive_model_id(targets)
+    model_id = model_id_override or "group_promise_predictor_multi"
 
     print("=" * 60)
-    print(f"Training Cayley Girth Predictor: {model_id}")
+    print(f"Training Group-Promise Predictor: {model_id}")
     print(f"  Targets: {targets}")
-    print(f"  Device: {device} | Samples: {num_samples} | Epochs: {epochs}")
+    print(f"  Device: {device} | Epochs: {epochs}")
     print(f"  Hidden: {hidden_dim} | Layers: {num_layers} | LR: {lr}")
+    print(f"  Max group order: {max_group_order} | Gen workers: {gen_workers}")
     print("=" * 60)
 
-    all_data, gen_stats = generate_dataset(
+    print("Generating dataset (classical inner search per group)...")
+    all_data, gen_stats = generate_group_dataset(
         targets=targets,
-        num_samples=num_samples,
         max_group_order=max_group_order,
+        num_random_trials=gen_random_trials,
+        num_tabu_iters=gen_tabu_iters,
+        num_workers=gen_workers,
         seed=seed,
     )
     print(
-        f"  Produced {gen_stats['produced']}/{gen_stats['requested']} unique samples "
-        f"in {gen_stats['attempts']} attempts "
-        f"({gen_stats['duplicates_skipped']} duplicates skipped)"
+        f"  Produced {gen_stats['produced']} samples "
+        + f"over {gen_stats['num_groups']} groups"
     )
     per_target_summary = cast(dict[str, dict[str, float]], gen_stats["per_target"])
-    for tkey, ts in per_target_summary.items():
+    for tkey, ts in sorted(per_target_summary.items()):
         print(
             f"    target {tkey}: produced={int(ts['produced'])}, "
-            f"pos_rate={ts['pos_rate']:.3f}"
+            + f"pos_rate={ts['pos_rate']:.3f}"
+        )
+
+    if len(all_data) < 10:
+        raise RuntimeError(
+            f"dataset too small ({len(all_data)} samples) — widen the catalogue"
         )
 
     rng = random.Random(seed)
@@ -172,7 +172,6 @@ def train(
     train_data = all_data[:n_train]
     val_data = all_data[n_train : n_train + n_val]
     test_data = all_data[n_train + n_val :]
-
     print(f"  Train/Val/Test: {len(train_data)}/{len(val_data)}/{len(test_data)}")
 
     # Stratified sampler over (k, g_target) buckets.
@@ -196,7 +195,7 @@ def train(
     val_loader = DataLoader(val_data, batch_size=batch_size)
     test_loader = DataLoader(test_data, batch_size=batch_size)
 
-    model = CayleyGirthPredictor(hidden_dim=hidden_dim, num_layers=num_layers).to(
+    model = GroupPromisePredictor(hidden_dim=hidden_dim, num_layers=num_layers).to(
         device
     )
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
@@ -232,8 +231,8 @@ def train(
             val = _evaluate(model, val_loader, device)
             print(
                 f"Epoch {epoch:4d} | Train: {avg_train_loss:.4f} | "
-                f"Val: {val['loss']:.4f} | MAE: {val['mae']:.2f} | "
-                f"F1: {val['f1']:.3f}"
+                + f"Val: {val['loss']:.4f} | MAE: {val['mae']:.2f} | "
+                + f"F1: {val['f1']:.3f}"
             )
             if val["loss"] < best_val_loss:
                 best_val_loss = val["loss"]
@@ -251,11 +250,11 @@ def train(
     test_metrics = _evaluate(model, test_loader, device)
     print(
         f"  Test loss: {test_metrics['loss']:.4f} | MAE: {test_metrics['mae']:.2f} | "
-        f"Acc: {test_metrics['accuracy'] * 100:.1f}% | F1: {test_metrics['f1']:.3f}"
+        + f"Acc: {test_metrics['accuracy'] * 100:.1f}% | F1: {test_metrics['f1']:.3f}"
     )
 
     save_dir = os.path.join(
-        os.path.dirname(__file__), "..", "..", "trained", "cayley_girth", model_id
+        os.path.dirname(__file__), "..", "..", "..", "trained", "group_promise", model_id
     )
     os.makedirs(save_dir, exist_ok=True)
     weights_path = os.path.join(save_dir, "weights.pt")
@@ -264,12 +263,13 @@ def train(
 
     training_block: dict[str, object] = {
         "targets": [list(t) for t in targets],
-        "samples": num_samples,
         "epochs": epochs,
         "batch_size": batch_size,
         "hidden_dim": hidden_dim,
         "num_layers": num_layers,
         "max_group_order": max_group_order,
+        "gen_random_trials": gen_random_trials,
+        "gen_tabu_iters": gen_tabu_iters,
         "learning_rate": lr,
         "seed": seed,
         "weight_decay": weight_decay,
@@ -277,15 +277,13 @@ def train(
     }
 
     info: dict[str, object] = {
-        "model_type": "cayley_girth_predictor",
+        "model_type": "group_promise_predictor",
         "model_id": model_id,
-        "task": "cayley_girth",
+        "task": "group_promise",
         "training": training_block,
         "data": {
-            "requested": gen_stats["requested"],
             "produced": gen_stats["produced"],
-            "duplicates_skipped": gen_stats["duplicates_skipped"],
-            "generation_attempts": gen_stats["attempts"],
+            "num_groups": gen_stats["num_groups"],
             "per_target": per_target_summary,
         },
         "metrics": {
@@ -311,39 +309,36 @@ def train(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Train Cayley girth predictor",
+        description="Train the group-promise predictor",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    _ = parser.add_argument("--k", type=int, default=None)
-    _ = parser.add_argument("--g", type=int, default=None)
     _ = parser.add_argument(
-        "--targets", type=str, default=None, help='e.g. "3,6;3,7;3,8"'
+        "--targets", type=str, required=True, help='e.g. "3,6;3,7;3,8"'
     )
-    _ = parser.add_argument("--samples", type=int, default=50000)
-    _ = parser.add_argument("--max-group-order", type=int, default=200)
-    _ = parser.add_argument("--epochs", type=int, default=100)
-    _ = parser.add_argument("--batch-size", type=int, default=64)
-    _ = parser.add_argument("--hidden-dim", type=int, default=64)
+    _ = parser.add_argument("--max-group-order", type=int, default=600)
+    _ = parser.add_argument("--gen-random-trials", type=int, default=800)
+    _ = parser.add_argument("--gen-tabu-iters", type=int, default=800)
+    _ = parser.add_argument("--gen-workers", type=int, default=1)
+    _ = parser.add_argument("--epochs", type=int, default=150)
+    _ = parser.add_argument("--batch-size", type=int, default=32)
+    _ = parser.add_argument("--hidden-dim", type=int, default=96)
     _ = parser.add_argument("--num-layers", type=int, default=4)
     _ = parser.add_argument("--lr", type=float, default=1e-3)
     _ = parser.add_argument("--print-every", type=int, default=10)
     _ = parser.add_argument("--seed", type=int, default=42)
-    _ = parser.add_argument("--weight-decay", type=float, default=0.0)
+    _ = parser.add_argument("--weight-decay", type=float, default=1e-4)
     _ = parser.add_argument("--model-id", type=str, default=None)
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
-    targets = _parse_targets(
-        cast(str | None, args.targets),
-        cast(int | None, args.k),
-        cast(int | None, args.g),
-    )
     _ = train(
-        targets=targets,
-        num_samples=cast(int, args.samples),
+        targets=_parse_targets(cast(str, args.targets)),
         max_group_order=cast(int, args.max_group_order),
+        gen_random_trials=cast(int, args.gen_random_trials),
+        gen_tabu_iters=cast(int, args.gen_tabu_iters),
+        gen_workers=cast(int, args.gen_workers),
         epochs=cast(int, args.epochs),
         batch_size=cast(int, args.batch_size),
         hidden_dim=cast(int, args.hidden_dim),
@@ -352,5 +347,5 @@ if __name__ == "__main__":
         print_every=cast(int, args.print_every),
         seed=cast(int, args.seed),
         weight_decay=cast(float, args.weight_decay),
-        model_id_override=cast(str | None, args.model_id),
+        model_id_override=cast("str | None", args.model_id),
     )

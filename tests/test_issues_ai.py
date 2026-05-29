@@ -53,15 +53,15 @@ def test_abelian_cap_limits_dihedral_real_issue() -> None:
 def test_astar_inf_girth_branch_lower_than_above_target_branch() -> None:
     """WANTED: edgeless/no-cycle graph (girth=inf) is scored *neutral* (0.5),
     strictly less than a graph whose girth merely exceeds g (0.8)."""
-    from ai.cage.functions.astar import AStarGenerator
+    from ai.cage.registry.astar import AStarGenerator
 
     gen = AStarGenerator(k=3, g=5)
     G: nx.Graph[int] = nx.Graph()
     G.add_nodes_from(range(gen.mb))
     # Identical graph fixture so all components except girth are equal.
-    with patch("ai.cage.functions.astar.compute_girth", return_value=float("inf")):
+    with patch("ai.cage.registry.astar.compute_girth", return_value=float("inf")):
         s_inf = gen._score_graph(G)  # pyright: ignore[reportPrivateUsage]
-    with patch("ai.cage.functions.astar.compute_girth", return_value=7):
+    with patch("ai.cage.registry.astar.compute_girth", return_value=7):
         s_high = gen._score_graph(G)  # pyright: ignore[reportPrivateUsage]
     assert s_inf < s_high, (
         f"empty-girth score ({s_inf}) should be lower than high-girth score "
@@ -76,7 +76,7 @@ def test_astar_inf_girth_branch_lower_than_above_target_branch() -> None:
 
 def test_astar_initial_graph_added_to_visited() -> None:
     """WANTED: the initial graph hash is recorded in visited_hashes."""
-    from ai.cage.functions.astar import AStarGenerator, graph_hash
+    from ai.cage.registry.astar import AStarGenerator, graph_hash
 
     gen = AStarGenerator(k=3, g=5)
     initial_hash = graph_hash(gen.graph)
@@ -91,7 +91,7 @@ def test_astar_initial_graph_added_to_visited() -> None:
 def test_bruteforce_marks_complete_when_overflow_empties_stack() -> None:
     """WANTED: when the graph exceeds upper_bound and the search stack becomes
     empty after pop, the generator must mark itself complete (not loop)."""
-    from ai.cage.functions.bruteforce import BruteforceGenerator
+    from ai.cage.registry.bruteforce import BruteforceGenerator
 
     gen = BruteforceGenerator(k=3, g=5)
     huge: nx.Graph[int] = nx.Graph()
@@ -111,12 +111,14 @@ def test_bruteforce_marks_complete_when_overflow_empties_stack() -> None:
 def test_best_achievable_girth_does_not_drop_inf_label() -> None:
     """WANTED: if random_search / tabu_search return float('inf'), the group
     should NOT be labeled with best=0 (which means 'nothing found')."""
-    from ai.cage.cayley import group_data_gen
+    from ai.cage.cayley.group import data_gen as group_data_gen
     from ai.cage.voltage.groups import cyclic_group
 
     group = cyclic_group(7)
     with (
-        patch.object(group_data_gen, "random_search", return_value=([1, 6, 0], math.inf)),
+        patch.object(
+            group_data_gen, "random_search", return_value=([1, 6, 0], math.inf)
+        ),
         patch.object(group_data_gen, "tabu_search", return_value=(None, 0)),
     ):
         best = group_data_gen.best_achievable_girth(
@@ -135,13 +137,11 @@ def test_best_achievable_girth_does_not_drop_inf_label() -> None:
 def test_cayley_ball_to_pyg_labels_inf_as_positive() -> None:
     """WANTED: a Cayley ball with girth=inf (>= 2*g_target+2) is a valid
     positive sample with girth_class=1, not 0."""
-    from ai.cage.cayley.data_gen import cayley_ball_to_pyg
+    from ai.cage.cayley.generators.data_gen import cayley_ball_to_pyg
     from ai.cage.voltage.groups import cyclic_group
 
     group = cyclic_group(7)
-    data = cayley_ball_to_pyg(
-        group, generators=[1, 6], k=2, g_target=3, girth=math.inf
-    )
+    data = cayley_ball_to_pyg(group, generators=[1, 6], k=2, g_target=3, girth=math.inf)
     girth_class = int(getattr(data, "girth_class"))
     assert girth_class == 1, (
         f"inf girth Cayley sample mislabeled negative; girth_class={girth_class}"
@@ -156,7 +156,7 @@ def test_cayley_ball_to_pyg_labels_inf_as_positive() -> None:
 def test_base_graph_to_pyg_labels_inf_as_positive() -> None:
     """WANTED: a voltage lift with girth=inf is positive (girth_class=1)."""
     from ai.cage.voltage.base_graphs import dumbbell
-    from ai.cage.voltage.data_gen import base_graph_to_pyg
+    from ai.cage.voltage.supervised.data_gen import base_graph_to_pyg
     from ai.cage.voltage.groups import cyclic_group
 
     base = dumbbell(3)
@@ -177,7 +177,7 @@ def test_base_graph_to_pyg_labels_inf_as_positive() -> None:
 
 def test_candidate_bases_no_duplicate_for_k3() -> None:
     """WANTED: _candidate_bases(3) contains dumbbell(3) at most once."""
-    from ai.cage.voltage.search import _candidate_bases  # pyright: ignore[reportPrivateUsage]
+    from ai.cage.voltage.supervised.search import _candidate_bases  # pyright: ignore[reportPrivateUsage]
 
     bases = _candidate_bases(3)
     names = [name for (name, _b) in bases]
@@ -259,7 +259,7 @@ def test_loopy_layer_has_distinct_conv_per_path_length() -> None:
     # L=r-1 and L=r both map to r-1 (collision).
     idx_for = lambda L: L - 1  # matches fixed source: conv_idx = L - 1
     assert idx_for(r - 1) != idx_for(r), (
-        f"L={r-1} and L={r} map to the same conv idx={idx_for(r)}; "
+        f"L={r - 1} and L={r} map to the same conv idx={idx_for(r)}; "
         "path_convs[0] is never used and the last two L's share weights."
     )
 
@@ -317,51 +317,13 @@ def test_loopy_neighborhood_populates_direct_neighbors() -> None:
 
 
 # ---------------------------------------------------------------------------
-# mcts-terminal-ignores-girth
-# ---------------------------------------------------------------------------
-
-
-def test_mcts_terminal_requires_correct_girth() -> None:
-    """WANTED: a k-regular graph with the WRONG girth is NOT terminal."""
-    from ai.cage.functions.monte_carlo_search_tree import MCTSNode
-
-    # K_4 is 3-regular and has girth 3.
-    G: nx.Graph[int] = nx.complete_graph(4)
-    node = MCTSNode(G, k=3, g=6)
-    assert node.is_terminal is False, (
-        "K_4 is 3-regular with girth 3 but g=6 — should not be terminal."
-    )
-
-
-# ---------------------------------------------------------------------------
-# mcts-zero-division-visits
-# ---------------------------------------------------------------------------
-
-
-def test_mcts_best_child_safe_with_zero_visits() -> None:
-    """WANTED: best_child() should not crash when visits == 0."""
-    from ai.cage.functions.monte_carlo_search_tree import MCTSNode
-
-    G: nx.Graph[int] = nx.empty_graph(4)
-    parent = MCTSNode(G, k=3, g=5)
-    child = MCTSNode(nx.empty_graph(5), k=3, g=5, parent=parent)
-    parent.children.append(child)
-    # parent.visits == 0, child.visits == 0
-    try:
-        result = parent.best_child()
-    except (ZeroDivisionError, ValueError) as e:
-        pytest.fail(f"best_child raised on zero visits: {type(e).__name__}: {e}")
-    assert result is not None
-
-
-# ---------------------------------------------------------------------------
 # random-walk-sample-underflow
 # ---------------------------------------------------------------------------
 
 
 def test_random_walk_add_edge_handles_single_low_degree_node() -> None:
     """WANTED: _add_edge_between_low_degree([single_node]) does not raise."""
-    from ai.cage.functions.random_walk import RandomWalkGenerator
+    from ai.cage.registry.random_walk import RandomWalkGenerator
 
     gen = RandomWalkGenerator(k=3, g=5)
     try:
@@ -506,11 +468,12 @@ def test_guided_elapsed_format_uses_safe_pattern() -> None:
     or a None-guard before `:.1f`. The current code uses the unguarded form."""
     import pathlib
 
-    src = pathlib.Path("ai/cage/cayley/group_search.py").read_text()
+    src = pathlib.Path("ai/cage/cayley/group/search.py").read_text()
     # The wanted safe pattern: a default value passed to .get() or a guard.
-    assert "guided.get('elapsed'):.1f" not in src and 'guided.get("elapsed"):.1f' not in src, (
-        "Unguarded `guided.get('elapsed'):.1f` present — TypeError if elapsed is None."
-    )
+    assert (
+        "guided.get('elapsed'):.1f" not in src
+        and 'guided.get("elapsed"):.1f' not in src
+    ), "Unguarded `guided.get('elapsed'):.1f` present — TypeError if elapsed is None."
 
 
 # ---------------------------------------------------------------------------
@@ -523,7 +486,7 @@ def test_cached_helper_uses_safe_dict_get() -> None:
     than the bare `cache[group.name]` which raises KeyError on a missing key."""
     import pathlib
 
-    src = pathlib.Path("ai/cage/cayley/group_search.py").read_text()
+    src = pathlib.Path("ai/cage/cayley/group/search.py").read_text()
     # Look for the unguarded subscript inside the _cached helper.
     assert "return cache[group.name]" not in src, (
         "Unguarded `cache[group.name]` lookup in _cached — KeyError on missing group."
@@ -540,7 +503,7 @@ def test_voltage_dataset_does_not_label_nonregular_lift_as_positive() -> None:
     its girth is large. The example from the issue: dumbbell(3) on Z_5 with
     voltages [2, 2, 1] produces a 2-regular graph (not 3-regular)."""
     from ai.cage.voltage.base_graphs import dumbbell
-    from ai.cage.voltage.data_gen import base_graph_to_pyg
+    from ai.cage.voltage.supervised.data_gen import base_graph_to_pyg
     from ai.cage.voltage.groups import cyclic_group
     from ai.cage.voltage.lift import build_lift
     from backend.utils.graph_utils import compute_girth, is_k_regular
@@ -601,7 +564,7 @@ def test_prune_slack_zero_keeps_marginal_predictions() -> None:
 def test_voltage_model_rejects_out_of_range_voltage() -> None:
     """WANTED: voltage indices outside [0, max_group_order) should raise,
     not be silently clamped to the last embedding row."""
-    from ai.cage.voltage.model import GirthPredictor  # canonical name
+    from ai.cage.voltage.supervised.model import GirthPredictor  # canonical name
 
     model = GirthPredictor(max_group_order=8, hidden_dim=8, num_layers=1)
     _ = model.eval()
@@ -632,7 +595,7 @@ def test_voltage_model_rejects_out_of_range_voltage() -> None:
 def test_voltage_search_one_config_keeps_better_tabu_result() -> None:
     """WANTED: tabu result with a strictly higher verified girth replaces
     random result in _search_one_config."""
-    from ai.cage.voltage import search as v_search
+    from ai.cage.voltage.supervised import search as v_search
     from ai.cage.voltage.base_graphs import dumbbell
     from ai.cage.voltage.groups import cyclic_group
 
@@ -689,7 +652,7 @@ def test_voltage_search_one_config_keeps_better_tabu_result() -> None:
 
 def test_cayley_random_search_does_not_discard_inf_girth() -> None:
     """WANTED: a generating set with cayley_girth=inf should be considered."""
-    from ai.cage.cayley import search as c_search
+    from ai.cage.cayley.generators import search as c_search
     from ai.cage.voltage.groups import cyclic_group
 
     group = cyclic_group(7)

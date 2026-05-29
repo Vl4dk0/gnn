@@ -34,7 +34,7 @@ from ai.cage.refine.swaps import apply_2_switch, enumerate_2_switches
 from ai.utils.structural_features import add_structural_features
 
 # Worker spec: primitive types only, no torch tensors across IPC.
-# See ai/cage/voltage/data_gen.py for the failure mode being avoided.
+# See ai/cage/voltage/supervised/data_gen.py for the failure mode being avoided.
 
 
 def _random_k_regular(

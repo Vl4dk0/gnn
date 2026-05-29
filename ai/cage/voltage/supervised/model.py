@@ -174,7 +174,7 @@ def load_girth_predictor(
     add_structural_features with the returned config before scoring any graph.
     """
     model_dir = (
-        Path(__file__).resolve().parents[2]
+        Path(__file__).resolve().parents[3]
         / "trained"
         / "voltage_girth"
         / str(model_id)

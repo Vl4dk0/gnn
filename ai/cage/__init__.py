@@ -1,17 +1,17 @@
-from .functions.random_walk import RandomWalkGenerator
-from .functions.bruteforce import BruteforceGenerator
-from .functions.astar import AStarGenerator
-from .functions.monte_carlo_search_tree import MCTSGenerator
-from .functions.rl_agent import RLGenerator
-from .functions.voltage_search import VoltageSearchGenerator
-from .functions.cayley_search import CayleySearchGenerator
+from .registry.random_walk import RandomWalkGenerator
+from .registry.bruteforce import BruteforceGenerator
+from .registry.astar import AStarGenerator
+from .registry.direct_rl import RLGenerator
+from .registry.voltage import VoltageSearchGenerator
+from .registry.voltage_rl import VoltageRLGenerator
+from .registry.cayley import CayleySearchGenerator
 
 __all__ = [
     "RandomWalkGenerator",
     "BruteforceGenerator",
     "AStarGenerator",
-    "MCTSGenerator",
     "RLGenerator",
     "VoltageSearchGenerator",
+    "VoltageRLGenerator",
     "CayleySearchGenerator",
 ]

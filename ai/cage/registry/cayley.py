@@ -19,7 +19,7 @@ from ai.cage.cayley.cayley import (
     count_short_relations,
 )
 from ai.cage.cayley.groups import FiniteGroup, available_groups
-from ai.cage.cayley.search import candidate_swaps, random_generating_set
+from ai.cage.cayley.generators.search import candidate_swaps, random_generating_set
 from backend.utils.graph_utils import is_k_regular, moore_bound
 
 

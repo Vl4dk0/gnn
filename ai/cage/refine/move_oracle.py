@@ -1,6 +1,6 @@
 """GNN move scorer (MoveOracle) for 2-switch Δcost prediction.
 
-Architecture (GINE-style, following GirthPredictor in ai/cage/voltage/model.py):
+Architecture (GINE-style, following GirthPredictor in ai/cage/voltage/supervised/model.py):
   1. Node feature projection (structural features from add_structural_features)
   2. Several GINEConv layers with BatchNorm + ReLU
   3. Global mean pooling -> graph embedding

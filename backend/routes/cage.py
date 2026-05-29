@@ -18,8 +18,8 @@ from ai.cage import (
     AStarGenerator,
     RLGenerator,
     VoltageSearchGenerator,
+    VoltageRLGenerator,
 )
-from ai.cage.functions.voltage_rl_agent import VoltageRLGenerator
 from ai.registry import (
     get_best_model_id,
     get_trained_dir,

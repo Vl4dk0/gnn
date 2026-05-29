@@ -7,7 +7,7 @@ construction: the training label is expensive (a full classical inner
 search per group), the prediction is one cheap forward pass, and at
 search time it is used to rank/prune the group catalogue.
 
-Architecture mirrors ai.cage.cayley.model.CayleyGirthPredictor: a stack of
+Architecture mirrors ai.cage.cayley.generators.model.CayleyGirthPredictor: a stack of
 GINEConv layers over the group's Cayley graph, mean-pooled, concatenated
 with a context vector, then through a single regression head (best
 achievable girth).
@@ -25,7 +25,7 @@ import torch.nn.functional as F
 from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
 from torch_geometric.nn import GINEConv, global_mean_pool  # pyright: ignore[reportMissingTypeStubs]
 
-from ai.cage.cayley.group_data_gen import group_to_pyg
+from ai.cage.cayley.group.data_gen import group_to_pyg
 from ai.cage.cayley.groups import FiniteGroup
 
 
@@ -145,7 +145,7 @@ class GroupPromisePredictor(nn.Module):
 def load_group_promise_predictor(model_id: str) -> GroupPromisePredictor:
     """Load a trained predictor from ai/trained/group_promise/<model_id>/."""
     model_dir = (
-        Path(__file__).resolve().parents[2]
+        Path(__file__).resolve().parents[3]
         / "trained"
         / "group_promise"
         / str(model_id)

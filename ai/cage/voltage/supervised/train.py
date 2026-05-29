@@ -5,7 +5,7 @@ in as context features, never baked into separate weights. Always pass the
 full target grid via --targets.
 
 Usage:
-    uv run python -m ai.cage.voltage.train \\
+    uv run python -m ai.cage.voltage.supervised.train \\
         --targets "3,5;3,6;3,7;4,5;4,6;5,5;5,6" --samples 200000
 """
 
@@ -25,10 +25,10 @@ from torch.utils.data import WeightedRandomSampler
 from torch_geometric.loader import DataLoader  # pyright: ignore[reportMissingTypeStubs]
 
 # Add project root to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../.."))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../.."))
 
-from ai.cage.voltage.data_gen import generate_dataset
-from ai.cage.voltage.model import GirthPredictor
+from ai.cage.voltage.supervised.data_gen import generate_dataset
+from ai.cage.voltage.supervised.model import GirthPredictor
 from ai.utils.device import get_preferred_device
 from ai.utils.structural_features import structural_feature_dim
 
@@ -384,7 +384,7 @@ def train(
 
     # Save model + info.json
     save_dir = os.path.join(
-        os.path.dirname(__file__), "..", "..", "trained", "voltage_girth", model_id
+        os.path.dirname(__file__), "..", "..", "..", "trained", "voltage_girth", model_id
     )
     os.makedirs(save_dir, exist_ok=True)
     weights_path = os.path.join(save_dir, "weights.pt")

@@ -32,7 +32,7 @@ from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
 
 from ai.cage.cayley.cayley import build_cayley
 from ai.cage.cayley.groups import FiniteGroup, available_groups, element_order
-from ai.cage.cayley.search import random_search, tabu_search
+from ai.cage.cayley.generators.search import random_search, tabu_search
 
 
 def _generated_closure(group: FiniteGroup, gens: list[int]) -> set[int]:

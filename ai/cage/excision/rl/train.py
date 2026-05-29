@@ -1,7 +1,7 @@
 """PPO training for the GNN-guided tree-excision repair policy.
 
 Usage:
-    uv run python -m ai.cage.excision.train --episodes 50 --g-target 5 --depth 1
+    uv run python -m ai.cage.excision.rl.train --episodes 50 --g-target 5 --depth 1
 
 The agent learns to repair degree-deficient graphs produced by BFS-excision of
 a known (k,g)-graph.  No curriculum: the starting bank is fixed (Petersen +
@@ -40,8 +40,8 @@ from torch.distributions import Categorical
 from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
 
 from ai.cage.excision.excise import excise_tree
-from ai.cage.excision.repair_env import RepairEnv
-from ai.cage.excision.repair_policy import RepairActorCritic
+from ai.cage.excision.rl.env import RepairEnv
+from ai.cage.excision.rl.model import RepairActorCritic
 from ai.utils.device import configure_torch_device
 from ai.utils.structural_features import structural_feature_dim
 

@@ -26,7 +26,7 @@ import random
 import time
 from typing import cast
 
-from ai.cage.cayley.search import meta_search
+from ai.cage.cayley.generators.search import meta_search
 
 # Orders of the known (k, g)-cages. The known cage is not necessarily a
 # Cayley graph, so these are reference values, not search targets the

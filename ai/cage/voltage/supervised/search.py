@@ -27,7 +27,7 @@ from ai.cage.voltage.cycle_analysis import (
     compute_lift_girth,
     count_short_identity_walks,
 )
-from ai.cage.voltage.data_gen import base_graph_to_pyg
+from ai.cage.voltage.supervised.data_gen import base_graph_to_pyg
 from ai.utils.structural_features import add_structural_features
 from ai.cage.voltage.groups import (
     FiniteGroup,
@@ -37,7 +37,7 @@ from ai.cage.voltage.groups import (
     semidirect_product_cyclic,
 )
 from ai.cage.voltage.lift import build_lift, verify_lift
-from ai.cage.voltage.model import GirthPredictor, load_girth_predictor
+from ai.cage.voltage.supervised.model import GirthPredictor, load_girth_predictor
 from backend.utils.graph_utils import moore_bound
 
 

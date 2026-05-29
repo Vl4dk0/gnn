@@ -8,8 +8,8 @@ import torch
 from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
 
 from ai.cage.voltage.lift import build_lift, verify_lift
-from ai.cage.voltage.rl_env import VoltageAssignmentEnv
-from ai.cage.voltage.rl_model import VoltageActorCritic
+from ai.cage.voltage.rl.env import VoltageAssignmentEnv
+from ai.cage.voltage.rl.model import VoltageActorCritic
 from ai.registry import get_trained_dir
 from ai.utils.device import configure_torch_device
 from backend.utils.graph_utils import is_k_regular, moore_bound
