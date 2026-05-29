@@ -29,12 +29,10 @@ from ai.cage.cayley.cayley import (
     build_cayley,
     cayley_girth,
     count_short_relations,
-    is_symmetric,
 )
 from ai.cage.cayley.groups import (
     FiniteGroup,
     available_groups,
-    element_order,
     involutions,
     non_identity_elements,
     random_generating_set,
@@ -462,8 +460,3 @@ if __name__ == "__main__":
         score_fn=score_fn_arg,
         verbose=True,
     )
-
-    # Smoke-call so element_order remains importable (small fixture); avoids
-    # an unused-import diagnostic and exercises the helper.
-    _ = element_order
-    _ = is_symmetric

@@ -100,8 +100,6 @@ class RandomWalkGenerator:
         nodes = list(self.graph.nodes())
         low_degree_nodes = [n for n in nodes if self.graph.degree(n) < self.k]
         high_degree_nodes = [n for n in nodes if self.graph.degree(n) > self.k]
-        _correct_degree_nodes = [n for n in nodes if self.graph.degree(n) == self.k]
-
         # Decision probabilities based on current state
         edge_deficit = self.target_edges - num_edges
 

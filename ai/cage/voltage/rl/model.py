@@ -165,12 +165,3 @@ class VoltageActorCritic(nn.Module):
 
         log_prob = cast(torch.Tensor, dist.log_prob(action))
         return int(action.item()), log_prob, value
-
-    def get_config(self) -> dict[str, str | int | float | bool]:
-        return {
-            "hidden_dim": self.hidden_dim,
-            "max_action_dim": self.max_action_dim,
-        }
-
-    def get_name(self) -> str:
-        return "voltage_actor_critic"

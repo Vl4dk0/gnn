@@ -48,15 +48,6 @@ def involutions(group: FiniteGroup) -> list[int]:
     return [a for a in range(1, group.order) if group.mult(a, a) == 0]
 
 
-def conjugacy_class_size(group: FiniteGroup, a: int) -> int:
-    """Size of the conjugacy class of a (orbit under g a g^{-1})."""
-    seen: set[int] = set()
-    for g in range(group.order):
-        conj = group.mult(group.mult(g, a), group.inv(g))
-        seen.add(conj)
-    return len(seen)
-
-
 def available_groups(
     max_order: int,
     *,
@@ -195,7 +186,6 @@ def random_generating_set(group: FiniteGroup, k: int) -> list[int] | None:
 __all__ = [
     "FiniteGroup",
     "available_groups",
-    "conjugacy_class_size",
     "cyclic_group",
     "dihedral_group",
     "direct_product",

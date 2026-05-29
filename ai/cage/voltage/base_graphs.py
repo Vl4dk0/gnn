@@ -154,11 +154,6 @@ def bouquet(k: int) -> BaseGraph:
     return bg
 
 
-def dipole(k: int) -> BaseGraph:
-    """Dipole graph: 2 nodes with k parallel edges (alias for dumbbell)."""
-    return dumbbell(k)
-
-
 def theta(a: int, b: int, c: int) -> BaseGraph:
     """Theta graph: 2 nodes connected by three paths of lengths a, b, c.
 
@@ -210,19 +205,6 @@ def cubic_multigraph_4nodes() -> BaseGraph:
     # Add two crossing edges to make it 3-regular
     _ = bg.add_edge(0, 2)
     _ = bg.add_edge(1, 3)
-    return bg
-
-
-def complete_graph_base(n: int) -> BaseGraph:
-    """Complete graph K_n as a base graph.
-
-    The lift is (n-1)*|Gamma|-regular... not directly useful for cages,
-    but the incidence graph construction uses substructures of K_n.
-    """
-    bg = BaseGraph(num_nodes=n)
-    for i in range(n):
-        for j in range(i + 1, n):
-            _ = bg.add_edge(i, j)
     return bg
 
 

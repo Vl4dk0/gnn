@@ -22,9 +22,8 @@ import torch.nn.functional as F
 from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
 from torch_geometric.nn import GINEConv, global_mean_pool  # pyright: ignore[reportMissingTypeStubs]
 
-from ai.cage.cayley.cayley import cayley_girth
 from ai.cage.cayley.generators.data_gen import cayley_ball_to_pyg
-from ai.cage.cayley.groups import FiniteGroup, involutions
+from ai.cage.cayley.groups import FiniteGroup
 
 
 class CayleyGirthPredictor(nn.Module):
@@ -191,8 +190,3 @@ __all__ = [
     "load_cayley_girth_predictor",
     "make_score_fn",
 ]
-
-
-# Reference imports so they remain part of the public surface used elsewhere.
-_ = cayley_girth
-_ = involutions

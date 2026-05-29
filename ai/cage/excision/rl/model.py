@@ -19,7 +19,7 @@ observation (see RepairEnv._build_obs), not baked into separate weight matrices.
 
 from __future__ import annotations
 
-from typing import cast, override
+from typing import cast
 
 import torch
 import torch.nn as nn
@@ -126,16 +126,6 @@ class RepairActorCritic(nn.Module):
         graph_emb = cast(torch.Tensor, global_mean_pool(h, batch))
         return h, graph_emb
 
-    @override
-    def forward(self, data: Data) -> tuple[torch.Tensor, torch.Tensor]:
-        """Forward pass (unused directly — use get_action_logits / get_value).
-
-        Returns (node_emb, value) for convenience.
-        """
-        node_emb, graph_emb = self._encode(data)
-        value = cast(torch.Tensor, self.value_head(graph_emb))
-        return node_emb, value
-
     def get_action_logits(
         self,
         data: Data,
@@ -197,9 +187,3 @@ class RepairActorCritic(nn.Module):
             torch.Tensor, dist.log_prob(torch.tensor(idx, device=logits.device))
         )
         return action, log_prob, value
-
-    def get_config(self) -> dict[str, str | int | float | bool]:
-        return {
-            "hidden_dim": self.hidden_dim,
-            "model_type": "repair_actor_critic",
-        }
