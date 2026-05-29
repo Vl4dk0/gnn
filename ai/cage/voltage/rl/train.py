@@ -23,7 +23,7 @@ import torch.optim as optim
 from rich.console import Console
 from rich.live import Live
 from torch.distributions import Categorical
-from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
+from torch_geometric.data import Batch, Data  # pyright: ignore[reportMissingTypeStubs]
 
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../.."))
@@ -286,49 +286,44 @@ def train_voltage_ppo(
                 indices = np.random.permutation(batch_size)
                 for start in range(0, batch_size, minibatch_size):
                     end = start + minibatch_size
-                    mb_inds = indices[start:end]
+                    mb_inds = [int(i) for i in indices[start:end].tolist()]
 
                     optimizer.zero_grad()
-                    for _idx in cast(list[int], mb_inds.tolist()):
-                        i = int(_idx)
-                        data = obs_buffer[i]
-                        logits, value = cast(
-                            tuple[torch.Tensor, torch.Tensor], agent(data)
-                        )
+                    mb_batch = Batch.from_data_list([obs_buffer[i] for i in mb_inds])
+                    logits, values_b = cast(
+                        tuple[torch.Tensor, torch.Tensor], agent(mb_batch)
+                    )
 
-                        # Mask to the group order from when this sample was collected
-                        action_dim = action_dim_buffer[i]
-                        if action_dim < agent.max_action_dim:
-                            mask = torch.ones(
-                                logits.shape[-1], dtype=torch.bool, device=logits.device
-                            )
-                            mask[:action_dim] = False
-                            logits = logits.masked_fill(mask, -1e9)
+                    # Mask each row to the action_dim it was collected at.
+                    mb_action_dims = torch.tensor(
+                        [action_dim_buffer[i] for i in mb_inds],
+                        device=logits.device,
+                    )
+                    col_idx = torch.arange(logits.shape[-1], device=logits.device)
+                    invalid = col_idx.unsqueeze(0) >= mb_action_dims.unsqueeze(1)
+                    logits = logits.masked_fill(invalid, -1e9)
 
-                        dist = Categorical(logits=logits)
-                        new_log_prob = cast(torch.Tensor, dist.log_prob(b_actions[i]))
-                        entropy = dist.entropy()
+                    mb_actions = b_actions[mb_inds]
+                    mb_old_log_probs = b_log_probs[mb_inds]
+                    mb_advantages = advantages[mb_inds]
+                    mb_returns = returns[mb_inds]
 
-                        ratio = torch.exp(new_log_prob - b_log_probs[i])
-                        surr1 = ratio * advantages[i]
-                        surr2 = (
-                            torch.clamp(ratio, 1.0 - clip_epsilon, 1.0 + clip_epsilon)
-                            * advantages[i]
-                        )
-                        policy_loss = -torch.min(surr1, surr2)
-                        value_loss: torch.Tensor = (
-                            0.5 * (returns[i] - value.squeeze()) ** 2
-                        )
-                        loss: torch.Tensor = (
-                            policy_loss
-                            + value_coef * value_loss
-                            - entropy_coef * entropy
-                        )
-                        _ = loss.backward()  # pyright: ignore[reportUnknownMemberType]
+                    dist = Categorical(logits=logits)
+                    new_log_probs = cast(torch.Tensor, dist.log_prob(mb_actions))
+                    entropy = dist.entropy().mean()
 
-                    for p in agent.parameters():
-                        if p.grad is not None:
-                            p.grad /= len(mb_inds)
+                    ratio = torch.exp(new_log_probs - mb_old_log_probs)
+                    surr1 = ratio * mb_advantages
+                    surr2 = (
+                        torch.clamp(ratio, 1.0 - clip_epsilon, 1.0 + clip_epsilon)
+                        * mb_advantages
+                    )
+                    policy_loss = -torch.min(surr1, surr2).mean()
+                    value_loss = 0.5 * ((mb_returns - values_b.squeeze(-1)) ** 2).mean()
+                    loss = (
+                        policy_loss + value_coef * value_loss - entropy_coef * entropy
+                    )
+                    _ = loss.backward()  # pyright: ignore[reportUnknownMemberType]
                     _ = optimizer.step()  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
 
             # Clear buffers

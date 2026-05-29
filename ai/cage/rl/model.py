@@ -72,6 +72,15 @@ class ActorCritic(nn.Module):
                 dropout=dropout,
             )
 
+        # Swap any BatchNorm1d in the encoder for LayerNorm. The PPO inner loop
+        # runs forward passes one sample at a time, which poisons BN running
+        # stats; LayerNorm has no batch dependency.
+        if hasattr(self.gnn, "bns"):
+            gnn_bns = cast(nn.ModuleList, self.gnn.bns)
+            for i, bn in enumerate(gnn_bns):
+                if isinstance(bn, nn.BatchNorm1d):
+                    gnn_bns[i] = nn.LayerNorm(bn.num_features)
+
         # 2. Actor Head (Policy)
         # Computes compatibility score between two nodes to form an edge
         # We use a simple bilinear layer: score(u, v) = h_u^T * W * h_v

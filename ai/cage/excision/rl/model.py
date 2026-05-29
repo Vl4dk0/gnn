@@ -65,8 +65,11 @@ class RepairActorCritic(nn.Module):
         # GINEConv requires edge features; we use a constant-1 feature.
         self.edge_proj = nn.Linear(1, hidden_dim)
 
-        # GINEConv message-passing layers
-        self.convs, self.bns = build_gine_stack(hidden_dim, num_layers)
+        # GINEConv message-passing layers. LayerNorm (not BatchNorm) because the
+        # PPO inner loop runs forward passes one sample at a time, which would
+        # poison BN running stats.
+        self.convs, _ = build_gine_stack(hidden_dim, num_layers)
+        self.bns = nn.ModuleList([nn.LayerNorm(hidden_dim) for _ in range(num_layers)])
 
         # Actor: pair-scoring MLP — takes concat(emb_u, emb_v), outputs scalar
         self.pair_scorer = nn.Sequential(
