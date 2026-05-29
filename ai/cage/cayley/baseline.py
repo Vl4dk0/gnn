@@ -27,6 +27,7 @@ import time
 from typing import cast
 
 from ai.cage.cayley.generators.search import meta_search
+from ai.cage.train_utils import parse_targets
 
 # Orders of the known (k, g)-cages. The known cage is not necessarily a
 # Cayley graph, so these are reference values, not search targets the
@@ -58,25 +59,6 @@ KNOWN_CAGES: dict[tuple[int, int], int] = {
     (6, 6): 62,
     (7, 5): 50,
 }
-
-
-def parse_targets(spec: str) -> list[tuple[int, int]]:
-    """Parse a "k,g;k,g;..." target specification into (k, g) tuples."""
-    targets: list[tuple[int, int]] = []
-    for chunk in spec.split(";"):
-        chunk = chunk.strip()
-        if not chunk:
-            continue
-        parts = chunk.split(",")
-        if len(parts) != 2:
-            raise ValueError(f"bad target {chunk!r}: expected 'k,g'")
-        k, g = int(parts[0]), int(parts[1])
-        if k < 2 or g < 3:
-            raise ValueError(f"bad target {chunk!r}: need k >= 2 and g >= 3")
-        targets.append((k, g))
-    if not targets:
-        raise ValueError("no targets parsed")
-    return targets
 
 
 def run_baseline(

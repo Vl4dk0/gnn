@@ -32,13 +32,14 @@ import time
 from collections.abc import Callable
 from typing import cast
 
+from ai.cage.cayley.generators.search import meta_search, search_one_group
 from ai.cage.cayley.group.model import (
     GroupPromisePredictor,
     load_group_promise_predictor,
     make_group_filter,
 )
 from ai.cage.cayley.groups import FiniteGroup, available_groups
-from ai.cage.cayley.generators.search import meta_search, search_one_group
+from ai.cage.train_utils import parse_targets
 from backend.utils.graph_utils import moore_bound
 
 PredictFn = Callable[[FiniteGroup, int, int], float]
@@ -346,21 +347,6 @@ def format_comparison_table(rows: list[dict[str, object]]) -> str:
     return "\n".join(out)
 
 
-def _parse_targets(spec: str) -> list[tuple[int, int]]:
-    out: list[tuple[int, int]] = []
-    for chunk in spec.split(";"):
-        chunk = chunk.strip()
-        if not chunk:
-            continue
-        parts = chunk.split(",")
-        if len(parts) != 2:
-            raise ValueError(f"bad target {chunk!r}")
-        out.append((int(parts[0]), int(parts[1])))
-    if not out:
-        raise ValueError("no targets parsed")
-    return out
-
-
 def _parse_slacks(spec: str) -> tuple[float, ...]:
     return tuple(float(x.strip()) for x in spec.split(",") if x.strip())
 
@@ -438,7 +424,7 @@ def main() -> None:
         return
 
     # compare
-    targets = _parse_targets(cast(str, args.targets))
+    targets = parse_targets(cast(str, args.targets))
     slack_values = _parse_slacks(cast(str, args.slacks))
     baseline_path = cast("str | None", args.baseline_json)
     baseline_results = load_baseline_json(baseline_path) if baseline_path else None

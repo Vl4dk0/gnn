@@ -18,46 +18,24 @@ import random
 import sys
 from typing import cast
 
-import numpy as np
 import torch
 import torch.nn.functional as F
-from torch.utils.data import WeightedRandomSampler
 from torch_geometric.loader import DataLoader  # pyright: ignore[reportMissingTypeStubs]
 
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../.."))
 
+from ai.cage.train_utils import (
+    GIRTH_NORM,
+    evaluate_girth_predictor,
+    make_stratified_loader,
+    parse_targets,
+    set_seed,
+)
 from ai.cage.voltage.supervised.data_gen import generate_dataset
 from ai.cage.voltage.supervised.model import GirthPredictor
 from ai.utils.device import get_preferred_device
 from ai.utils.structural_features import structural_feature_dim
-
-GIRTH_NORM = 12.0  # Normalization constant so MSE loss is comparable to BCE
-
-
-def _set_seed(seed: int) -> None:
-    """Seed all RNGs for reproducibility."""
-    random.seed(seed)
-    np.random.seed(seed)
-    _ = torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
-
-
-def _parse_targets(targets_arg: str | None) -> list[tuple[int, int]]:
-    """Parse the --targets string into a list of (k, g) targets."""
-    if not targets_arg:
-        raise ValueError('--targets is required, e.g. --targets "3,5;3,6;4,6"')
-    out: list[tuple[int, int]] = []
-    for piece in targets_arg.split(";"):
-        piece = piece.strip()
-        if not piece:
-            continue
-        ks, gs = piece.split(",")
-        out.append((int(ks.strip()), int(gs.strip())))
-    if not out:
-        raise ValueError(f"Failed to parse --targets: {targets_arg!r}")
-    return out
 
 
 def _derive_model_id(targets: list[tuple[int, int]]) -> str:
@@ -68,72 +46,6 @@ def _derive_model_id(targets: list[tuple[int, int]]) -> str:
     """
     _ = targets
     return "girth_predictor"
-
-
-def _evaluate(
-    model: GirthPredictor,
-    loader: DataLoader,
-    device: torch.device,
-) -> dict[str, float]:
-    """Evaluate model and return overall metrics."""
-    _ = model.eval()
-    total_loss = 0.0
-    total_mae = 0.0
-    total = 0
-    tp = 0
-    fp = 0
-    fn = 0
-    tn = 0
-
-    with torch.no_grad():
-        for batch in loader:
-            batch = batch.to(device)
-            girth_pred = model(batch)
-
-            girth_true = cast(torch.Tensor, batch.girth).float().unsqueeze(-1)
-            g_target = cast(torch.Tensor, batch.g_target).float().unsqueeze(-1)
-
-            loss = F.mse_loss(girth_pred / GIRTH_NORM, girth_true / GIRTH_NORM)
-
-            n = int(girth_true.size(0))
-            total_loss += float(loss.item()) * n
-            total_mae += float(
-                F.l1_loss(girth_pred, girth_true, reduction="sum").item()
-            )
-
-            pred_class = (girth_pred >= g_target).float()
-            class_true = (girth_true >= g_target).float()
-            tp += int(
-                cast(torch.Tensor, ((pred_class == 1) & (class_true == 1)).sum()).item()
-            )
-            fp += int(
-                cast(torch.Tensor, ((pred_class == 1) & (class_true == 0)).sum()).item()
-            )
-            fn += int(
-                cast(torch.Tensor, ((pred_class == 0) & (class_true == 1)).sum()).item()
-            )
-            tn += int(
-                cast(torch.Tensor, ((pred_class == 0) & (class_true == 0)).sum()).item()
-            )
-            total += n
-
-    accuracy = (tp + tn) / max(total, 1)
-    precision = tp / max(tp + fp, 1)
-    recall = tp / max(tp + fn, 1)
-    f1 = 2 * precision * recall / max(precision + recall, 1e-9)
-
-    return {
-        "loss": total_loss / max(total, 1),
-        "mae": total_mae / max(total, 1),
-        "accuracy": accuracy,
-        "precision": precision,
-        "recall": recall,
-        "f1": f1,
-        "tp": float(tp),
-        "fp": float(fp),
-        "fn": float(fn),
-        "tn": float(tn),
-    }
 
 
 def _evaluate_per_target(
@@ -151,7 +63,7 @@ def _evaluate_per_target(
     out: dict[str, dict[str, float]] = {}
     for (k, g), items in groups.items():  # pyright: ignore[reportUnknownVariableType]
         loader = DataLoader(items, batch_size=batch_size)  # pyright: ignore[reportUnknownArgumentType]
-        m = _evaluate(model, loader, device)
+        m = evaluate_girth_predictor(model, loader, device)
         out[f"{k}_{g}"] = {
             "n": float(len(items)),  # pyright: ignore[reportUnknownArgumentType]
             "mae": round(m["mae"], 4),
@@ -182,7 +94,7 @@ def train(
 ) -> tuple[GirthPredictor, dict[str, object]]:
     """Train the girth predictor model. Returns (model, info_dict)."""
 
-    _set_seed(seed)
+    set_seed(seed)
     device = torch.device(get_preferred_device())
 
     model_id = model_id_override or _derive_model_id(targets)
@@ -264,36 +176,11 @@ def train(
         f"Test: {test_n} ({test_pos} pos, {test_rate * 100:.1f}%)"
     )
 
-    # Stratified sampler weighted by (k, g_target) so high-sample-count
-    # targets do not dominate.
-    joint_counts: dict[tuple[int, int], int] = {}
-    for d in train_data:
-        key = (
-            int(cast(int, d.k)),
-            int(cast(int, d.g_target)),
-        )
-        joint_counts[key] = joint_counts.get(key, 0) + 1
-
-    if len(joint_counts) > 1:
-        sample_weights: list[float] = []
-        for d in train_data:
-            key = (
-                int(cast(int, d.k)),
-                int(cast(int, d.g_target)),
-            )
-            sample_weights.append(1.0 / joint_counts[key])
-        train_sampler = WeightedRandomSampler(
-            weights=sample_weights,
-            num_samples=train_n,
-            replacement=True,
-        )
-        train_loader = DataLoader(
-            train_data, batch_size=batch_size, sampler=train_sampler
-        )
-        print(f"  Using WeightedRandomSampler over {len(joint_counts)} (k,g) buckets")
-    else:
-        train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
-        print("  Using shuffled DataLoader for training (single bucket)")
+    train_loader = make_stratified_loader(
+        train_data,
+        batch_size,
+        lambda d: (int(cast(int, d.k)), int(cast(int, d.g_target))),
+    )
 
     val_loader = DataLoader(val_data, batch_size=batch_size)
     test_loader = DataLoader(test_data, batch_size=batch_size)
@@ -340,7 +227,7 @@ def train(
         avg_train_loss = train_loss / max(train_count, 1)
 
         if epoch % print_every == 0 or epoch == 1 or epoch == epochs:
-            val = _evaluate(model, val_loader, device)
+            val = evaluate_girth_predictor(model, val_loader, device)
             print(
                 f"Epoch {epoch:4d} | Train: {avg_train_loss:.4f} | "
                 f"Val: {val['loss']:.4f} | MAE: {val['mae']:.2f} | "
@@ -363,7 +250,7 @@ def train(
 
     # Final evaluation on held-out test set (overall + per-target)
     print("\nEvaluating on held-out test set...")
-    test_metrics = _evaluate(model, test_loader, device)
+    test_metrics = evaluate_girth_predictor(model, test_loader, device)
     print(
         f"  Test loss: {test_metrics['loss']:.4f} | "
         f"MAE: {test_metrics['mae']:.2f} | "
@@ -384,7 +271,13 @@ def train(
 
     # Save model + info.json
     save_dir = os.path.join(
-        os.path.dirname(__file__), "..", "..", "..", "trained", "voltage_girth", model_id
+        os.path.dirname(__file__),
+        "..",
+        "..",
+        "..",
+        "trained",
+        "voltage_girth",
+        model_id,
     )
     os.makedirs(save_dir, exist_ok=True)
     weights_path = os.path.join(save_dir, "weights.pt")
@@ -528,7 +421,7 @@ def parse_args() -> argparse.Namespace:
 
 if __name__ == "__main__":
     args = parse_args()
-    targets = _parse_targets(cast(str | None, args.targets))
+    targets = parse_targets(cast(str | None, args.targets))
     raw_cycle_lengths = cast(str, args.cycle_lengths).strip()
     parsed_cycle_lengths: list[int] | None = (
         [int(x) for x in raw_cycle_lengths.split(",") if x.strip()]
