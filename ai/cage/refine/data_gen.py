@@ -55,7 +55,7 @@ def _random_k_regular(
     return nx.random_regular_graph(k, n, seed=seed_val)  # type: ignore[return-value]
 
 
-def _graph_to_pyg(
+def graph_to_pyg(
     G: nx.Graph[int],
     cycle_lengths: list[int],
     rwpe_dim: int,
@@ -152,7 +152,7 @@ def _generate_one_sample(
         nodes = sorted(G.nodes())
         node_idx = {v: i for i, v in enumerate(nodes)}
 
-        data = _graph_to_pyg(G, cycle_lengths, rwpe_dim)
+        data = graph_to_pyg(G, cycle_lengths, rwpe_dim)
         swap_idx = [
             node_idx[swap.u],
             node_idx[swap.v],

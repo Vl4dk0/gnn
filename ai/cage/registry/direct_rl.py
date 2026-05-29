@@ -1,10 +1,11 @@
 import time
-from typing import TypedDict, cast
+from typing import cast
 
 import networkx as nx
 import torch
 from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
 
+from ai.cage.registry.types import CageStepEvent
 from ai.cage.rl.env import CageConstructionEnv
 from ai.cage.rl.model import ActorCritic
 from ai.registry import get_best_model_id, list_trained_models
@@ -15,17 +16,6 @@ from backend.utils.graph_utils import (
     moore_bound,
     moore_hoffman_upper_bound,
 )
-
-
-class CageStepEvent(TypedDict):
-    step: int
-    action: str
-    u: int | None
-    v: int | None
-    accepted: bool
-    reward: float
-    done: bool
-    done_reason: str | None
 
 
 class RLGenerator:

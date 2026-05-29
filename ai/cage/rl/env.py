@@ -222,6 +222,8 @@ class CageConstructionEnv:
         """Reset environment and sample a new target when randomization is enabled."""
         if self.randomize_params:
             pool = self.pairs[: self.unlocked]
+            # Geometric weights: each new pair is 3× more likely than all previous ones combined,
+            # biasing selection heavily toward the most-recently unlocked (hardest) target.
             weights = [1.0]
             for _ in range(len(pool) - 1):
                 weights.append(3.0 * sum(weights))

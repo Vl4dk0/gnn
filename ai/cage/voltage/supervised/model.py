@@ -14,8 +14,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
-from torch_geometric.nn import GINEConv, global_mean_pool  # pyright: ignore[reportMissingTypeStubs]
+from torch_geometric.nn import global_mean_pool  # pyright: ignore[reportMissingTypeStubs]
 
+from ai.cage.gnn_utils import build_gine_stack
 from ai.cage.train_utils import load_predictor_artifacts
 from ai.utils.structural_features import structural_feature_dim
 
@@ -62,16 +63,7 @@ class GirthPredictor(nn.Module):
         self.edge_proj = nn.Linear(hidden_dim, hidden_dim)
 
         # GINEConv layers
-        self.convs = nn.ModuleList()
-        self.bns = nn.ModuleList()
-        for _ in range(num_layers):
-            mlp = nn.Sequential(
-                nn.Linear(hidden_dim, hidden_dim),
-                nn.ReLU(),
-                nn.Linear(hidden_dim, hidden_dim),
-            )
-            _ = self.convs.append(GINEConv(mlp, train_eps=True))
-            _ = self.bns.append(nn.BatchNorm1d(hidden_dim))
+        self.convs, self.bns = build_gine_stack(hidden_dim, num_layers)
 
         # Context projection (k, g_target, group_order -> hidden_dim)
         self.context_proj = nn.Linear(3, hidden_dim)

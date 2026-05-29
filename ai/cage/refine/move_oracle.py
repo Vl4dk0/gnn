@@ -27,8 +27,9 @@ import torch.nn.functional as F
 from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
 from torch_geometric.nn import GINEConv, global_mean_pool  # pyright: ignore[reportMissingTypeStubs]
 
+from ai.cage.refine.data_gen import graph_to_pyg
 from ai.cage.refine.swaps import Swap2
-from ai.utils.structural_features import add_structural_features, structural_feature_dim
+from ai.utils.structural_features import structural_feature_dim
 
 
 class MoveOracle(nn.Module):
@@ -167,41 +168,6 @@ class MoveOracle(nn.Module):
         return delta_pred
 
 
-def graph_to_pyg_data(
-    G: nx.Graph[int],
-    cycle_lengths: list[int],
-    rwpe_dim: int,
-) -> Data:
-    """Convert a NetworkX graph to a PyG Data object with structural features.
-
-    Applies add_structural_features with the given config so that the
-    MoveOracle receives properly enriched node features.
-    """
-    nodes = sorted(G.nodes())
-    node_idx = {n: i for i, n in enumerate(nodes)}
-    n = len(nodes)
-
-    edges = list(G.edges())
-    if edges:
-        src = [node_idx[u] for u, _ in edges] + [node_idx[v] for _, v in edges]
-        dst = [node_idx[v] for _, v in edges] + [node_idx[u] for u, _ in edges]
-        edge_index = torch.tensor([src, dst], dtype=torch.long)
-    else:
-        edge_index = torch.zeros((2, 0), dtype=torch.long)
-
-    data = Data(
-        x=torch.ones((n, 1), dtype=torch.float),
-        edge_index=edge_index,
-        num_nodes=n,
-    )
-    data = add_structural_features(
-        data,
-        cycle_lengths=cycle_lengths,
-        rwpe_dim=rwpe_dim,
-    )
-    return data
-
-
 def build_score_fn(
     model: MoveOracle,
     cycle_lengths: list[int],
@@ -220,7 +186,7 @@ def build_score_fn(
     ) -> torch.Tensor:
         nodes = sorted(G.nodes())
         node_idx = {n: i for i, n in enumerate(nodes)}
-        data = graph_to_pyg_data(G, cycle_lengths, rwpe_dim).to(device)
+        data = graph_to_pyg(G, cycle_lengths, rwpe_dim).to(device)
         swap_idx = torch.tensor(
             [
                 [node_idx[s.u], node_idx[s.v], node_idx[s.x], node_idx[s.y]]

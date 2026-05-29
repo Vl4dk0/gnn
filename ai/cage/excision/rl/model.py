@@ -25,7 +25,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
-from torch_geometric.nn import GINEConv, global_mean_pool  # pyright: ignore[reportMissingTypeStubs]
+from torch_geometric.nn import global_mean_pool  # pyright: ignore[reportMissingTypeStubs]
+
+from ai.cage.gnn_utils import build_gine_stack
 
 
 class RepairActorCritic(nn.Module):
@@ -64,16 +66,7 @@ class RepairActorCritic(nn.Module):
         self.edge_proj = nn.Linear(1, hidden_dim)
 
         # GINEConv message-passing layers
-        self.convs = nn.ModuleList()
-        self.bns = nn.ModuleList()
-        for _ in range(num_layers):
-            mlp = nn.Sequential(
-                nn.Linear(hidden_dim, hidden_dim),
-                nn.ReLU(),
-                nn.Linear(hidden_dim, hidden_dim),
-            )
-            self.convs.append(GINEConv(mlp, train_eps=True))
-            self.bns.append(nn.BatchNorm1d(hidden_dim))
+        self.convs, self.bns = build_gine_stack(hidden_dim, num_layers)
 
         # Actor: pair-scoring MLP — takes concat(emb_u, emb_v), outputs scalar
         self.pair_scorer = nn.Sequential(
