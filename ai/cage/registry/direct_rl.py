@@ -277,14 +277,19 @@ class RLGenerator:
             "u": u,
             "v": v,
             "accepted": bool(info.get("accepted", False)),
-            "reward": float(reward_value) if isinstance(reward_value, int | float) else reward,
+            "reward": float(reward_value)
+            if isinstance(reward_value, int | float)
+            else reward,
             "done": bool(info.get("done", done)),
-            "done_reason": str(done_reason_value) if done_reason_value is not None else None,
+            "done_reason": str(done_reason_value)
+            if done_reason_value is not None
+            else None,
         }
 
-        if done and bool(info.get("success", False)):
-            result_graph = self._active_result_graph()
-            if self._is_valid_result(result_graph):
-                self.graph = result_graph
-                self.is_complete = True
-                self.success = True
+        if done:
+            if bool(info.get("success", False)):
+                result_graph = self._active_result_graph()
+                if self._is_valid_result(result_graph):
+                    self.graph = result_graph
+                    self.success = True
+            self.is_complete = True

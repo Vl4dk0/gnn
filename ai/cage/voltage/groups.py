@@ -51,12 +51,14 @@ def _build_tables(
         for b in range(order):
             mt[a, b] = mult_fn(a, b)
 
-    inv = np.zeros(order, dtype=np.intp)
+    inv = np.full(order, -1, dtype=np.intp)
     for a in range(order):
         for b in range(order):
             if mt[a, b] == 0:
                 inv[a] = b
                 break
+        if inv[a] == -1:
+            raise ValueError(f"element {a} has no inverse; identity must be at index 0")
     return mt, inv
 
 

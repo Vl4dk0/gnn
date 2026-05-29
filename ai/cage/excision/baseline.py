@@ -179,8 +179,4 @@ def backtracking_repair(
 
             stack.append((H2, def2, []))
 
-        backtracks += 1
-        if backtracks > max_backtracks:
-            return None
-
     return None

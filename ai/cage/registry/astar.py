@@ -52,6 +52,7 @@ class AStarGenerator:
     g: int
     mb: int
     upper_bound: int
+    max_steps: int
     counter: int
     pq: list[tuple[float, int, nx.Graph[int]]]
     visited_hashes: set[str]
@@ -63,11 +64,12 @@ class AStarGenerator:
     explored_states: int
     duplicates_skipped: int
 
-    def __init__(self, k: int, g: int):
+    def __init__(self, k: int, g: int, max_steps: int = 100_000):
         self.k = k
         self.g = g
         self.mb = moore_bound(k, g)
         self.upper_bound = moore_hoffman_upper_bound(k, g)
+        self.max_steps = max_steps
 
         # Start with Moore bound vertices and no edges
         initial_graph: nx.Graph[int] = nx.Graph()
@@ -121,15 +123,18 @@ class AStarGenerator:
             self.start_time = time.time()
         self.step_count += 1
 
+        if self.step_count > self.max_steps:
+            self.is_complete = True
+            self.success = False
+            return
+
         # Check if queue is empty
         if not self.pq:
             self.is_complete = True
             self.success = False
             return
 
-        # Pop best candidate from priority queue
-        neg_score, _, current_graph = heapq.heappop(self.pq)
-        _ = -neg_score  # score unused
+        _, _, current_graph = heapq.heappop(self.pq)
 
         # Update current graph for visualization
         self.graph = current_graph.copy()

@@ -24,7 +24,6 @@ from ai.cage.voltage.base_graphs import (
     prism_base,
     cubic_multigraph_4nodes,
 )
-from ai.cage.voltage.cycle_analysis import count_short_identity_walks
 from ai.cage.voltage.groups import FiniteGroup, cyclic_group
 from ai.cage.voltage.lift import build_lift, verify_lift
 from ai.utils.device import get_preferred_device
@@ -58,7 +57,6 @@ class VoltageAssignmentEnv:
     SUCCESS_REWARD: float = 20.0
     GOOD_GIRTH_REWARD: float = 5.0  # girth >= g_target but not beating record
     STEP_REWARD: float = 0.0  # neutral per-step reward
-    VIOLATION_PENALTY_SCALE: float = 0.5  # penalty per new girth violation
 
     k: int
     g_target: int
@@ -93,7 +91,6 @@ class VoltageAssignmentEnv:
         self.voltages: list[int] = []
         self.current_edge_idx = 0
         self.num_edges = 0
-        self._prev_violations = 0
 
         self.device = torch.device(get_preferred_device())
 
@@ -167,7 +164,6 @@ class VoltageAssignmentEnv:
         self.num_edges = self.base.num_undirected_edges()
         self.voltages = []
         self.current_edge_idx = 0
-        self._prev_violations = 0
 
         return self._get_obs()
 
@@ -253,18 +249,6 @@ class VoltageAssignmentEnv:
             "num_edges": self.num_edges,
             "success": False,
         }
-
-        # Progress-based shaping: penalize new girth violations
-        # Pad unassigned edges with identity (0) for partial evaluation
-        if not done and len(self.voltages) >= 2:
-            padded = self.voltages + [0] * (self.num_edges - len(self.voltages))
-            violations = count_short_identity_walks(
-                self.base, self.group, padded, self.g_target
-            )
-            new_violations = violations - self._prev_violations
-            if new_violations > 0:
-                reward -= new_violations * self.VIOLATION_PENALTY_SCALE
-            self._prev_violations = violations
 
         if done:
             # Build and verify the actual lift

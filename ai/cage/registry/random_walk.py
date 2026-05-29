@@ -28,6 +28,7 @@ class RandomWalkGenerator:
     g: int
     mb: int
     upper_bound: int
+    max_steps: int
     graph: nx.Graph[int]
     step_count: int
     is_complete: bool
@@ -35,11 +36,12 @@ class RandomWalkGenerator:
     start_time: float
     target_edges: int
 
-    def __init__(self, k: int, g: int) -> None:
+    def __init__(self, k: int, g: int, max_steps: int = 100_000) -> None:
         self.k = k
         self.g = g
         self.mb = moore_bound(k, g)
         self.upper_bound = moore_hoffman_upper_bound(k, g)
+        self.max_steps = max_steps
 
         # Initialize graph with Moore bound nodes
         self.graph = nx.Graph()
@@ -69,6 +71,11 @@ class RandomWalkGenerator:
         if self.start_time == 0:
             self.start_time = time.time()
         self.step_count += 1
+
+        if self.step_count > self.max_steps:
+            self.is_complete = True
+            self.success = False
+            return
 
         # Check if we've exceeded the upper bound
         if self.graph.number_of_nodes() > self.upper_bound:

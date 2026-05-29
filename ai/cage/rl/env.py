@@ -195,9 +195,11 @@ class CageConstructionEnv:
         if not self.graph.has_edge(u, v):
             return False
         self.graph.remove_edge(u, v)
-        split = self._active_component_count() > 1
-        below_floor = len(self._active_nodes()) < self.mb
-        _ = self.graph.add_edge(u, v)
+        try:
+            split = self._active_component_count() > 1
+            below_floor = len(self._active_nodes()) < self.mb
+        finally:
+            _ = self.graph.add_edge(u, v)
         return not split and not below_floor
 
     def report_result(self, success: bool) -> bool:
@@ -283,7 +285,7 @@ class CageConstructionEnv:
                 v = u + 1 + (idx - count)
                 return u, v
             count += row_len
-        return 0, 0
+        raise IndexError(f"action index {idx} out of range for {self.num_nodes} nodes")
 
     def get_valid_action_mask(self) -> torch.Tensor:
         """
