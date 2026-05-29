@@ -29,26 +29,9 @@ from ai.utils.device import configure_torch_device
 from ai.utils.r_neighborhood import apply_r_neighborhood
 from dotenv import load_dotenv
 
+from ai.cage.ppo_utils import compute_gae
+
 _ = load_dotenv()
-
-
-def compute_gae(
-    rewards: list[float],
-    values: list[float],
-    dones: list[bool],
-    gamma: float = 0.99,
-    lam: float = 0.95,
-) -> torch.Tensor:
-    """Compute Generalized Advantage Estimation (GAE)."""
-    advantages: list[float] = []
-    gae = 0.0
-
-    for i in reversed(range(len(rewards))):
-        delta = rewards[i] + gamma * values[i + 1] * (1 - int(dones[i])) - values[i]
-        gae = delta + gamma * lam * (1 - int(dones[i])) * gae
-        advantages.insert(0, gae)
-
-    return torch.tensor(advantages, dtype=torch.float)
 
 
 def train_ppo(

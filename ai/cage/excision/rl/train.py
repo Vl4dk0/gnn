@@ -33,6 +33,8 @@ from typing import Any, cast
 
 import networkx as nx
 import numpy as np
+
+from ai.cage.ppo_utils import compute_gae
 import torch
 import torch.optim as optim
 from rich.console import Console
@@ -79,22 +81,6 @@ def _build_graph_bank(
 # ---------------------------------------------------------------------------
 # GAE computation
 # ---------------------------------------------------------------------------
-
-
-def compute_gae(
-    rewards: list[float],
-    values: list[float],
-    dones: list[bool],
-    gamma: float = 0.99,
-    lam: float = 0.95,
-) -> torch.Tensor:
-    advantages: list[float] = []
-    gae = 0.0
-    for i in reversed(range(len(rewards))):
-        delta = rewards[i] + gamma * values[i + 1] * (1 - int(dones[i])) - values[i]
-        gae = delta + gamma * lam * (1 - int(dones[i])) * gae
-        advantages.insert(0, gae)
-    return torch.tensor(advantages, dtype=torch.float)
 
 
 # ---------------------------------------------------------------------------
