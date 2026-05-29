@@ -22,8 +22,6 @@ export const CagePage = () => {
     setGirthG,
     settings,
     settingsOpen,
-    modelOptions,
-    voltageGirthModelOptions,
     setSettingsOpen,
     saveSettings,
     status,
@@ -275,11 +273,11 @@ export const CagePage = () => {
             // voltage_rl use different model registries (cage/actor_critic,
             // voltage_girth/voltage_girth_predictor, cage/voltage_actor_critic
             // respectively) so a stale id from one would 400 against another.
-            // The hook re-populates the field via auto-select / loaded list.
+            // The hook re-populates the voltage field via auto-select.
             setDraftSettings((current) => ({
               ...current,
               generatorType: newType,
-              executionMode: newType === "rl" ? current.executionMode : "async",
+              executionMode: current.executionMode,
               modelId: null
             }));
           }}
@@ -290,66 +288,25 @@ export const CagePage = () => {
           <option value="rl">RL Agent (GNN-Guided)</option>
           <option value="voltage">Voltage Graph Lift (Algebraic)</option>
           <option value="voltage_rl">Voltage RL (Learned Assignments)</option>
+          <option value="cayley">Cayley Graph Search (Algebraic)</option>
         </SelectField>
 
-        {draftSettings.generatorType === "rl" && (
-          <SelectField
-            id="rlModelId"
-            label="RL Model"
-            value={draftSettings.modelId ?? ""}
-            onChange={(event) => {
-              setDraftSettings((current) => ({
-                ...current,
-                modelId: event.target.value || null
-              }));
-            }}
-          >
-            {modelOptions.map((option) => (
-              <option key={option.value || "auto"} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </SelectField>
-        )}
+        <SelectField
+          id="executionMode"
+          label="Execution Mode"
+          value={draftSettings.executionMode}
+          onChange={(event) => {
+            setDraftSettings((current) => ({
+              ...current,
+              executionMode: event.target.value as CageSettings["executionMode"]
+            }));
+          }}
+        >
+          <option value="async">Fast Search</option>
+          <option value="stepped">Step Inspection</option>
+        </SelectField>
 
-        {draftSettings.generatorType === "voltage" && (
-          <SelectField
-            id="voltageGirthModelId"
-            label="Girth Predictor (ML guidance)"
-            value={draftSettings.modelId ?? ""}
-            onChange={(event) => {
-              setDraftSettings((current) => ({
-                ...current,
-                modelId: event.target.value || null
-              }));
-            }}
-          >
-            {voltageGirthModelOptions.map((option) => (
-              <option key={option.value || "none"} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </SelectField>
-        )}
-
-        {draftSettings.generatorType === "rl" && (
-          <SelectField
-            id="rlExecutionMode"
-            label="Execution Mode"
-            value={draftSettings.executionMode}
-            onChange={(event) => {
-              setDraftSettings((current) => ({
-                ...current,
-                executionMode: event.target.value as CageSettings["executionMode"]
-              }));
-            }}
-          >
-            <option value="async">Fast Search</option>
-            <option value="stepped">Step Inspection</option>
-          </SelectField>
-        )}
-
-        {!(draftSettings.generatorType === "rl" && draftSettings.executionMode === "stepped") && (
+        {!(draftSettings.executionMode === "stepped") && (
           <SettingGroup>
             <label className="label-base mb-2 block normal-case tracking-normal">
               Update Interval:&nbsp;
@@ -374,7 +331,7 @@ export const CagePage = () => {
           </SettingGroup>
         )}
 
-        {draftSettings.generatorType === "rl" && draftSettings.executionMode === "stepped" && (
+        {draftSettings.executionMode === "stepped" && (
           <>
             <SettingGroup>
               <label className="label-base mb-2 block normal-case tracking-normal">

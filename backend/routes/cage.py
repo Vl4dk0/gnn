@@ -19,9 +19,9 @@ from ai.cage import (
     RLGenerator,
     VoltageSearchGenerator,
     VoltageRLGenerator,
+    CayleySearchGenerator,
 )
 from ai.registry import (
-    get_best_model_id,
     get_trained_dir,
     list_trained_models,
     model_exists,
@@ -50,7 +50,7 @@ class _GeneratorProto(Protocol):
 
 
 type _GeneratorType = Literal[
-    "randomwalk", "bruteforce", "astar", "rl", "voltage", "voltage_rl"
+    "randomwalk", "bruteforce", "astar", "rl", "voltage", "voltage_rl", "cayley"
 ]
 type _ExecutionMode = Literal["async", "stepped"]
 type _Generator = (
@@ -60,6 +60,7 @@ type _Generator = (
     | RLGenerator
     | VoltageSearchGenerator
     | VoltageRLGenerator
+    | CayleySearchGenerator
 )
 
 
@@ -131,6 +132,7 @@ VALID_GENERATORS: set[str] = {
     "rl",
     "voltage",
     "voltage_rl",
+    "cayley",
 }
 VALID_MODES: set[str] = {"async", "stepped"}
 
@@ -284,6 +286,8 @@ def _create_generator(
         return VoltageSearchGenerator(k, g, model_id=requested_model_id)
     if generator_type == "voltage_rl":
         return VoltageRLGenerator(k, g, model_id=requested_model_id)
+    if generator_type == "cayley":
+        return CayleySearchGenerator(k, g, model_id=requested_model_id)
     return RLGenerator(
         k,
         g,
@@ -391,10 +395,6 @@ def generate() -> Response | tuple[Response, int]:
         return jsonify({"error": f"Unknown cage generator: {raw_generator_type}"}), 400
     if mode is None:
         return jsonify({"error": f"Unknown cage execution mode: {raw_mode}"}), 400
-    if mode == "stepped" and generator_type != "rl":
-        return jsonify(
-            {"error": "Stepped inspection mode is only supported for RL"}
-        ), 400
     if generator_type == "rl" and requested_model_id is not None:
         if not model_exists("cage", requested_model_id):
             return jsonify(
@@ -562,7 +562,7 @@ def get_status(session_id: str) -> Response | tuple[Response, int]:
 
 @cage_bp.route("/step/<session_id>", methods=["POST"])
 def step_session(session_id: str) -> Response | tuple[Response, int]:
-    """Advance a stepped RL inspection session by a bounded number of steps."""
+    """Advance a stepped inspection session by a bounded number of steps."""
     data: _StepRequest = cast(_StepRequest, request.get_json() or {})
     steps = int(data.get("steps", 1))
     if steps < 1 or steps > MAX_STEP_BATCH:

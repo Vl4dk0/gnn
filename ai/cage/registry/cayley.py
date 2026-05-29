@@ -18,8 +18,12 @@ from ai.cage.cayley.cayley import (
     cayley_girth,
     count_short_relations,
 )
-from ai.cage.cayley.groups import FiniteGroup, available_groups
-from ai.cage.cayley.generators.search import candidate_swaps, random_generating_set
+from ai.cage.cayley.groups import (
+    FiniteGroup,
+    available_groups,
+    random_generating_set,
+)
+from ai.cage.cayley.generators.search import candidate_swaps
 from backend.utils.graph_utils import is_k_regular, moore_bound
 
 
@@ -78,9 +82,12 @@ class CayleySearchGenerator:
         initial = self._fresh_generators()
         self._gens = initial if initial is not None else []
 
-        self.graph = nx.Graph()
-        for i in range(mb):
-            _ = self.graph.add_node(i)
+        if self._gens:
+            self.graph = build_cayley(self._group, self._gens)
+        else:
+            self.graph = nx.Graph()
+            for i in range(mb):
+                _ = self.graph.add_node(i)
 
     def elapsed_time(self) -> float:
         if self.start_time == 0:
@@ -105,6 +112,8 @@ class CayleySearchGenerator:
         initial = self._fresh_generators()
         self._gens = initial if initial is not None else self._gens
         self._tabu.clear()
+        if self._gens:
+            self.graph = build_cayley(self._group, self._gens)
 
     def step(self) -> None:
         if self.start_time == 0:
@@ -156,6 +165,7 @@ class CayleySearchGenerator:
 
         self._gens = best_new
         self._tabu[best_replaced] = self.step_count + 10
+        self.graph = build_cayley(self._group, self._gens)
 
         if self.step_count % 25 == 0:
             girth = cayley_girth(self._group, self._gens, max_girth=2 * self.g)

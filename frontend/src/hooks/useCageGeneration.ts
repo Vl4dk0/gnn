@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { CageExecutionMode, CageSettings, CageStatusResponse } from "../types/api";
 import {
-  fetchCageModels,
   fetchCageStatus,
   fetchCageVoltageGirthModels,
   startCageGeneration,
@@ -25,11 +24,6 @@ const DEFAULT_SETTINGS: CageSettings = {
 
 const STORAGE_KEY = "cageGeneratorSettings";
 
-// Sentinel modelId for the voltage generator's "None (pure tabu + random)"
-// dropdown choice. Distinct from null (which means "no choice yet, use the
-// auto-selected default"). Stripped before reaching the backend.
-export const VOLTAGE_NO_MODEL = "__none__";
-
 type CageRunPhase =
   | "idle"
   | "starting"
@@ -38,11 +32,6 @@ type CageRunPhase =
   | "stepping"
   | "auto-stepping"
   | "complete";
-
-interface ModelOption {
-  value: string;
-  label: string;
-}
 
 const formatElapsed = (seconds: number): string => {
   if (seconds < 1) {
@@ -58,23 +47,17 @@ const formatElapsed = (seconds: number): string => {
   return `${mins}m ${secs}s`;
 };
 
-// Generator types that have a visible model selector in the UI. voltage_rl
-// is intentionally excluded — it has no dropdown, so any modelId carried
-// over from a different generator would be stale (and likely the wrong
-// model_type, which the backend rejects with 400). The voltage_rl backend
-// path uses its own fallback when no model_id arrives.
-const generatorAcceptsModel = (g: CageSettings["generatorType"]): boolean =>
-  g === "rl" || g === "voltage";
-
 const normalizeSettings = (settings: CageSettings): CageSettings => {
   const merged = { ...DEFAULT_SETTINGS, ...settings };
-  const executionMode: CageExecutionMode =
-    merged.generatorType === "rl" ? merged.executionMode : "async";
 
   return {
     ...merged,
-    executionMode,
-    modelId: generatorAcceptsModel(merged.generatorType) ? merged.modelId : null,
+    // Preserve the user's executionMode for all generator types.
+    executionMode: merged.executionMode,
+    // Only voltage keeps a model_id (auto-resolved girth predictor).
+    // RL sends null so the backend picks the best actor-critic model.
+    // All other generators never use a model_id.
+    modelId: merged.generatorType === "voltage" ? merged.modelId : null,
     pollingInterval: Math.max(50, Math.min(2000, merged.pollingInterval)),
     stepsPerTick: Math.max(1, Math.min(100, Math.round(merged.stepsPerTick))),
     autoStepInterval: Math.max(50, Math.min(2000, merged.autoStepInterval))
@@ -91,12 +74,6 @@ export const useCageGeneration = () => {
     normalizeSettings(readStored<CageSettings>(STORAGE_KEY, DEFAULT_SETTINGS))
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [modelOptions, setModelOptions] = useState<ModelOption[]>([
-    { value: "", label: "Loading RL models..." }
-  ]);
-  const [voltageGirthModelOptions, setVoltageGirthModelOptions] = useState<ModelOption[]>([
-    { value: "", label: "Loading girth predictors..." }
-  ]);
   const [voltageGirthDefault, setVoltageGirthDefault] = useState<string | null>(null);
 
   const [status, setStatus] = useState<CageStatusResponse | null>(null);
@@ -120,7 +97,7 @@ export const useCageGeneration = () => {
   }, [degreeK, girthG]);
 
   const isMooreBoundOverLimit = currentMooreBound !== null && currentMooreBound > mooreBoundLimit;
-  const isSteppedMode = settings.generatorType === "rl" && settings.executionMode === "stepped";
+  const isSteppedMode = settings.executionMode === "stepped";
   const isGenerating = phase === "starting" || phase === "async-running";
   const isStepping = phase === "stepping";
   const isAutoStepping = phase === "auto-stepping";
@@ -132,51 +109,25 @@ export const useCageGeneration = () => {
   }, [sessionId]);
 
   useEffect(() => {
-    const loadModels = async () => {
-      try {
-        const data = await fetchCageModels();
-        const options: ModelOption[] = [
-          {
-            value: "",
-            label: data.default ? `Best Available (${data.default})` : "Best Available"
-          },
-          ...data.models.map((model) => ({
-            value: model.model_id,
-            label: model.model_id
-          }))
-        ];
-        setModelOptions(options);
-      } catch {
-        setModelOptions([{ value: "", label: "Best Available" }]);
-      }
-    };
-
+    // Fetch the best voltage girth predictor so it can be auto-selected when
+    // the voltage generator is active. No model dropdown is shown to the user;
+    // the resolved default is sent transparently on every voltage generation.
     const loadVoltageGirthModels = async () => {
       try {
         const data = await fetchCageVoltageGirthModels();
-        const options: ModelOption[] = [
-          { value: VOLTAGE_NO_MODEL, label: "None (pure tabu + random)" },
-          ...data.models.map((model) => ({
-            value: model.model_id,
-            label: model.model_id
-          }))
-        ];
-        setVoltageGirthModelOptions(options);
         setVoltageGirthDefault(data.default ?? null);
       } catch {
-        setVoltageGirthModelOptions([{ value: VOLTAGE_NO_MODEL, label: "None (pure tabu + random)" }]);
         setVoltageGirthDefault(null);
       }
     };
 
-    void loadModels();
     void loadVoltageGirthModels();
   }, []);
 
   // Auto-select the unified girth predictor whenever the voltage generator
-  // is active and modelId is unset (null). Explicit user choices are
-  // distinguished from "unset" by the VOLTAGE_NO_MODEL sentinel produced
-  // by the dropdown, so this effect cannot overwrite an explicit None.
+  // is active and modelId is unset (null). Since there is no user-facing
+  // model dropdown, modelId for voltage is always either null (initial /
+  // post-generator-switch) or the resolved default id (after this effect runs).
   useEffect(() => {
     if (
       settings.generatorType === "voltage" &&
@@ -317,10 +268,10 @@ export const useCageGeneration = () => {
     const mode: CageExecutionMode = isSteppedMode ? "stepped" : "async";
 
     try {
-      const rawModelId = generatorAcceptsModel(settings.generatorType)
-        ? settings.modelId
-        : null;
-      const apiModelId = rawModelId === VOLTAGE_NO_MODEL ? null : rawModelId;
+      // Voltage uses the auto-resolved girth predictor stored in modelId.
+      // RL sends null so the backend picks the best actor-critic model.
+      // All other generators don't use a model (normalizeSettings ensures null).
+      const apiModelId = settings.modelId;
       const result = await startCageGeneration(
         degreeK,
         girthG,
@@ -471,8 +422,6 @@ export const useCageGeneration = () => {
     setGirthG,
     settings,
     settingsOpen,
-    modelOptions,
-    voltageGirthModelOptions,
     setSettingsOpen,
     saveSettings,
     status,

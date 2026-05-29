@@ -25,7 +25,6 @@ from ai.cage.voltage.cycle_analysis import (
 from ai.cage.voltage.groups import FiniteGroup, cyclic_group
 from ai.cage.voltage.lift import build_lift, verify_lift
 from ai.cage.voltage.supervised.model import GirthPredictor, load_girth_predictor
-from ai.utils.structural_features import add_structural_features
 from ai.cage.voltage.supervised.search import beam_search
 from backend.utils.graph_utils import is_k_regular, moore_bound
 
@@ -144,6 +143,7 @@ class VoltageSearchGenerator:
 
             # Degenerate — random restart
             self._random_restart()
+            self.graph = build_lift(self._base, self._group, self._voltages)
             return
 
         # Tabu move: try changing one free-edge voltage
@@ -219,6 +219,9 @@ class VoltageSearchGenerator:
                 elif props["is_k_regular"] and props["is_connected"]:
                     # Valid graph, just not high enough girth yet — show it
                     self.graph = lifted
+
+        if not self.is_complete:
+            self.graph = build_lift(self._base, self._group, self._voltages)
 
     def _random_restart(self) -> None:
         """Restart with a new random voltage assignment, possibly new config."""

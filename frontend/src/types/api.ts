@@ -58,7 +58,8 @@ export type GeneratorType =
   | "astar"
   | "rl"
   | "voltage"
-  | "voltage_rl";
+  | "voltage_rl"
+  | "cayley";
 export type CageExecutionMode = "async" | "stepped";
 
 export interface CageStepEvent {
