@@ -201,12 +201,14 @@ def load_girth_predictor(
                 f"Requested: cycle_lengths={cycle_lengths}, rwpe_dim={rwpe_dim}."
             )
 
-    # Compute the base node_feat_dim (2 for legacy models) plus structural extras
-    base_node_feat_dim = int(cast(int, training.get("node_feat_dim", 2)))
-    extra_dim = structural_feature_dim(
-        cycle_lengths=saved_cycle_lengths, rwpe_dim=saved_rwpe_dim
-    )
-    node_feat_dim = base_node_feat_dim + extra_dim
+    # The trainer saves node_feat_dim as the TOTAL (base + structural). Use
+    # it directly; if absent (legacy models), reconstruct from base=2 + extras.
+    if "node_feat_dim" in training:
+        node_feat_dim = int(cast(int, training["node_feat_dim"]))
+    else:
+        node_feat_dim = 2 + structural_feature_dim(
+            cycle_lengths=saved_cycle_lengths, rwpe_dim=saved_rwpe_dim
+        )
 
     model = GirthPredictor(
         node_feat_dim=node_feat_dim,

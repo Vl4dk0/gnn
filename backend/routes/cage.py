@@ -342,8 +342,15 @@ def run_generation(session_id: str) -> None:
     finally:
         with session_lock:
             if session_id in generation_sessions:
-                with generation_sessions[session_id]["lock"]:
-                    generation_sessions[session_id]["stopped"] = True
+                sess = generation_sessions[session_id]
+                with sess["lock"]:
+                    # `stopped` means "aborted without completing"; the
+                    # POLL_TIMEOUT / MAX_GENERATION_TIME branches above set it
+                    # themselves. Don't stomp it on normal completion, or the
+                    # frontend reads the success/failure response as "page
+                    # navigated away".
+                    if not sess["generator"].is_complete:
+                        sess["stopped"] = True
         print(f"Generation thread {session_id} completed.")
 
 
