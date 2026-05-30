@@ -4,7 +4,6 @@ from .registry.astar import AStarGenerator
 from .registry.direct_rl import RLGenerator
 from .registry.voltage import VoltageSearchGenerator
 from .registry.voltage_rl import VoltageRLGenerator
-from .registry.cayley import CayleySearchGenerator
 
 __all__ = [
     "RandomWalkGenerator",
@@ -13,5 +12,4 @@ __all__ = [
     "RLGenerator",
     "VoltageSearchGenerator",
     "VoltageRLGenerator",
-    "CayleySearchGenerator",
 ]

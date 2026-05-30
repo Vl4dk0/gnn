@@ -19,7 +19,6 @@ from ai.cage import (
     RLGenerator,
     VoltageSearchGenerator,
     VoltageRLGenerator,
-    CayleySearchGenerator,
 )
 from ai.registry import (
     get_trained_dir,
@@ -51,7 +50,7 @@ class _GeneratorProto(Protocol):
 
 
 type _GeneratorType = Literal[
-    "randomwalk", "bruteforce", "astar", "rl", "voltage", "voltage_rl", "cayley"
+    "randomwalk", "bruteforce", "astar", "rl", "voltage", "voltage_rl"
 ]
 type _ExecutionMode = Literal["async", "stepped"]
 type _Generator = (
@@ -61,7 +60,6 @@ type _Generator = (
     | RLGenerator
     | VoltageSearchGenerator
     | VoltageRLGenerator
-    | CayleySearchGenerator
 )
 
 
@@ -140,7 +138,6 @@ VALID_GENERATORS: set[str] = {
     "rl",
     "voltage",
     "voltage_rl",
-    "cayley",
 }
 VALID_MODES: set[str] = {"async", "stepped"}
 
@@ -294,8 +291,6 @@ def _create_generator(
         return VoltageSearchGenerator(k, g, model_id=requested_model_id)
     if generator_type == "voltage_rl":
         return VoltageRLGenerator(k, g, model_id=requested_model_id)
-    if generator_type == "cayley":
-        return CayleySearchGenerator(k, g, model_id=requested_model_id)
     return RLGenerator(
         k,
         g,

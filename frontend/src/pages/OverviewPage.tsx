@@ -48,12 +48,6 @@ const STORY_ITEMS = [
     index: 7,
     title: "Voltage graph lifts",
     description: "An algebraic shortcut: tiny blueprints + groups to generate large regular graphs."
-  },
-  {
-    href: "/docs/cayley",
-    index: 8,
-    title: "Cayley graphs",
-    description: "Algebraic generation and group-promise GNNs."
   }
 ];
 

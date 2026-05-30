@@ -267,7 +267,6 @@ if new_violations > 0:
 
       <div className="mt-10 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-5">
         <DocsNextButton href="/docs/module-cage" label="Cage generation" direction="back" />
-        <DocsNextButton href="/docs/cayley" label="Cayley graphs" />
       </div>
     </DocsLayout>
   );
