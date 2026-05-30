@@ -189,6 +189,23 @@ def main() -> None:
         help="Hard per-task wall-clock cap in seconds (SIGALRM)",
     )
     parser.add_argument(
+        "--approaches",
+        default=None,
+        help=(
+            "Comma-separated approaches to include (e.g. 'forge' or "
+            "'voltage,forge'; for node tasks these are architectures like 'sage'). "
+            "Default: all."
+        ),
+    )
+    parser.add_argument(
+        "--targets",
+        default=None,
+        help=(
+            "Restrict cage (k,g) targets, as k-g pairs, e.g. '3-6' or '3-6,4-6'. "
+            "Default: the full grid."
+        ),
+    )
+    parser.add_argument(
         "--out-root",
         default="results/runs",
         dest="out_root",
@@ -208,6 +225,20 @@ def main() -> None:
 
     benchmark_names = [b.strip() for b in benchmarks_str.split(",")]
 
+    approaches: list[str] | None = None
+    if args.approaches is not None:
+        approaches = [a.strip() for a in str(args.approaches).split(",") if a.strip()]
+
+    targets: list[tuple[int, int]] | None = None
+    if args.targets is not None:
+        targets = []
+        for tok in str(args.targets).split(","):
+            tok = tok.strip()
+            if not tok:
+                continue
+            k_str, g_str = tok.split("-")
+            targets.append((int(k_str), int(g_str)))
+
     config = RunConfig(
         benchmarks=benchmark_names,
         quick=quick,
@@ -216,6 +247,8 @@ def main() -> None:
         cage_max_steps=cage_max_steps,
         workers=workers,
         task_timeout_s=task_timeout,
+        approaches=approaches,
+        targets=targets,
     )
 
     stamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")

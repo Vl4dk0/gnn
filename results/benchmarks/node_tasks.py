@@ -36,9 +36,18 @@ _PREDICT_FNS = {
 
 
 def _make_tasks(task_name: str, config: RunConfig) -> list[Task]:
-    """Emit one Task per trained model for *task_name*."""
+    """Emit one Task per trained model for *task_name*.
+
+    Honours config.approaches: when set, only models whose architecture
+    (model_type) is listed are benchmarked.
+    """
     tasks: list[Task] = []
     for m in list_trained_models(task_name):
+        if (
+            config.approaches is not None
+            and m.get("model_type") not in config.approaches
+        ):
+            continue
         mid: str = m["model_id"]
         tasks.append(
             Task(

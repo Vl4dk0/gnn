@@ -113,10 +113,22 @@ _SPECS.append(("forge", "", "girth_predictor" if _GIRTH_PREDICTOR_OK else None))
 
 
 def make_tasks(config: RunConfig) -> list[Task]:
-    """Emit one Task per (k,g) × generator-spec × seed."""
+    """Emit one Task per (k,g) × generator-spec × seed.
+
+    Honours config.approaches (restrict to named approaches, e.g. ["forge"])
+    and config.targets (restrict the (k,g) grid), so a single approach can be
+    benchmarked on a couple of targets without running everything.
+    """
+    specs = _SPECS
+    if config.approaches is not None:
+        specs = [s for s in _SPECS if s[0] in config.approaches]
+    targets = (
+        config.targets if config.targets is not None else cage_targets(config.quick)
+    )
+
     tasks: list[Task] = []
-    for k, g in cage_targets(config.quick):
-        for approach, variant, model_id in _SPECS:
+    for k, g in targets:
+        for approach, variant, model_id in specs:
             for seed in range(config.seeds):
                 if variant:
                     label = f"({k},{g}) {approach}[{variant}] s{seed}"
