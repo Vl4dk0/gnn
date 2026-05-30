@@ -19,14 +19,13 @@ import random
 import time
 from typing import cast
 
-import networkx as nx
 import numpy as np
 import torch
 
-from ai.cage.forge import forge_graph
 from ai.cage.registry.astar import AStarGenerator
 from ai.cage.registry.bruteforce import BruteforceGenerator
 from ai.cage.registry.direct_rl import RLGenerator
+from ai.cage.registry.forge import ForgeGenerator
 from ai.cage.registry.random_walk import RandomWalkGenerator
 from ai.cage.registry.voltage import VoltageSearchGenerator
 from ai.cage.registry.voltage_rl import VoltageRLGenerator
@@ -165,59 +164,48 @@ def execute(task: Task) -> list[TrialResult]:
     np.random.seed(seed)
     _ = torch.manual_seed(seed)
 
-    # forge is a one-shot cascade (voltage -> refine -> excision), not a step
-    # generator, so it runs outside the step loop and self-limits via its own
-    # time_budget. Every other approach follows the step protocol.
-    graph: nx.Graph[int]
-    success: bool
-    steps: int | None
-    if approach == "forge":
-        t0 = time.perf_counter()
-        forged = forge_graph(
-            k, g, predictor=model_id, time_budget=time_budget_s, verbose=False
-        )
-        elapsed = time.perf_counter() - t0
-        graph = forged if forged is not None else nx.Graph()
-        success = forged is not None
-        steps = None
+    # Build generator. forge follows the same step protocol as the others
+    # (its embedded voltage->refine->excision cascade advances one move per
+    # step), so it runs through the shared step loop and honours the same
+    # max_steps / time_budget guards.
+    gen: (
+        RandomWalkGenerator
+        | AStarGenerator
+        | BruteforceGenerator
+        | RLGenerator
+        | VoltageSearchGenerator
+        | VoltageRLGenerator
+        | ForgeGenerator
+    )
+    if approach == "randomwalk":
+        gen = RandomWalkGenerator(k, g)
+    elif approach == "astar":
+        gen = AStarGenerator(k, g)
+    elif approach == "bruteforce":
+        gen = BruteforceGenerator(k, g)
+    elif approach == "rl":
+        gen = RLGenerator(k, g, model_id=model_id)
+    elif approach == "voltage":
+        gen = VoltageSearchGenerator(k, g, model_id=model_id)
+    elif approach == "voltage_rl":
+        gen = VoltageRLGenerator(k, g, model_id=model_id)
+    elif approach == "forge":
+        gen = ForgeGenerator(k, g, model_id=model_id)
     else:
-        gen: (
-            RandomWalkGenerator
-            | AStarGenerator
-            | BruteforceGenerator
-            | RLGenerator
-            | VoltageSearchGenerator
-            | VoltageRLGenerator
-        )
-        if approach == "randomwalk":
-            gen = RandomWalkGenerator(k, g)
-        elif approach == "astar":
-            gen = AStarGenerator(k, g)
-        elif approach == "bruteforce":
-            gen = BruteforceGenerator(k, g)
-        elif approach == "rl":
-            gen = RLGenerator(k, g, model_id=model_id)
-        elif approach == "voltage":
-            gen = VoltageSearchGenerator(k, g, model_id=model_id)
-        elif approach == "voltage_rl":
-            gen = VoltageRLGenerator(k, g, model_id=model_id)
-        else:
-            raise ValueError(f"Unknown approach: {approach!r}")
+        raise ValueError(f"Unknown approach: {approach!r}")
 
-        # Run the step loop with both budget guards
-        t0 = time.perf_counter()
-        while not gen.is_complete:
-            gen.step()
-            if gen.step_count >= max_steps:
-                break
-            if gen.elapsed_time() > time_budget_s:
-                break
-        elapsed = time.perf_counter() - t0
-        graph = gen.graph
-        success = gen.success
-        steps = gen.step_count
+    # Run the step loop with both budget guards
+    t0 = time.perf_counter()
+    while not gen.is_complete:
+        gen.step()
+        if gen.step_count >= max_steps:
+            break
+        if gen.elapsed_time() > time_budget_s:
+            break
+    elapsed = time.perf_counter() - t0
 
     # Collect graph metrics
+    graph = gen.graph
     n_nodes: int = graph.number_of_nodes()
     n_edges: int = graph.number_of_edges()
 
@@ -253,9 +241,9 @@ def execute(task: Task) -> list[TrialResult]:
             label=instance_label,
             instance=f"k{k}_g{g}_s{seed}",
             target={"k": k, "g": g},
-            success=success,
+            success=gen.success,
             elapsed_s=elapsed,
-            steps=steps,
+            steps=gen.step_count,
             n_nodes=n_nodes,
             n_edges=n_edges,
             metrics={
