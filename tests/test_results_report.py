@@ -55,7 +55,8 @@ class TestSolvabilityMatrix:
             _cage_result(3, 7, "rl", "", False, 60.0),  # 0 of 1 -> ✗
         ]
         text = self._summary(tmp_path, results)
-        matrix = text.split("### Mean time-to-solve by (k, g)")[1]
+        # Isolate just the time matrix (stop at the next section heading).
+        matrix = text.split("### Mean time-to-solve by (k, g)")[1].split("\n###")[0]
         rows = {
             line.split("|")[1].strip(): line
             for line in matrix.splitlines()
@@ -79,6 +80,28 @@ class TestSolvabilityMatrix:
             if line.startswith("| (")
         ]
         assert order.index("(4,5)") < order.index("(3,8)")
+
+    def test_size_matrix_reports_mean_vertices_and_edges(self, tmp_path: Path) -> None:
+        results = [
+            _cage_result(3, 5, "voltage", "", True),  # n_nodes=10, n_edges=15
+            _cage_result(3, 5, "voltage", "", True),
+            _cage_result(3, 7, "voltage", "", False),  # never solved -> ✗
+        ]
+        text = self._summary(tmp_path, results)
+        assert "### Mean found-graph size (|V| / |E|) by (k, g)" in text
+        size_section = text.split("### Mean found-graph size (|V| / |E|) by (k, g)")[1]
+        rows = {
+            line.split("|")[1].strip(): line
+            for line in size_section.splitlines()
+            if line.startswith("| (")
+        }
+        assert "10/15" in rows["(3,5)"]  # mean |V|/|E| of the solved runs
+        assert "✗" in rows["(3,7)"]
+
+    def test_both_matrices_present(self, tmp_path: Path) -> None:
+        text = self._summary(tmp_path, [_cage_result(3, 5, "voltage", "", True)])
+        assert "### Mean time-to-solve by (k, g)" in text
+        assert "### Mean found-graph size (|V| / |E|) by (k, g)" in text
 
     def test_no_matrix_for_node_tasks(self, tmp_path: Path) -> None:
         # Node tasks carry an empty target -> no matrix should be emitted.

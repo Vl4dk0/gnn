@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import statistics
 from pathlib import Path
+from typing import Callable
 
 from backend.utils.graph_utils import moore_bound
 from results.metrics import TrialResult
@@ -104,22 +105,44 @@ def _write_summary(out_dir: Path, by_benchmark: dict[str, list[TrialResult]]) ->
 
         lines.append("")
 
-        _append_solvability_matrix(lines, bench_results)
+        _append_kg_matrices(lines, bench_results)
 
     _ = (out_dir / "summary.md").write_text("\n".join(lines))
 
 
-def _append_solvability_matrix(
-    lines: list[str], bench_results: list[TrialResult]
-) -> None:
-    """Append a (k,g) x approach matrix of mean time-to-solve.
+def _time_cell(cell: list[TrialResult]) -> str:
+    """Mean wall-clock seconds over the solved runs in *cell*."""
+    solved = [r for r in cell if r.success]
+    if not solved:
+        return "✗"
+    mean_t = statistics.mean(r.elapsed_s for r in solved)
+    cell_str = f"{mean_t:.2f}"
+    if len(solved) < len(cell):
+        cell_str += f" ({len(solved)}/{len(cell)})"
+    return cell_str
 
-    Each cell is the mean wall-clock seconds over the *solved* runs for that
-    (k,g, approach, variant); ``✗`` means no run solved it, and a trailing
-    ``(s/n)`` flags that only ``s`` of ``n`` runs solved (so the time is a
-    partial average). Only emitted for benchmarks whose results carry both a k
-    and a g target (cage, refine, excision); skipped for node tasks. Rows are
-    sorted by Moore bound so harder targets sit lower in the table.
+
+def _size_cell(cell: list[TrialResult]) -> str:
+    """Mean |V| / |E| of the found graph over the solved runs in *cell*."""
+    solved = [
+        r for r in cell if r.success and r.n_nodes is not None and r.n_edges is not None
+    ]
+    if not solved:
+        return "✗"
+    mean_v = statistics.mean(r.n_nodes for r in solved if r.n_nodes is not None)
+    mean_e = statistics.mean(r.n_edges for r in solved if r.n_edges is not None)
+    cell_str = f"{mean_v:.0f}/{mean_e:.0f}"
+    if len(solved) < len(cell):
+        cell_str += f" ({len(solved)}/{len(cell)})"
+    return cell_str
+
+
+def _append_kg_matrices(lines: list[str], bench_results: list[TrialResult]) -> None:
+    """Append per-(k,g) x approach matrices: mean time-to-solve, then mean size.
+
+    Only emitted for benchmarks whose results carry both a k and a g target
+    (cage, refine, excision); skipped for node tasks. Rows are sorted by Moore
+    bound so harder targets sit lower in the table.
     """
     targeted = [r for r in bench_results if "k" in r.target and "g" in r.target]
     if not targeted:
@@ -138,11 +161,49 @@ def _append_solvability_matrix(
         key=lambda kg: (moore_bound(*kg), kg[0], kg[1]),
     )
 
-    lines.append("### Mean time-to-solve by (k, g)\n")
-    lines.append(
-        "_Mean wall-clock seconds over solved runs; ✗ = never solved; "
-        "· = not run; trailing (s/n) = solved s of n runs._\n"
+    _emit_kg_matrix(
+        lines,
+        col_keys,
+        col_labels,
+        kg_pairs,
+        targeted,
+        title="### Mean time-to-solve by (k, g)",
+        note=(
+            "_Mean wall-clock seconds over solved runs; ✗ = never solved; "
+            "· = not run; trailing (s/n) = solved s of n runs._"
+        ),
+        cell_fn=_time_cell,
     )
+    _emit_kg_matrix(
+        lines,
+        col_keys,
+        col_labels,
+        kg_pairs,
+        targeted,
+        title="### Mean found-graph size (|V| / |E|) by (k, g)",
+        note=(
+            "_Mean vertices / edges of the found graph over solved runs; "
+            "✗ = never solved; · = not run; trailing (s/n) = solved s of n runs. "
+            "Compare |V| against the Moore bound._"
+        ),
+        cell_fn=_size_cell,
+    )
+
+
+def _emit_kg_matrix(
+    lines: list[str],
+    col_keys: list[tuple[str, str]],
+    col_labels: list[str],
+    kg_pairs: list[tuple[int, int]],
+    targeted: list[TrialResult],
+    *,
+    title: str,
+    note: str,
+    cell_fn: Callable[[list[TrialResult]], str],
+) -> None:
+    """Render one (k,g) x approach markdown table using *cell_fn* for each cell."""
+    lines.append(title + "\n")
+    lines.append(note + "\n")
     header = ["(k,g)", "Moore"] + col_labels
     lines.append("| " + " | ".join(header) + " |")
     lines.append("| " + " | ".join("---" for _ in header) + " |")
@@ -158,18 +219,7 @@ def _append_solvability_matrix(
                 and r.approach == approach
                 and r.variant == variant
             ]
-            if not cell:
-                row.append("·")
-                continue
-            solved = [r for r in cell if r.success]
-            if not solved:
-                row.append("✗")
-                continue
-            mean_t = statistics.mean(r.elapsed_s for r in solved)
-            cell_str = f"{mean_t:.2f}"
-            if len(solved) < len(cell):
-                cell_str += f" ({len(solved)}/{len(cell)})"
-            row.append(cell_str)
+            row.append("·" if not cell else cell_fn(cell))
         lines.append("| " + " | ".join(row) + " |")
 
     lines.append("")

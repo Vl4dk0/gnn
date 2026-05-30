@@ -19,9 +19,11 @@ import random
 import time
 from typing import cast
 
+import networkx as nx
 import numpy as np
 import torch
 
+from ai.cage.forge import forge_graph
 from ai.cage.registry.astar import AStarGenerator
 from ai.cage.registry.bruteforce import BruteforceGenerator
 from ai.cage.registry.direct_rl import RLGenerator
@@ -71,8 +73,7 @@ def _best_voltage_actor_critic() -> str | None:
 def _girth_predictor_exists() -> bool:
     """Return True if girth_predictor exists under voltage_girth task."""
     return any(
-        m["model_id"] == "girth_predictor"
-        for m in list_trained_models("voltage_girth")
+        m["model_id"] == "girth_predictor" for m in list_trained_models("voltage_girth")
     )
 
 
@@ -100,6 +101,12 @@ if _GIRTH_PREDICTOR_OK:
 
 if _VOLTAGE_AC_ID is not None:
     _SPECS.append(("voltage_rl", "", _VOLTAGE_AC_ID))
+
+# forge: the full voltage -> refine -> excision cascade. Unlike the other
+# approaches it shrinks the result toward the cage via the excision loop, so
+# its graph size (and Moore ratio) is the interesting signal. Uses the girth
+# predictor when present (graceful classical fallback otherwise).
+_SPECS.append(("forge", "", "girth_predictor" if _GIRTH_PREDICTOR_OK else None))
 
 # ---------------------------------------------------------------------------
 # make_tasks
@@ -158,48 +165,65 @@ def execute(task: Task) -> list[TrialResult]:
     np.random.seed(seed)
     _ = torch.manual_seed(seed)
 
-    # Build generator
-    gen: (
-        RandomWalkGenerator
-        | AStarGenerator
-        | BruteforceGenerator
-        | RLGenerator
-        | VoltageSearchGenerator
-        | VoltageRLGenerator
-    )
-    if approach == "randomwalk":
-        gen = RandomWalkGenerator(k, g)
-    elif approach == "astar":
-        gen = AStarGenerator(k, g)
-    elif approach == "bruteforce":
-        gen = BruteforceGenerator(k, g)
-    elif approach == "rl":
-        gen = RLGenerator(k, g, model_id=model_id)
-    elif approach == "voltage":
-        gen = VoltageSearchGenerator(k, g, model_id=model_id)
-    elif approach == "voltage_rl":
-        gen = VoltageRLGenerator(k, g, model_id=model_id)
+    # forge is a one-shot cascade (voltage -> refine -> excision), not a step
+    # generator, so it runs outside the step loop and self-limits via its own
+    # time_budget. Every other approach follows the step protocol.
+    graph: nx.Graph[int]
+    success: bool
+    steps: int | None
+    if approach == "forge":
+        t0 = time.perf_counter()
+        forged = forge_graph(
+            k, g, predictor=model_id, time_budget=time_budget_s, verbose=False
+        )
+        elapsed = time.perf_counter() - t0
+        graph = forged if forged is not None else nx.Graph()
+        success = forged is not None
+        steps = None
     else:
-        raise ValueError(f"Unknown approach: {approach!r}")
+        gen: (
+            RandomWalkGenerator
+            | AStarGenerator
+            | BruteforceGenerator
+            | RLGenerator
+            | VoltageSearchGenerator
+            | VoltageRLGenerator
+        )
+        if approach == "randomwalk":
+            gen = RandomWalkGenerator(k, g)
+        elif approach == "astar":
+            gen = AStarGenerator(k, g)
+        elif approach == "bruteforce":
+            gen = BruteforceGenerator(k, g)
+        elif approach == "rl":
+            gen = RLGenerator(k, g, model_id=model_id)
+        elif approach == "voltage":
+            gen = VoltageSearchGenerator(k, g, model_id=model_id)
+        elif approach == "voltage_rl":
+            gen = VoltageRLGenerator(k, g, model_id=model_id)
+        else:
+            raise ValueError(f"Unknown approach: {approach!r}")
 
-    # Run the step loop with both budget guards
-    t0 = time.perf_counter()
-    while not gen.is_complete:
-        gen.step()
-        if gen.step_count >= max_steps:
-            break
-        if gen.elapsed_time() > time_budget_s:
-            break
-    elapsed = time.perf_counter() - t0
+        # Run the step loop with both budget guards
+        t0 = time.perf_counter()
+        while not gen.is_complete:
+            gen.step()
+            if gen.step_count >= max_steps:
+                break
+            if gen.elapsed_time() > time_budget_s:
+                break
+        elapsed = time.perf_counter() - t0
+        graph = gen.graph
+        success = gen.success
+        steps = gen.step_count
 
     # Collect graph metrics
-    G = gen.graph
-    n_nodes: int = G.number_of_nodes()
-    n_edges: int = G.number_of_edges()
+    n_nodes: int = graph.number_of_nodes()
+    n_edges: int = graph.number_of_edges()
 
-    raw_girth = compute_girth(G) if n_nodes > 0 else float("inf")
+    raw_girth = compute_girth(graph) if n_nodes > 0 else float("inf")
     girth_metric: float = float(raw_girth) if raw_girth != float("inf") else -1.0
-    kreg: bool = is_k_regular(G, k) if n_nodes > 0 else False
+    kreg: bool = is_k_regular(graph, k) if n_nodes > 0 else False
     mb: int = moore_bound(k, g)
 
     # Model metadata
@@ -212,6 +236,8 @@ def execute(task: Task) -> list[TrialResult]:
     elif approach == "voltage_rl" and model_id is not None:
         m_params, m_size, m_hparams = model_meta("cage", model_id)
     elif approach == "voltage" and variant == "gnn" and model_id is not None:
+        m_params, m_size, m_hparams = model_meta("voltage_girth", model_id)
+    elif approach == "forge" and model_id is not None:
         m_params, m_size, m_hparams = model_meta("voltage_girth", model_id)
 
     if variant:
@@ -227,9 +253,9 @@ def execute(task: Task) -> list[TrialResult]:
             label=instance_label,
             instance=f"k{k}_g{g}_s{seed}",
             target={"k": k, "g": g},
-            success=gen.success,
+            success=success,
             elapsed_s=elapsed,
-            steps=gen.step_count,
+            steps=steps,
             n_nodes=n_nodes,
             n_edges=n_edges,
             metrics={
