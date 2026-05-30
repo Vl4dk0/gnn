@@ -12,9 +12,11 @@ The dataset is returned as a list of PyG Data objects, each carrying:
   - delta: FloatTensor scalar (target Δcost)
 
 Source graphs are sampled from:
-  1. Random k-regular graphs via nx.random_regular_graph.
-  2. Voltage lift outputs are not included at data-gen time (used at
-     inference time by the tabu pipeline).
+  1. Voltage lift near-misses: lifts whose girth is g_target-1 or g_target-2
+     (exactly the kind of graph TabuRefiner sees during deployment).
+  2. Random k-regular graphs via nx.random_regular_graph (diversity minority).
+
+The lift-to-random ratio is controlled by ``lift_fraction`` (default 0.7).
 """
 
 from __future__ import annotations
@@ -31,7 +33,11 @@ from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
 
 from ai.cage.refine.cost import short_cycle_cost
 from ai.cage.refine.swaps import apply_2_switch, enumerate_2_switches
+from ai.cage.voltage.base_graphs import BaseGraph, dumbbell
+from ai.cage.voltage.groups import FiniteGroup, cyclic_group, dihedral_group
+from ai.cage.voltage.lift import build_lift
 from ai.utils.structural_features import add_structural_features
+from backend.utils.graph_utils import compute_girth
 
 # Worker spec: primitive types only, no torch tensors across IPC.
 # See ai/cage/voltage/supervised/data_gen.py for the failure mode being avoided.
@@ -53,6 +59,54 @@ def _random_k_regular(
     # nx.random_regular_graph uses its own RNG seed
     seed_val = rng.randint(0, 2**31 - 1)
     return nx.random_regular_graph(k, n, seed=seed_val)  # type: ignore[return-value]
+
+
+def _random_lift_near_miss(
+    k: int,
+    g_target: int,
+    rng: random.Random,
+    max_attempts: int = 30,
+) -> nx.Graph[int] | None:
+    """Try to produce a voltage lift near-miss for degree k, target girth g_target.
+
+    A near-miss is a lift whose girth is in [g_target-2, g_target-1] (i.e. it
+    has short cycles, which is exactly the situation TabuRefiner faces).
+
+    Strategy: dumbbell base with cyclic or dihedral group, random voltages.
+    We try several random assignments and return the first near-miss found.
+    Returns None if no near-miss is found within max_attempts.
+    """
+    base: BaseGraph = dumbbell(k)
+    n_free = base.num_undirected_edges()
+
+    min_girth = max(3, g_target - 2)
+    max_girth = g_target - 1  # strictly below target = still broken
+
+    for _ in range(max_attempts):
+        # Vary group order; prefer sizes that yield tractable lifts
+        group_order = rng.choice([6, 7, 8, 10, 12, 14, 16, 18, 20])
+        # Alternate between cyclic and dihedral for diversity
+        group: FiniteGroup
+        if rng.random() < 0.5:
+            group = cyclic_group(group_order)
+        else:
+            # dihedral has order 2*n; pick half-orders
+            half = max(3, group_order // 2)
+            group = dihedral_group(half)
+
+        voltages = [rng.randint(0, group.order - 1) for _ in range(n_free)]
+        try:
+            lift = build_lift(base, group, voltages)
+        except Exception:
+            continue
+
+        girth = compute_girth(lift)
+        if isinstance(girth, float):
+            continue  # infinite girth (tree) or acyclic — not useful
+        if min_girth <= girth <= max_girth:
+            return lift
+
+    return None
 
 
 def graph_to_pyg(
@@ -112,6 +166,38 @@ def _spec_to_data(spec: dict[str, Any]) -> Data:
     return data
 
 
+def _make_sample_from_graph(
+    G: nx.Graph[int],
+    g_target: int,
+    rng: random.Random,
+    cycle_lengths: list[int],
+    rwpe_dim: int,
+) -> dict[str, Any] | None:
+    """Given a graph G (already selected), produce one labeled spec dict."""
+    swaps = list(enumerate_2_switches(G, sample_size=20))
+    if not swaps:
+        return None
+    swap = rng.choice(swaps)
+    try:
+        G2 = apply_2_switch(G, swap)
+        base_cost = short_cycle_cost(G, g_target)
+        new_cost = short_cycle_cost(G2, g_target)
+    except Exception:
+        return None
+
+    delta = new_cost - base_cost
+    nodes = sorted(G.nodes())
+    node_idx = {v: i for i, v in enumerate(nodes)}
+    data = graph_to_pyg(G, cycle_lengths, rwpe_dim)
+    swap_idx = [
+        node_idx[swap.u],
+        node_idx[swap.v],
+        node_idx[swap.x],
+        node_idx[swap.y],
+    ]
+    return _data_to_spec(data, swap_idx, float(delta), g_target)
+
+
 def _generate_one_sample(
     sample_seed: int,
     k_range: tuple[int, int],
@@ -119,47 +205,39 @@ def _generate_one_sample(
     g_target_range: tuple[int, int],
     cycle_lengths: list[int],
     rwpe_dim: int,
+    lift_fraction: float,
     max_inner_attempts: int = 20,
 ) -> dict[str, Any] | None:
-    """Worker: produce one labeled spec dict, or None on failure."""
+    """Worker: produce one labeled spec dict, or None on failure.
+
+    With probability ``lift_fraction`` the graph is sourced from a voltage
+    lift near-miss (girth = g_target-1 or g_target-2); otherwise a random
+    k-regular graph is used for diversity.
+    """
     rng = random.Random(sample_seed)
 
     for _ in range(max_inner_attempts):
         k = rng.randint(k_range[0], k_range[1])
-        n = rng.randint(n_range[0], n_range[1])
         g_target = rng.randint(g_target_range[0], g_target_range[1])
-        graph_seed = rng.randint(0, 2**31 - 1)
 
-        try:
-            G = _random_k_regular(k, n, seed=graph_seed)
-        except nx.NetworkXError:
-            continue
+        graph: nx.Graph[int] | None = None
 
-        base_cost = short_cycle_cost(G, g_target)
+        if rng.random() < lift_fraction:
+            # Attempt lift near-miss
+            graph = _random_lift_near_miss(k, g_target, rng)
 
-        swaps = list(enumerate_2_switches(G, sample_size=20))
-        if not swaps:
-            continue
+        if graph is None:
+            # Fallback to random k-regular
+            n = rng.randint(n_range[0], n_range[1])
+            graph_seed = rng.randint(0, 2**31 - 1)
+            try:
+                graph = _random_k_regular(k, n, seed=graph_seed)
+            except nx.NetworkXError:
+                continue
 
-        swap = rng.choice(swaps)
-        try:
-            G2 = apply_2_switch(G, swap)
-            new_cost = short_cycle_cost(G2, g_target)
-        except Exception:
-            continue
-
-        delta = new_cost - base_cost
-        nodes = sorted(G.nodes())
-        node_idx = {v: i for i, v in enumerate(nodes)}
-
-        data = graph_to_pyg(G, cycle_lengths, rwpe_dim)
-        swap_idx = [
-            node_idx[swap.u],
-            node_idx[swap.v],
-            node_idx[swap.x],
-            node_idx[swap.y],
-        ]
-        return _data_to_spec(data, swap_idx, float(delta), g_target)
+        spec = _make_sample_from_graph(graph, g_target, rng, cycle_lengths, rwpe_dim)
+        if spec is not None:
+            return spec
 
     return None
 
@@ -173,6 +251,7 @@ def generate_dataset(
     rwpe_dim: int = 8,
     seed: int = 42,
     workers: int | None = None,
+    lift_fraction: float = 0.7,
 ) -> list[Data]:
     """Generate a supervised dataset of (graph, swap, Δcost) tuples.
 
@@ -183,7 +262,8 @@ def generate_dataset(
     k_range:
         (min_k, max_k) inclusive for random k-regular graph degree.
     n_range:
-        (min_n, max_n) inclusive for graph order.
+        (min_n, max_n) inclusive for graph order (used for random-regular
+        fallback only; lift sizes are determined by group order).
     g_target_range:
         (min_g, max_g) inclusive for g_target used in cost evaluation.
     cycle_lengths:
@@ -192,6 +272,9 @@ def generate_dataset(
         RWPE dimension for structural features.
     seed:
         Random seed for reproducibility.
+    lift_fraction:
+        Fraction of samples to source from voltage lift near-misses (the
+        rest come from random k-regular graphs for diversity).  Default 0.7.
 
     Returns
     -------
@@ -213,7 +296,7 @@ def generate_dataset(
 
     if workers <= 1:
         attempts = 0
-        max_attempts = num_samples * 2
+        max_attempts = num_samples * 3
         while len(dataset) < num_samples and attempts < max_attempts:
             attempts += 1
             sample = _generate_one_sample(
@@ -223,16 +306,17 @@ def generate_dataset(
                 g_target_range,
                 cycle_lengths,
                 rwpe_dim,
+                lift_fraction,
             )
             if sample is not None:
                 dataset.append(_spec_to_data(sample))
         return dataset
 
     # Streamed submission: keep ~workers*4 futures in flight at any time,
-    # refill as they complete. Submitting all 2*num_samples up-front
+    # refill as they complete. Submitting all 3*num_samples up-front
     # exhausts memory and file descriptors for large num_samples.
     max_in_flight = workers * 4
-    max_attempts = num_samples * 2
+    max_attempts = num_samples * 3
     attempts_submitted = 0
     in_flight: set[Future[dict[str, Any] | None]] = set()
 
@@ -246,6 +330,7 @@ def generate_dataset(
             g_target_range,
             cycle_lengths,
             rwpe_dim,
+            lift_fraction,
         )
         in_flight.add(fut)
         attempts_submitted += 1

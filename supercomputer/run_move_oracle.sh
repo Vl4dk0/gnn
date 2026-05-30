@@ -20,8 +20,8 @@ cd ~/gnn
 # Saves to ai/trained/move_oracle/move_oracle/.
 
 uv run python -u -m ai.cage.refine.train \
-  --samples 100000 --epochs 50 --batch-size 64 \
-  --hidden-dim 128 --num-layers 3 --lr 1e-3 \
+  --samples 200000 --epochs 50 --batch-size 64 \
+  --hidden-dim 128 --num-layers 4 --lr 1e-3 \
   --cycle-lengths "3,4,5,6,7,8" --rwpe-dim 8 \
   --workers 8 \
   --seed 42
