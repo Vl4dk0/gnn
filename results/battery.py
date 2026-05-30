@@ -95,10 +95,33 @@ def node_battery(quick: bool) -> list[tuple[str, nx.Graph[int]]]:
 
 
 def cage_targets(quick: bool) -> list[tuple[int, int]]:
-    """Return (k, g) pairs to use as cage construction targets."""
+    """Return (k, g) pairs to use as cage construction targets.
+
+    The full set spans a wide range of Moore bounds (10 -> 106) so the harder
+    targets actually separate the methods instead of every approach trivially
+    succeeding. Listed in increasing Moore-bound order; the Moore bound is
+    noted in the trailing comment.
+    """
     if quick:
         return [(3, 5), (3, 6), (4, 5)]
-    return [(3, 5), (3, 6), (3, 7), (3, 8), (4, 5), (4, 6), (5, 5), (5, 6)]
+    return [
+        (3, 5),  # 10
+        (3, 6),  # 14
+        (4, 5),  # 17
+        (3, 7),  # 22
+        (4, 6),  # 26
+        (5, 5),  # 26
+        (3, 8),  # 30
+        (6, 5),  # 37
+        (5, 6),  # 42
+        (7, 5),  # 43
+        (3, 9),  # 46
+        (4, 7),  # 53
+        (3, 10),  # 62
+        (6, 6),  # 62
+        (4, 8),  # 80
+        (5, 7),  # 106
+    ]
 
 
 def refine_instances(

@@ -29,9 +29,11 @@ set -uo pipefail
 
 cd ~/gnn
 
+# --seeds 5: each cage target is run 5 times so the (k,g) matrix can report a
+# meaningful mean time-to-solve (the stochastic generators vary run to run).
 uv run python -u -m results.runner \
     --benchmarks degree,min_cycle,cage,refine,excision \
-    --seeds 2 \
+    --seeds 5 \
     --cage-budget 60 \
     --cage-max-steps 200000 \
     --task-timeout 120 \

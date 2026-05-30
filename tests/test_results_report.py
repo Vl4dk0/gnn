@@ -11,7 +11,14 @@ from results.report import write_reports
 from results.runner import _error_result
 
 
-def _cage_result(k: int, g: int, approach: str, variant: str, success: bool):
+def _cage_result(
+    k: int,
+    g: int,
+    approach: str,
+    variant: str,
+    success: bool,
+    elapsed_s: float = 0.1,
+):
     return TrialResult(
         benchmark="cage",
         approach=approach,
@@ -20,7 +27,7 @@ def _cage_result(k: int, g: int, approach: str, variant: str, success: bool):
         instance=f"k{k}_g{g}",
         target={"k": k, "g": g},
         success=success,
-        elapsed_s=0.1,
+        elapsed_s=elapsed_s,
         steps=1,
         n_nodes=10,
         n_edges=15,
@@ -36,26 +43,26 @@ class TestSolvabilityMatrix:
     def test_matrix_header_present_for_cage(self, tmp_path: Path) -> None:
         results = [_cage_result(3, 5, "voltage", "gnn", True)]
         text = self._summary(tmp_path, results)
-        assert "### Solvability by (k, g)" in text
+        assert "### Mean time-to-solve by (k, g)" in text
         assert "voltage[gnn]" in text
 
-    def test_tick_cross_and_partial_cells(self, tmp_path: Path) -> None:
+    def test_mean_time_cross_and_partial_cells(self, tmp_path: Path) -> None:
         results = [
-            _cage_result(3, 5, "voltage", "gnn", True),  # both seeds solve -> ✓
-            _cage_result(3, 5, "voltage", "gnn", True),
-            _cage_result(3, 5, "rl", "", True),  # 1 of 2 -> 1/2
-            _cage_result(3, 5, "rl", "", False),
-            _cage_result(3, 7, "rl", "", False),  # 0 of 1 -> ✗
+            _cage_result(3, 5, "voltage", "gnn", True, 2.0),  # both solve -> mean 3.0
+            _cage_result(3, 5, "voltage", "gnn", True, 4.0),
+            _cage_result(3, 5, "rl", "", True, 5.0),  # 1 of 2 solved -> "5.00 (1/2)"
+            _cage_result(3, 5, "rl", "", False, 60.0),  # failed run excluded from mean
+            _cage_result(3, 7, "rl", "", False, 60.0),  # 0 of 1 -> ✗
         ]
         text = self._summary(tmp_path, results)
-        matrix = text.split("### Solvability by (k, g)")[1]
+        matrix = text.split("### Mean time-to-solve by (k, g)")[1]
         rows = {
             line.split("|")[1].strip(): line
             for line in matrix.splitlines()
             if line.startswith("| (")
         }
-        assert "✓" in rows["(3,5)"]
-        assert "1/2" in rows["(3,5)"]
+        assert "3.00" in rows["(3,5)"]  # voltage[gnn] mean of 2.0 and 4.0
+        assert "5.00 (1/2)" in rows["(3,5)"]  # rl: only the solved run counts
         assert "✗" in rows["(3,7)"]
 
     def test_rows_sorted_by_moore_bound(self, tmp_path: Path) -> None:
@@ -65,7 +72,7 @@ class TestSolvabilityMatrix:
             _cage_result(4, 5, "voltage", "", True),
         ]
         text = self._summary(tmp_path, results)
-        matrix = text.split("### Solvability by (k, g)")[1]
+        matrix = text.split("### Mean time-to-solve by (k, g)")[1]
         order = [
             line.split("|")[1].strip()
             for line in matrix.splitlines()
@@ -90,7 +97,7 @@ class TestSolvabilityMatrix:
             metrics={"accuracy": 1.0},
         )
         text = self._summary(tmp_path, [node])
-        assert "### Solvability by (k, g)" not in text
+        assert "### Mean time-to-solve by (k, g)" not in text
 
 
 class TestErrorResultCarriesPayload:
@@ -122,6 +129,6 @@ class TestErrorResultCarriesPayload:
         stub = _error_result(task, "timeout")
         write_reports(tmp_path, [stub])
         text = (tmp_path / "summary.md").read_text()
-        matrix = text.split("### Solvability by (k, g)")[1]
+        matrix = text.split("### Mean time-to-solve by (k, g)")[1]
         row = next(line for line in matrix.splitlines() if line.startswith("| (4,5)"))
         assert "✗" in row

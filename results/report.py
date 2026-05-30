@@ -112,11 +112,14 @@ def _write_summary(out_dir: Path, by_benchmark: dict[str, list[TrialResult]]) ->
 def _append_solvability_matrix(
     lines: list[str], bench_results: list[TrialResult]
 ) -> None:
-    """Append a (k,g) x approach solvability matrix (✓ / ✗ / partial fraction).
+    """Append a (k,g) x approach matrix of mean time-to-solve.
 
-    Only emitted for benchmarks whose results carry both a k and a g target
-    (cage, refine, excision); skipped for node tasks that have no (k,g) grid.
-    Rows are sorted by Moore bound so harder targets sit lower in the table.
+    Each cell is the mean wall-clock seconds over the *solved* runs for that
+    (k,g, approach, variant); ``✗`` means no run solved it, and a trailing
+    ``(s/n)`` flags that only ``s`` of ``n`` runs solved (so the time is a
+    partial average). Only emitted for benchmarks whose results carry both a k
+    and a g target (cage, refine, excision); skipped for node tasks. Rows are
+    sorted by Moore bound so harder targets sit lower in the table.
     """
     targeted = [r for r in bench_results if "k" in r.target and "g" in r.target]
     if not targeted:
@@ -135,7 +138,11 @@ def _append_solvability_matrix(
         key=lambda kg: (moore_bound(*kg), kg[0], kg[1]),
     )
 
-    lines.append("### Solvability by (k, g)\n")
+    lines.append("### Mean time-to-solve by (k, g)\n")
+    lines.append(
+        "_Mean wall-clock seconds over solved runs; ✗ = never solved; "
+        "· = not run; trailing (s/n) = solved s of n runs._\n"
+    )
     header = ["(k,g)", "Moore"] + col_labels
     lines.append("| " + " | ".join(header) + " |")
     lines.append("| " + " | ".join("---" for _ in header) + " |")
@@ -154,14 +161,15 @@ def _append_solvability_matrix(
             if not cell:
                 row.append("·")
                 continue
-            solved = sum(1 for r in cell if r.success)
-            total = len(cell)
-            if solved == total:
-                row.append("✓")
-            elif solved == 0:
+            solved = [r for r in cell if r.success]
+            if not solved:
                 row.append("✗")
-            else:
-                row.append(f"{solved}/{total}")
+                continue
+            mean_t = statistics.mean(r.elapsed_s for r in solved)
+            cell_str = f"{mean_t:.2f}"
+            if len(solved) < len(cell):
+                cell_str += f" ({len(solved)}/{len(cell)})"
+            row.append(cell_str)
         lines.append("| " + " | ".join(row) + " |")
 
     lines.append("")
