@@ -30,17 +30,23 @@ Stages
 
 3. **Excision worker** — at most one active excision.  When idle and the
    excision queue is non-empty it pops one valid (k,g)-graph and greedily
-   shrinks it, ONE root per step via ``try_excise_root``.  When the shrink loop
-   terminates (no root yields a smaller valid graph) the current graph is the
-   RESULT: the pipeline succeeds and stops immediately — the first valid
-   (k,g)-graph out of excision wins; we do NOT keep looking for a smaller one.
+   shrinks it, ONE root per step via ``try_excise_root``.  At each root it tries
+   the girth-safe excision depths largest-first and takes the biggest valid
+   shrink; falling back to smaller depths is essential, since a maximal-depth
+   tree often removes so many vertices that the reduced graph drops below the
+   Moore bound (unrepairable).  When the shrink loop terminates (no root yields
+   a smaller valid graph) the current graph is the RESULT: the pipeline succeeds
+   and stops — the first valid (k,g)-graph out of excision wins; we do NOT keep
+   looking for a smaller one.
 
 Scheduler
 ---------
 ``step()`` round-robins across the three stages, skipping any with no work and
 advancing exactly one per call (fairness, not downstream-drain).  Termination:
 
-  * excision produces a result            -> success + stop
+  * excision produces a result            -> success + stop, EXCEPT termination
+    is briefly (and boundedly) deferred so an in-flight refiner can finish its
+    current near-miss instead of being outraced by a fast direct-hit excision
   * producer done, both queues empty, no   -> fail + stop
     active refine/excision, no result
   * ``max_total_steps`` safety cap reached  -> stop
@@ -88,6 +94,19 @@ DEFAULT_MAX_TOTAL_STEPS = 20000
 # round-robin.  Capping keeps the producer cheap while still using >1 base.
 _MAX_PRODUCER_CONFIGS = 6
 
+# Candidate 2-switches sampled per refine step.  The exhaustive O(|E|^2) scan is
+# far too slow for step-through on lifts of a few dozen vertices, so each step
+# examines only this many random swaps; refine still closes typical near-misses.
+_REFINE_SAMPLE_SIZE = 80
+
+# A refiner is "close" to girth g (worth letting finish before the run ends)
+# when its short-cycle cost is at or below this small threshold.
+_REFINE_CLOSE_COST = 4.0
+
+# Max scheduler steps termination may be deferred to let an in-flight refiner
+# finish.  Bounded so a stuck refiner can never stall the pipeline forever.
+_REFINE_DEFER_BUDGET = 2000
+
 
 def _girth_value(G: nx.Graph[int]) -> int:
     """Integer girth of G (a large sentinel if acyclic)."""
@@ -103,10 +122,19 @@ def _edge_set_hash(G: nx.Graph[int]) -> int:
 class _ExcisionWorker:
     """Greedily shrinks one valid (k,g)-graph, one root per step.
 
-    Sweeps roots of the current graph; the first root that yields a strictly
-    smaller valid (k,g)-graph replaces the current graph and restarts the sweep.
-    ``done`` is set once every root has been tried with no further shrink — the
-    current graph is then a terminal (k,g)-graph (no root shrinks further).
+    Sweeps roots of the current graph; for each root it tries each girth-safe
+    excision depth LARGEST tree first and takes the first depth that yields a
+    strictly smaller valid (k,g)-graph (the biggest shrink at that root).  That
+    graph replaces the current graph and restarts the sweep.  ``done`` is set
+    once every root has been tried with no further shrink — the current graph is
+    then a terminal (k,g)-graph.
+
+    Trying multiple depths (not only the maximal ``(g-1)//2``) matters: a
+    maximal-depth tree removes so many vertices that the reduced graph can drop
+    below the Moore bound (unrepairable) or leave a boundary the classical
+    repair cannot close, so the maximal excision alone often shrinks NOTHING even
+    when a smaller excision would.  Falling back to smaller depths recovers those
+    shrinks.
     """
 
     graph: nx.Graph[int]
@@ -115,8 +143,10 @@ class _ExcisionWorker:
     _k: int
     _g: int
     _policy: RepairPolicy | None
+    _depths: list[int]
     _roots: list[int]
     _idx: int
+    _max_backtracks: int
 
     def __init__(
         self,
@@ -124,17 +154,28 @@ class _ExcisionWorker:
         k: int,
         g: int,
         policy: RepairPolicy | None,
+        *,
+        max_backtracks: int = 300,
     ) -> None:
         self.graph = graph
         self.done = False
         self._k = k
         self._g = g
         self._policy = policy
+        # Girth-safe excision depths, LARGEST tree first: a larger excision
+        # shrinks more per step, so we take the biggest valid shrink at a root
+        # and only fall back to smaller depths when the larger one overshoots the
+        # Moore bound or its boundary cannot be repaired.
+        self._depths = list(range((g - 1) // 2, 0, -1))
         self._roots = sorted(graph.nodes())
         self._idx = 0
+        # Per-attempt backtracking cap.  The stepping worker must stay cheap (it
+        # runs one root-attempt per scheduler step across many depths), so we use
+        # a far smaller cap than the one-shot ``excise_and_repair`` default.
+        self._max_backtracks = max_backtracks
 
     def step(self) -> str:
-        """Try one root; return a human-readable description of the move."""
+        """Try one root (depths largest-first); return a description of the move."""
         if self._idx >= len(self._roots):
             self.done = True
             return "excision: no further shrink (terminal)"
@@ -142,10 +183,26 @@ class _ExcisionWorker:
         root = self._roots[self._idx]
         self._idx += 1
         before = self.graph.number_of_nodes()
-        smaller = try_excise_root(self.graph, self._k, self._g, root, self._policy)
-        if smaller is not None:
-            self.graph = smaller
-            after = smaller.number_of_nodes()
+
+        # Accept the first (largest) depth that yields a valid smaller graph.
+        best: nx.Graph[int] | None = None
+        for depth in self._depths:
+            cand = try_excise_root(
+                self.graph,
+                self._k,
+                self._g,
+                root,
+                self._policy,
+                depth=depth,
+                max_backtracks=self._max_backtracks,
+            )
+            if cand is not None:
+                best = cand
+                break
+
+        if best is not None:
+            self.graph = best
+            after = best.number_of_nodes()
             self._roots = sorted(self.graph.nodes())
             self._idx = 0
             return f"excision: root {root} shrunk {before}->{after}"
@@ -170,6 +227,7 @@ class ForgeGenerator:
 
     _model_id: str | None
     _refine_max_iter: int
+    _refine_sample_size: int
     _refine_margin: int
     _max_candidates: int
     _max_total_steps: int
@@ -193,6 +251,12 @@ class ForgeGenerator:
     _rr: int
     _result: nx.Graph[int] | None
 
+    # Deferral of excision-result termination to let an in-flight refiner finish.
+    _refine_close_cost: float
+    _refine_defer_budget: int
+    _refine_min_grant: int
+    _refine_defer_used: int
+
     def __init__(
         self,
         k: int,
@@ -200,6 +264,7 @@ class ForgeGenerator:
         model_id: str | None = None,
         *,
         refine_max_iter: int = 300,
+        refine_sample_size: int = _REFINE_SAMPLE_SIZE,
         refine_margin: int = REFINE_MARGIN,
         max_candidates: int = DEFAULT_MAX_CANDIDATES,
         max_total_steps: int = DEFAULT_MAX_TOTAL_STEPS,
@@ -215,6 +280,7 @@ class ForgeGenerator:
 
         self._model_id = model_id
         self._refine_max_iter = refine_max_iter
+        self._refine_sample_size = refine_sample_size
         self._refine_margin = refine_margin
         self._max_candidates = max_candidates
         self._max_total_steps = max_total_steps
@@ -237,6 +303,13 @@ class ForgeGenerator:
 
         self._rr = 0
         self._result = None
+
+        self._refine_close_cost = _REFINE_CLOSE_COST
+        self._refine_defer_budget = _REFINE_DEFER_BUDGET
+        # Grant an in-flight refiner roughly one near-miss worth of steps before
+        # we start requiring it to stay close — bounded by the defer budget.
+        self._refine_min_grant = min(refine_max_iter, _REFINE_DEFER_BUDGET)
+        self._refine_defer_used = 0
 
         # Placeholder graph (Moore-bound isolated nodes) until the first lift.
         self.graph = nx.Graph()
@@ -291,20 +364,74 @@ class ForgeGenerator:
             self._stop_on_result_or_fail(forced=True)
             return
 
-        # Try each stage once in round-robin order, advancing the first that has
-        # work this turn.  Fairness: the cursor moves on every call so no stage
-        # starves the others.
-        for offset in range(3):
-            stage_idx = (self._rr + offset) % 3
+        # Stage order this turn.  Normally fair round-robin.  But once excision
+        # has already produced a result and refine work is still pending, bias
+        # HARD toward refine so its near-miss gets a meaningful slice of
+        # refine_max_iter on screen instead of being outraced by excision
+        # re-stepping a finished worker.
+        if self._result is not None and self._has_pending_refine():
+            order = [1, 0, 2]  # refine first, then producer, then excision
+        else:
+            order = [(self._rr + offset) % 3 for offset in range(3)]
+
+        for stage_idx in order:
             advanced = self._advance_stage(stage_idx)
             if advanced:
                 self._rr = (stage_idx + 1) % 3
-                if self._result is not None:
+                # First valid (k,g)-graph out of excision normally wins and stops
+                # the run.  But a single fast excision of a voltage direct-hit
+                # would otherwise end the run before a slow, many-swap refiner
+                # ever closes its near-miss — refine would never contribute.  So
+                # defer termination (bounded) while ANY refine work is pending so
+                # a queued near-miss is still popped, run, and shown.
+                if self._result is not None and not self._defer_for_refiner():
                     self._finish(True, "excision_complete", self.last_action())
                 return
 
         # No stage had work this turn: the pipeline is drained.
         self._stop_on_result_or_fail(forced=False)
+
+    def _has_pending_refine(self) -> bool:
+        """True while there is refine work to do: active refiner or queued near-miss."""
+        return self._refiner is not None or bool(self._refine_queue)
+
+    def _defer_for_refiner(self) -> bool:
+        """True iff we should keep running to let refine finish a near-miss.
+
+        An excision of a voltage direct-hit can terminate the run in a handful of
+        steps — long before a slow, many-swap refiner closes its near-miss — so
+        refine would never contribute.  To give refine a fair chance we defer the
+        excision-result termination while there is ANY refine work pending (an
+        active refiner OR a near-miss still queued), for a bounded number of
+        scheduler steps (so a stuck refiner can never stall the pipeline forever).
+
+        A queued-but-not-yet-started near-miss is NEVER abandoned: as long as the
+        refine queue is non-empty we keep deferring (within budget) so the
+        scheduler pops it and runs it.  Only once the queue is empty and the sole
+        remaining refiner has consumed its initial grant do we additionally
+        require it to stay close to girth g; if it drifts far we stop waiting.
+        """
+        if self._refine_defer_used >= self._refine_defer_budget:
+            return False
+        # No refine work at all (no active refiner, empty queue): nothing to wait
+        # for.
+        if not self._has_pending_refine():
+            return False
+        # A queued near-miss must still get its turn: always defer while the queue
+        # is non-empty (within budget) so it is popped and run.
+        if self._refine_queue:
+            self._refine_defer_used += 1
+            return True
+        # Only an active refiner remains.  During its initial grant always defer;
+        # afterwards keep deferring only while it stays close to a solution.
+        if self._refine_defer_used >= self._refine_min_grant:
+            if (
+                self._refiner is None
+                or self._refiner.current_cost > self._refine_close_cost
+            ):
+                return False
+        self._refine_defer_used += 1
+        return True
 
     def _advance_stage(self, stage_idx: int) -> bool:
         """Advance stage *stage_idx* by one unit; return True if work was done."""
@@ -382,17 +509,22 @@ class ForgeGenerator:
                 g_target=self.g,
                 score_fn=self._refine_score_fn,
                 max_iter=self._refine_max_iter,
+                sample_size=self._refine_sample_size,
             )
 
         refiner = self._refiner
         refiner.step()
         self.stage = "refine"
-        self.graph = refiner.graph
-        girth = _girth_value(refiner.graph)
+        # Render the IN-PROGRESS search graph (every accepted 2-switch /
+        # 3-switch, improving or not), not just best-so-far, so the user sees
+        # each swap change the graph.
+        in_progress = refiner.current_graph
+        self.graph = in_progress
+        girth = _girth_value(in_progress)
 
-        if girth >= self.g and is_k_regular(refiner.graph, self.k):
+        if girth >= self.g and is_k_regular(in_progress, self.k):
             # Refined up to a valid (k,g)-graph: hand it to excision, go idle.
-            self._excise_queue.append(refiner.graph)
+            self._excise_queue.append(in_progress.copy())
             self._refiner = None
             self._emit(f"refine: reached girth {girth} -> excise {self._queue_tag()}")
             return True

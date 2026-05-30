@@ -20,7 +20,15 @@ uv run python -m results.runner --seeds 3 --workers 6
 
 # Tune cage search budget
 uv run python -m results.runner --benchmarks cage --cage-budget 60 --cage-max-steps 500000
+
+# Benchmark ONE approach on a couple of targets (small + fast, runs locally)
+uv run python -m results.runner --benchmarks cage --approaches forge --targets 3-6,4-6 --seeds 3
+
+# Benchmark a single node-prediction architecture
+uv run python -m results.runner --benchmarks degree --approaches sage
 ```
+
+`--approaches` restricts to the named approaches (cage: `randomwalk,astar,bruteforce,rl,voltage,voltage_rl,forge`; node tasks: the architecture, e.g. `sage,gin,gps`). `--targets` restricts the cage `(k,g)` grid as `k-g` pairs (e.g. `3-6,4-6`). Both default to "all", so you no longer have to run every approach just to test one.
 
 Outputs are written to `results/runs/<YYYY-MM-DD_HH-MM-SS>/` (git-ignored).
 

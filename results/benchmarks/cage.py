@@ -1,16 +1,19 @@
 """Cage generator benchmark — all approaches on shared (k,g) targets.
 
-Covers every in-process cage generator and provides a first-class
-no-GNN vs GNN comparison for the voltage approach.
+Covers every in-process cage generator. The voltage approach is split into
+three variants so the algebraic baseline and both trained predictors are all
+tested head to head.
 
 Generator specs:
-  randomwalk  —  RandomWalkGenerator (seeded via random)
-  astar       —  AStarGenerator (deterministic)
-  bruteforce  —  BruteforceGenerator (deterministic)
-  rl          —  RLGenerator with best actor_critic model (torch)
-  voltage/no_gnn  —  VoltageSearchGenerator, model_id=None (tabu only)
-  voltage/gnn     —  VoltageSearchGenerator, model_id="girth_predictor"
-  voltage_rl  —  VoltageRLGenerator with best voltage_actor_critic model
+  randomwalk              —  RandomWalkGenerator (seeded via random)
+  astar                   —  AStarGenerator (deterministic)
+  bruteforce              —  BruteforceGenerator (deterministic)
+  rl                      —  RLGenerator with best actor_critic model (torch)
+  voltage/Algebraic       —  VoltageSearchGenerator, model_id=None (tabu only)
+  voltage/GirthPredictor  —  VoltageSearchGenerator, model_id="girth_predictor"
+  voltage/TabuPredictor   —  VoltageSearchGenerator, model_id="tabu_predictor"
+  voltage_rl              —  VoltageRLGenerator with best voltage_actor_critic
+  forge                   —  ForgeGenerator (voltage -> refine -> excision)
 """
 
 from __future__ import annotations
@@ -69,19 +72,24 @@ def _best_voltage_actor_critic() -> str | None:
     return best["model_id"]
 
 
-def _girth_predictor_exists() -> bool:
-    """Return True if girth_predictor exists under voltage_girth task."""
-    return any(
-        m["model_id"] == "girth_predictor" for m in list_trained_models("voltage_girth")
-    )
+def _voltage_predictor_exists(model_id: str) -> bool:
+    """Return True if a voltage predictor with *model_id* is on disk."""
+    return any(m["model_id"] == model_id for m in list_trained_models("voltage_girth"))
 
 
 _ACTOR_CRITIC_ID: str | None = _best_actor_critic()
 _VOLTAGE_AC_ID: str | None = _best_voltage_actor_critic()
-_GIRTH_PREDICTOR_OK: bool = _girth_predictor_exists()
+_GIRTH_PREDICTOR_OK: bool = _voltage_predictor_exists("girth_predictor")
+_TABU_PREDICTOR_OK: bool = _voltage_predictor_exists("tabu_predictor")
 
 # ---------------------------------------------------------------------------
 # Spec table: (approach, variant, model_id_or_none)
+#
+# The voltage approach has three variants, all running the same tabu lift
+# search; they differ only in what (if anything) guides the beam-search probe:
+#   Algebraic       — no GNN, pure tabu search over voltage assignments
+#   GirthPredictor  — GNN trained to predict lift girth (kind="girth")
+#   TabuPredictor   — GNN trained to predict tabu cost (kind="tabu_cost")
 # ---------------------------------------------------------------------------
 
 _SPECS: list[tuple[str, str, str | None]] = [
@@ -93,10 +101,13 @@ _SPECS: list[tuple[str, str, str | None]] = [
 if _ACTOR_CRITIC_ID is not None:
     _SPECS.append(("rl", "", _ACTOR_CRITIC_ID))
 
-_SPECS.append(("voltage", "no_gnn", None))
+_SPECS.append(("voltage", "Algebraic", None))
 
 if _GIRTH_PREDICTOR_OK:
-    _SPECS.append(("voltage", "gnn", "girth_predictor"))
+    _SPECS.append(("voltage", "GirthPredictor", "girth_predictor"))
+
+if _TABU_PREDICTOR_OK:
+    _SPECS.append(("voltage", "TabuPredictor", "tabu_predictor"))
 
 if _VOLTAGE_AC_ID is not None:
     _SPECS.append(("voltage_rl", "", _VOLTAGE_AC_ID))
@@ -113,10 +124,22 @@ _SPECS.append(("forge", "", "girth_predictor" if _GIRTH_PREDICTOR_OK else None))
 
 
 def make_tasks(config: RunConfig) -> list[Task]:
-    """Emit one Task per (k,g) × generator-spec × seed."""
+    """Emit one Task per (k,g) × generator-spec × seed.
+
+    Honours config.approaches (restrict to named approaches, e.g. ["forge"])
+    and config.targets (restrict the (k,g) grid), so a single approach can be
+    benchmarked on a couple of targets without running everything.
+    """
+    specs = _SPECS
+    if config.approaches is not None:
+        specs = [s for s in _SPECS if s[0] in config.approaches]
+    targets = (
+        config.targets if config.targets is not None else cage_targets(config.quick)
+    )
+
     tasks: list[Task] = []
-    for k, g in cage_targets(config.quick):
-        for approach, variant, model_id in _SPECS:
+    for k, g in targets:
+        for approach, variant, model_id in specs:
             for seed in range(config.seeds):
                 if variant:
                     label = f"({k},{g}) {approach}[{variant}] s{seed}"
@@ -223,7 +246,7 @@ def execute(task: Task) -> list[TrialResult]:
         m_params, m_size, m_hparams = model_meta("cage", model_id)
     elif approach == "voltage_rl" and model_id is not None:
         m_params, m_size, m_hparams = model_meta("cage", model_id)
-    elif approach == "voltage" and variant == "gnn" and model_id is not None:
+    elif approach == "voltage" and model_id is not None:
         m_params, m_size, m_hparams = model_meta("voltage_girth", model_id)
     elif approach == "forge" and model_id is not None:
         m_params, m_size, m_hparams = model_meta("voltage_girth", model_id)

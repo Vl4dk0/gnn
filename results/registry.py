@@ -17,6 +17,10 @@ class RunConfig:
     cage_max_steps: int = 200_000
     workers: int | None = None  # default in runner = min(8, cpu-2)
     task_timeout_s: float = 120.0  # hard per-task wall-clock cap (SIGALRM in worker)
+    # Optional scoping: restrict which approaches / (k,g) targets to run. None
+    # means "all". Lets you benchmark one thing (e.g. just forge on (3,6)).
+    approaches: list[str] | None = None
+    targets: list[tuple[int, int]] | None = None
     extra: dict[str, object] = field(default_factory=dict)
 
 

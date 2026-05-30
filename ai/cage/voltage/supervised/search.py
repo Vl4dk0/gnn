@@ -381,6 +381,10 @@ def _candidate_groups_for_target(
     for n in range(max(2, mb // n_base - 5), min(max_order, 4 * mb // n_base + 5)):
         if n < 2:
             continue
+        # A lift has n_base * order vertices; below the Moore bound it can never
+        # be a valid (k,g)-graph, so skip those orders.
+        if n_base * n < mb:
+            continue
         groups.append(cyclic_group(n))
         if n >= 6 and n % 2 == 0:
             groups.append(dihedral_group(n // 2))
