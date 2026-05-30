@@ -15,15 +15,16 @@ source .activate_scratch
 cd ~/gnn
 
 # PPO repair policy for tree excision.
-# Trains on guaranteed-solvable matching-removal instances. The easy rung
-# (synthetic cages, g=5, match-size 2) saturated at ~100% success, so this is
-# the harder rung: lift-sized source graphs, stricter g=6 legality, and a
-# larger match (more simultaneous deficiencies) — solvable but non-trivial
-# (~60-70%+ early and climbing). Saves to ai/trained/excision_repair/.
+# Trains on guaranteed-solvable matching-removal instances. Curriculum so far:
+# g=5/match-2 and g=6/match-4 both saturated at ~100% success, so this is the
+# next rung: g=7 legality (very strict) with match-size 6 (many simultaneous
+# deficiencies). Smoke shows ~30-35% early and climbing — hard but learnable,
+# the informative regime. (lifts can't reach g=7, so synthetic on the McGee +
+# Tutte-Coxeter cages.) Saves to ai/trained/excision_repair/.
 
 uv run python -u -m ai.cage.excision.train \
-  --episodes 30000 --g-target 6 --depth 1 \
-  --instance-source lifts --match-size 4 \
+  --episodes 30000 --g-target 7 --depth 1 \
+  --instance-source synthetic --match-size 6 \
   --hidden-dim 128 \
   --cycle-lengths "3,4,5,6,7,8" --rwpe-dim 8 \
   --seed 42
