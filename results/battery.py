@@ -104,9 +104,18 @@ def cage_targets(quick: bool) -> list[tuple[int, int]]:
     """
     if quick:
         return [(3, 5), (3, 6), (4, 5)]
+    # Two regimes on purpose: high-degree/low-girth (dense, near-trivial cages
+    # K_{k+1} for g=3 and K_{k,k} for g=4) and low-degree/high-girth (sparse,
+    # hard). Listed in increasing Moore-bound order (noted in the comment).
     return [
+        (5, 3),  # 6
+        (6, 3),  # 7
+        (7, 3),  # 8
         (3, 5),  # 10
+        (5, 4),  # 10
+        (6, 4),  # 12
         (3, 6),  # 14
+        (7, 4),  # 14
         (4, 5),  # 17
         (3, 7),  # 22
         (4, 6),  # 26
