@@ -150,7 +150,7 @@ def make_tasks(config: RunConfig) -> list[Task]:
     tasks: list[Task] = []
     for k, g in targets:
         for approach, variant, model_id in specs:
-            for seed in range(config.seeds):
+            for seed in range(config.seed_base, config.seed_base + config.seeds):
                 if variant:
                     label = f"({k},{g}) {approach}[{variant}] s{seed}"
                 else:

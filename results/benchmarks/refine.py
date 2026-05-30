@@ -29,7 +29,7 @@ def make_tasks(config: RunConfig) -> list[Task]:
     tasks: list[Task] = []
     for idx, (name, k, g, _) in enumerate(refine_instances(config.quick)):
         for variant in ("no_gnn", "gnn"):
-            for seed in range(config.seeds):
+            for seed in range(config.seed_base, config.seed_base + config.seeds):
                 tasks.append(
                     Task(
                         benchmark="refine",

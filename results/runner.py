@@ -167,6 +167,13 @@ def main() -> None:
     parser.add_argument("--quick", action="store_true", help="Use small battery")
     parser.add_argument("--seeds", type=int, default=1, help="Number of seeds")
     parser.add_argument(
+        "--seed-base",
+        type=int,
+        default=0,
+        dest="seed_base",
+        help="First seed value; seeds run over range(seed_base, seed_base+seeds)",
+    )
+    parser.add_argument(
         "--cage-budget",
         type=float,
         default=20.0,
@@ -217,6 +224,7 @@ def main() -> None:
     benchmarks_str: str = str(args.benchmarks)
     quick: bool = bool(args.quick)
     seeds: int = int(args.seeds)
+    seed_base: int = int(args.seed_base)
     cage_budget: float = float(args.cage_budget)
     cage_max_steps: int = int(args.cage_max_steps)
     workers: int | None = int(args.workers) if args.workers is not None else None
@@ -243,6 +251,7 @@ def main() -> None:
         benchmarks=benchmark_names,
         quick=quick,
         seeds=seeds,
+        seed_base=seed_base,
         cage_time_budget_s=cage_budget,
         cage_max_steps=cage_max_steps,
         workers=workers,

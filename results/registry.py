@@ -13,6 +13,9 @@ class RunConfig:
     benchmarks: list[str]  # which benchmark names to run; ["all"] means all registered
     quick: bool = False
     seeds: int = 1
+    seed_base: int = (
+        0  # first seed value; seeds run over range(seed_base, seed_base+seeds)
+    )
     cage_time_budget_s: float = 20.0
     cage_max_steps: int = 200_000
     workers: int | None = None  # default in runner = min(8, cpu-2)
