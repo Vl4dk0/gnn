@@ -14,4 +14,4 @@ source .activate_scratch
 
 cd ~/gnn
 
-uv run python -m ai.cage.rl.train --model gps --conv-type gin --hidden-dim 64 --num-layers 4 --steps 99999999 --heads 8
+uv run python -m ai.cage.rl.train --model gps --conv-type gin --hidden-dim 64 --num-layers 4 --steps 99999999 --heads 8 --name gps_gin_8h_ppo
