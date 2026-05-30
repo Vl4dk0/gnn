@@ -26,7 +26,6 @@
 
 set -uo pipefail
 
-source .activate_scratch
 cd ~/gnn
 
 uv run python -u -m results.runner \
