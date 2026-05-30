@@ -19,6 +19,7 @@ from ai.cage import (
     RLGenerator,
     VoltageSearchGenerator,
     VoltageRLGenerator,
+    ForgeGenerator,
 )
 from ai.registry import (
     get_trained_dir,
@@ -50,7 +51,7 @@ class _GeneratorProto(Protocol):
 
 
 type _GeneratorType = Literal[
-    "randomwalk", "bruteforce", "astar", "rl", "voltage", "voltage_rl"
+    "randomwalk", "bruteforce", "astar", "rl", "voltage", "voltage_rl", "forge"
 ]
 type _ExecutionMode = Literal["async", "stepped"]
 type _Generator = (
@@ -60,6 +61,7 @@ type _Generator = (
     | RLGenerator
     | VoltageSearchGenerator
     | VoltageRLGenerator
+    | ForgeGenerator
 )
 
 
@@ -138,6 +140,7 @@ VALID_GENERATORS: set[str] = {
     "rl",
     "voltage",
     "voltage_rl",
+    "forge",
 }
 VALID_MODES: set[str] = {"async", "stepped"}
 
@@ -269,6 +272,7 @@ def _snapshot_status(
         "is_k_regular": is_k_regular(graph, generator.k),
         "is_complete": generator.is_complete,
         "success": generator.success,
+        "stage": getattr(generator, "stage", None),
         "stopped": session["stopped"],
         "timed_out": session.get("timed_out", False),
         "current_graph": graph_to_edge_list(graph),
@@ -299,6 +303,8 @@ def _create_generator(
         return VoltageSearchGenerator(k, g, model_id=requested_model_id)
     if generator_type == "voltage_rl":
         return VoltageRLGenerator(k, g, model_id=requested_model_id)
+    if generator_type == "forge":
+        return ForgeGenerator(k, g, model_id=requested_model_id)
     return RLGenerator(
         k,
         g,

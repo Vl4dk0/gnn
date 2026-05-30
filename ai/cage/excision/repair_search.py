@@ -156,6 +156,42 @@ def repair_reduced(
     )
 
 
+def try_excise_root(
+    G: nx.Graph[int],
+    k: int,
+    g: int,
+    root: int,
+    policy: RepairPolicy | None = None,
+    *,
+    max_backtracks: int = 10000,
+) -> nx.Graph[int] | None:
+    """Try ONE root: excise a depth-(g-1)//2 tree and repair it.
+
+    Returns the repaired graph iff it is a strictly smaller valid (k,g)-graph,
+    else None.  This is the single-root core of ``excise_and_repair`` so callers
+    that step through roots one at a time (e.g. the forge generator) can reuse
+    the exact same excision + repair + validation logic.
+    """
+    depth = (g - 1) // 2
+    reduced, deficient, _levels = excise_tree(G, root, depth)
+    if not deficient or reduced.number_of_nodes() == 0:
+        return None
+
+    repaired = repair_reduced(
+        reduced, deficient, g, k, policy, max_backtracks=max_backtracks
+    )
+    if repaired is None:
+        return None
+
+    if (
+        repaired.number_of_nodes() < G.number_of_nodes()
+        and is_k_regular(repaired, k)
+        and _girth_ok(repaired, g)
+    ):
+        return repaired
+    return None
+
+
 def excise_and_repair(
     G: nx.Graph[int],
     k: int,
@@ -182,29 +218,13 @@ def excise_and_repair(
         max_roots: Cap on the number of roots attempted (default: all).
         verbose:  Print per-root progress.
     """
-    depth = (g - 1) // 2
     candidate_roots = roots if roots is not None else sorted(G.nodes())
     if max_roots is not None:
         candidate_roots = candidate_roots[:max_roots]
 
     for root in candidate_roots:
-        reduced, deficient, _levels = excise_tree(G, root, depth)
-        if not deficient or reduced.number_of_nodes() == 0:
-            continue
-
-        repaired = repair_reduced(
-            reduced, deficient, g, k, policy, max_backtracks=max_backtracks
-        )
-        if repaired is None:
-            if verbose:
-                print(f"  root {root}: repair failed")
-            continue
-
-        if (
-            repaired.number_of_nodes() < G.number_of_nodes()
-            and is_k_regular(repaired, k)
-            and _girth_ok(repaired, g)
-        ):
+        repaired = try_excise_root(G, k, g, root, policy, max_backtracks=max_backtracks)
+        if repaired is not None:
             if verbose:
                 print(
                     f"  root {root}: shrunk {G.number_of_nodes()} -> "
@@ -212,7 +232,7 @@ def excise_and_repair(
                 )
             return repaired
         if verbose:
-            print(f"  root {root}: repaired graph not a valid smaller (k,g)-graph")
+            print(f"  root {root}: no valid smaller (k,g)-graph")
 
     return None
 
