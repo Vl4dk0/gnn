@@ -325,6 +325,49 @@ def train_repair_ppo(
     best_success_rate = -1.0
     best_state: dict[str, torch.Tensor] | None = None
     start_time = time.time()
+    last_checkpoint_time = start_time
+    save_dir = os.path.join(
+        "ai", "trained", "excision_repair", "excision_repair_policy"
+    )
+
+    def _save_checkpoint() -> None:
+        """Persist the best policy seen so far (weights + info) to disk.
+
+        Called periodically during training and once at the end so a run cut
+        off by the SLURM wall-time still leaves the best model on disk.
+        """
+        if best_state is None:
+            return
+        os.makedirs(save_dir, exist_ok=True)
+        torch.save(best_state, os.path.join(save_dir, "weights.pt"))
+        info: dict[str, Any] = {
+            "model_type": "repair_actor_critic",
+            "model_id": "excision_repair_policy",
+            "task": "excision_repair",
+            "training": {
+                "input_dim": input_dim,
+                "hidden_dim": hidden_dim,
+                "num_layers": num_layers,
+                "dropout": dropout,
+                "g_target": g_target,
+                "depth": depth,
+                "instance_source": instance_source,
+                "match_size": match_size,
+                "total_episodes": total_episodes,
+                "seed": seed,
+                "lr": lr,
+                "feature_config": {
+                    "cycle_lengths": cycle_lengths,
+                    "rwpe_dim": rwpe_dim,
+                },
+            },
+            "metrics": {
+                "best_success_rate": round(best_success_rate, 4),
+                "final_episodes": episode_idx,
+            },
+        }
+        with open(os.path.join(save_dir, "info.json"), "w") as f:
+            json.dump(info, f, indent=2)
 
     # PPO buffers
     obs_buf: list[Data] = []
@@ -529,49 +572,18 @@ def train_repair_ppo(
                 best_state = {
                     k: v.detach().cpu().clone() for k, v in agent.state_dict().items()
                 }
+                # Flush the new best to disk, throttled, so a wall-time kill
+                # still leaves the best model persisted.
+                now = time.time()
+                if now - last_checkpoint_time > 120:
+                    _save_checkpoint()
+                    last_checkpoint_time = now
 
-    # Save
-    save_dir = os.path.join(
-        "ai", "trained", "excision_repair", "excision_repair_policy"
-    )
-    os.makedirs(save_dir, exist_ok=True)
-
+    # Final save — captures the last improvement even if within the throttle
+    # window, and writes the final info.json.
+    _save_checkpoint()
     if best_state is not None:
         _ = agent.load_state_dict(best_state)
-
-    weights_path = os.path.join(save_dir, "weights.pt")
-    torch.save(
-        {k: v.detach().cpu() for k, v in agent.state_dict().items()}, weights_path
-    )
-
-    info: dict[str, Any] = {
-        "model_type": "repair_actor_critic",
-        "model_id": "excision_repair_policy",
-        "task": "excision_repair",
-        "training": {
-            "input_dim": input_dim,
-            "hidden_dim": hidden_dim,
-            "num_layers": num_layers,
-            "dropout": dropout,
-            "g_target": g_target,
-            "depth": depth,
-            "instance_source": instance_source,
-            "match_size": match_size,
-            "total_episodes": total_episodes,
-            "seed": seed,
-            "lr": lr,
-            "feature_config": {
-                "cycle_lengths": cycle_lengths,
-                "rwpe_dim": rwpe_dim,
-            },
-        },
-        "metrics": {
-            "best_success_rate": round(best_success_rate, 4),
-            "final_episodes": episode_idx,
-        },
-    }
-    with open(os.path.join(save_dir, "info.json"), "w") as f:
-        json.dump(info, f, indent=2)
 
     console.print(f"\n[green]Saved to {save_dir}[/]")
     console.print(f"Best success rate: {best_success_rate:.2%}")

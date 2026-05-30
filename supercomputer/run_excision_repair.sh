@@ -8,7 +8,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G
-#SBATCH --time=12:00:00
+#SBATCH --time=48:00:00
 
 source .activate_scratch
 
@@ -23,7 +23,7 @@ cd ~/gnn
 # Tutte-Coxeter cages.) Saves to ai/trained/excision_repair/.
 
 uv run python -u -m ai.cage.excision.train \
-  --episodes 30000 --g-target 7 --depth 1 \
+  --episodes 300000 --g-target 7 --depth 1 \
   --instance-source synthetic --match-size 6 \
   --hidden-dim 128 \
   --cycle-lengths "3,4,5,6,7,8" --rwpe-dim 8 \
