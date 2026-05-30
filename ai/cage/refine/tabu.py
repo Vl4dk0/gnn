@@ -251,8 +251,14 @@ class TabuRefineGenerator:
     graph seen so far; ``is_complete`` is set when the cost reaches 0
     (girth >= g_target) or ``max_iter`` is hit.
 
+    ``current_graph`` exposes the IN-PROGRESS search graph (the graph the tabu
+    search is currently sitting on, including non-improving moves), so a caller
+    can render every 2-switch / 3-switch as it happens rather than only the
+    best-so-far improvements held in ``graph``.
+
     The per-step description is exposed via ``last_action`` for the caller to
-    surface in a step event.
+    surface in a step event.  ``last_move_kind`` records whether the most recent
+    step applied a ``"2-switch"``, a ``"3-switch"``, or made ``"no-move"``.
     """
 
     g_target: int
@@ -263,6 +269,7 @@ class TabuRefineGenerator:
     current_cost: float
     best_cost: float
     last_action: str
+    last_move_kind: str
 
     _refiner: TabuRefiner
     _current: nx.Graph[int]
@@ -306,12 +313,28 @@ class TabuRefineGenerator:
         self.is_complete = False
         self.success = self.current_cost == 0.0
         self.last_action = "init"
+        self.last_move_kind = "no-move"
 
         if self.current_cost == 0.0:
             self.is_complete = True
 
+    @property
+    def current_graph(self) -> nx.Graph[int]:
+        """The graph the tabu search is currently sitting on (in-progress).
+
+        Unlike ``graph`` (best-so-far), this changes on every accepted move,
+        improving or not, so a caller can render each 2-switch / 3-switch.
+        """
+        return self._current
+
     def step(self) -> None:
-        """Run one tabu iteration (one 2-switch, possibly a 3-switch escalation)."""
+        """Run one tabu move: a 2-switch, OR (when stagnated) a 3-switch.
+
+        Each call applies at most one accepted move and surfaces it via
+        ``last_action`` / ``last_move_kind`` so callers can render every swap.
+        A 3-switch escalation is emitted as its own step rather than bundled
+        silently into a 2-switch step.
+        """
         if self.is_complete:
             return
 
@@ -324,6 +347,18 @@ class TabuRefineGenerator:
         if self.iteration >= r.max_iter:
             self.is_complete = True
             self.last_action = "max_iter reached"
+            return
+
+        # If the 2-switch pass has stagnated, this step is a 3-switch escalation
+        # surfaced as its OWN visible move (rather than bundled into a 2-switch
+        # step).  Mirrors TabuRefiner.refine, which escalates once stagnation
+        # reaches the limit.
+        if (
+            r.escalate_to_3switch
+            and self._stagnation >= r.stagnation_limit
+            and self.current_cost > 0.0
+        ):
+            self._escalate_3switch()
             return
 
         iteration = self.iteration
@@ -364,45 +399,75 @@ class TabuRefineGenerator:
                     best_candidate_cost = c_cost
 
         prev_cost = self.current_cost
+
         if best_swap is None:
+            # No valid non-tabu candidate this turn: count it as stagnation so a
+            # 3-switch escalation can fire on a subsequent step.
             self._stagnation += 1
+            self.iteration += 1
+            self.last_move_kind = "no-move"
+            self.last_action = (
+                f"no swap {self.iteration} cost {self.current_cost:g} (stuck)"
+            )
+            if self.iteration >= r.max_iter:
+                self.is_complete = True
+            return
+
+        # --- 2-switch move: its own visible step ---
+        self._tabu[TabuRefiner._tabu_key(best_swap)] = iteration + self._tenure  # pyright: ignore[reportPrivateUsage]
+        self._current = apply_2_switch(self._current, best_swap)
+        self.current_cost = best_candidate_cost
+        if self.current_cost < self.best_cost:
+            self.best_cost = self.current_cost
+            self.graph = self._current.copy()
+            self._stagnation = 0
         else:
-            self._tabu[TabuRefiner._tabu_key(best_swap)] = iteration + self._tenure  # pyright: ignore[reportPrivateUsage]
-            self._current = apply_2_switch(self._current, best_swap)
-            self.current_cost = best_candidate_cost
+            self._stagnation += 1
+
+        self.iteration += 1
+        self.last_move_kind = "2-switch"
+        self.last_action = (
+            f"2-switch {self.iteration} cost {prev_cost:g}->{self.current_cost:g}"
+        )
+        if self.current_cost == 0.0:
+            self.success = True
+            self.is_complete = True
+        elif self.iteration >= r.max_iter:
+            self.is_complete = True
+
+    def _escalate_3switch(self) -> None:
+        """Run a one-shot 3-switch pass as its own visible step.
+
+        Mirrors the 3-switch escalation in ``TabuRefiner.refine`` but emits the
+        move with its own ``last_action`` / ``last_move_kind`` so the caller can
+        render it distinctly from the 2-switch steps.
+        """
+        r = self._refiner
+        prev_cost = self.current_cost
+        self._stagnation = 0
+        best3: Swap3 | None = None
+        best3_cost = self.current_cost
+        for swap3 in enumerate_3_switches(self._current, r.sample_size):
+            g3 = apply_3_switch(self._current, swap3)
+            c3 = short_cycle_cost(g3, self.g_target)
+            if c3 < best3_cost:
+                best3_cost = c3
+                best3 = swap3
+        if best3 is not None:
+            self._current = apply_3_switch(self._current, best3)
+            self.current_cost = best3_cost
             if self.current_cost < self.best_cost:
                 self.best_cost = self.current_cost
                 self.graph = self._current.copy()
-                self._stagnation = 0
-            else:
-                self._stagnation += 1
-
-        # 3-switch escalation, mirroring TabuRefiner.refine.
-        if (
-            r.escalate_to_3switch
-            and self._stagnation >= r.stagnation_limit
-            and self.current_cost > 0.0
-        ):
-            self._stagnation = 0
-            best3: Swap3 | None = None
-            best3_cost = self.current_cost
-            for swap3 in enumerate_3_switches(self._current, r.sample_size):
-                g3 = apply_3_switch(self._current, swap3)
-                c3 = short_cycle_cost(g3, self.g_target)
-                if c3 < best3_cost:
-                    best3_cost = c3
-                    best3 = swap3
-            if best3 is not None:
-                self._current = apply_3_switch(self._current, best3)
-                self.current_cost = best3_cost
-                if self.current_cost < self.best_cost:
-                    self.best_cost = self.current_cost
-                    self.graph = self._current.copy()
+            self.last_action = (
+                f"3-switch {self.iteration + 1} "
+                f"cost {prev_cost:g}->{self.current_cost:g}"
+            )
+        else:
+            self.last_action = f"3-switch {self.iteration + 1} no improving triple"
 
         self.iteration += 1
-        self.last_action = (
-            f"swap {self.iteration} cost {prev_cost:g}->{self.current_cost:g}"
-        )
+        self.last_move_kind = "3-switch"
 
         if self.current_cost == 0.0:
             self.success = True

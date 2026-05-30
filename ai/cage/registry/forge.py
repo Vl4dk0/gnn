@@ -364,11 +364,17 @@ class ForgeGenerator:
             self._stop_on_result_or_fail(forced=True)
             return
 
-        # Try each stage once in round-robin order, advancing the first that has
-        # work this turn.  Fairness: the cursor moves on every call so no stage
-        # starves the others.
-        for offset in range(3):
-            stage_idx = (self._rr + offset) % 3
+        # Stage order this turn.  Normally fair round-robin.  But once excision
+        # has already produced a result and refine work is still pending, bias
+        # HARD toward refine so its near-miss gets a meaningful slice of
+        # refine_max_iter on screen instead of being outraced by excision
+        # re-stepping a finished worker.
+        if self._result is not None and self._has_pending_refine():
+            order = [1, 0, 2]  # refine first, then producer, then excision
+        else:
+            order = [(self._rr + offset) % 3 for offset in range(3)]
+
+        for stage_idx in order:
             advanced = self._advance_stage(stage_idx)
             if advanced:
                 self._rr = (stage_idx + 1) % 3
@@ -376,9 +382,8 @@ class ForgeGenerator:
                 # the run.  But a single fast excision of a voltage direct-hit
                 # would otherwise end the run before a slow, many-swap refiner
                 # ever closes its near-miss — refine would never contribute.  So
-                # if a refiner is active AND close to girth g, defer termination
-                # (bounded) to let it finish its current near-miss; its refined
-                # graph then also reaches the excise queue.
+                # defer termination (bounded) while ANY refine work is pending so
+                # a queued near-miss is still popped, run, and shown.
                 if self._result is not None and not self._defer_for_refiner():
                     self._finish(True, "excision_complete", self.last_action())
                 return
@@ -386,28 +391,39 @@ class ForgeGenerator:
         # No stage had work this turn: the pipeline is drained.
         self._stop_on_result_or_fail(forced=False)
 
+    def _has_pending_refine(self) -> bool:
+        """True while there is refine work to do: active refiner or queued near-miss."""
+        return self._refiner is not None or bool(self._refine_queue)
+
     def _defer_for_refiner(self) -> bool:
         """True iff we should keep running to let refine finish a near-miss.
 
         An excision of a voltage direct-hit can terminate the run in a handful of
         steps — long before a slow, many-swap refiner closes its near-miss — so
         refine would never contribute.  To give refine a fair chance we defer the
-        excision-result termination while there is refine work in flight (an
+        excision-result termination while there is ANY refine work pending (an
         active refiner OR a near-miss still queued), for a bounded number of
-        scheduler steps (so a stuck refiner can never stall the pipeline
-        forever).  Once the initial grant is spent we keep deferring only while
-        the active refiner stays close to girth g (its short-cycle cost is low);
-        if it drifts far from a solution we stop waiting and terminate.
+        scheduler steps (so a stuck refiner can never stall the pipeline forever).
+
+        A queued-but-not-yet-started near-miss is NEVER abandoned: as long as the
+        refine queue is non-empty we keep deferring (within budget) so the
+        scheduler pops it and runs it.  Only once the queue is empty and the sole
+        remaining refiner has consumed its initial grant do we additionally
+        require it to stay close to girth g; if it drifts far we stop waiting.
         """
         if self._refine_defer_used >= self._refine_defer_budget:
             return False
         # No refine work at all (no active refiner, empty queue): nothing to wait
         # for.
-        if self._refiner is None and not self._refine_queue:
+        if not self._has_pending_refine():
             return False
-        # During the initial grant, always defer so a queued near-miss can be
-        # popped and refined.  After the grant, keep deferring only while an
-        # active refiner remains close to a solution.
+        # A queued near-miss must still get its turn: always defer while the queue
+        # is non-empty (within budget) so it is popped and run.
+        if self._refine_queue:
+            self._refine_defer_used += 1
+            return True
+        # Only an active refiner remains.  During its initial grant always defer;
+        # afterwards keep deferring only while it stays close to a solution.
         if self._refine_defer_used >= self._refine_min_grant:
             if (
                 self._refiner is None
@@ -499,12 +515,16 @@ class ForgeGenerator:
         refiner = self._refiner
         refiner.step()
         self.stage = "refine"
-        self.graph = refiner.graph
-        girth = _girth_value(refiner.graph)
+        # Render the IN-PROGRESS search graph (every accepted 2-switch /
+        # 3-switch, improving or not), not just best-so-far, so the user sees
+        # each swap change the graph.
+        in_progress = refiner.current_graph
+        self.graph = in_progress
+        girth = _girth_value(in_progress)
 
-        if girth >= self.g and is_k_regular(refiner.graph, self.k):
+        if girth >= self.g and is_k_regular(in_progress, self.k):
             # Refined up to a valid (k,g)-graph: hand it to excision, go idle.
-            self._excise_queue.append(refiner.graph)
+            self._excise_queue.append(in_progress.copy())
             self._refiner = None
             self._emit(f"refine: reached girth {girth} -> excise {self._queue_tag()}")
             return True
