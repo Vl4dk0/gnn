@@ -47,6 +47,9 @@ class VoltageSearchGenerator:
     success: bool
     start_time: float
 
+    best_near_miss: nx.Graph[int] | None
+    best_near_miss_girth: int
+
     _base: BaseGraph
     _group: FiniteGroup
     _voltages: list[int]
@@ -69,6 +72,8 @@ class VoltageSearchGenerator:
         self.is_complete = False
         self.success = False
         self.start_time = 0.0
+        self.best_near_miss = None
+        self.best_near_miss_girth = 0
         self._best_girth = 0
         self._tabu = {}
         self._restarts = 0
@@ -114,6 +119,18 @@ class VoltageSearchGenerator:
 
     def is_regular(self) -> bool:
         return is_k_regular(self.graph, self.k)
+
+    def _record_near_miss(self, lifted: nx.Graph[int], girth: int) -> None:
+        """Keep the highest-girth k-regular, connected lift seen so far.
+
+        The caller has already verified *lifted* is k-regular and connected with
+        the given integer *girth* (< g).  This best near-miss is what the forge
+        cascade hands to the refine stage when the voltage search cannot directly
+        reach girth g.
+        """
+        if girth > self.best_near_miss_girth:
+            self.best_near_miss_girth = girth
+            self.best_near_miss = lifted
 
     def step(self) -> None:
         """One search step: try a tabu move or random restart."""
@@ -221,8 +238,10 @@ class VoltageSearchGenerator:
                     self.is_complete = True
                     self.success = True
                 elif props["is_k_regular"] and props["is_connected"]:
-                    # Valid graph, just not high enough girth yet — show it
+                    # Valid graph, just not high enough girth yet — show it and
+                    # remember it as the best near-miss for a later refine handoff.
                     self.graph = lifted
+                    self._record_near_miss(lifted, girth)
 
         if not self.is_complete:
             self.graph = build_lift(self._base, self._group, self._voltages)

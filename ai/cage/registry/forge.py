@@ -44,6 +44,16 @@ from backend.utils.graph_utils import compute_girth, is_k_regular, moore_bound
 
 _Stage = Literal["voltage", "refine", "excision"]
 
+# Refine only realistically closes a small girth gap (the move oracle is trained
+# on g-1 / g-2 near-misses), so a near-miss lift is only worth refining when its
+# girth is within this many of the target.  Keep in sync with ``forge_graph``.
+REFINE_MARGIN = 2
+
+# Default cap on voltage search steps before the cascade gives up on a direct
+# girth>=g lift and falls back to refining the best near-miss seen.  Without a
+# bound the voltage search runs forever and the refine handoff never fires.
+DEFAULT_MAX_VOLTAGE_STEPS = 2000
+
 
 def _girth_value(G: nx.Graph[int]) -> int:
     """Integer girth of G (a large sentinel if acyclic)."""
@@ -66,6 +76,8 @@ class ForgeGenerator:
 
     _model_id: str | None
     _refine_max_iter: int
+    _refine_margin: int
+    _max_voltage_steps: int
     _refine_score_fn: _ScoreFn | None
     _repair_policy: RepairPolicy | None
     _voltage: VoltageSearchGenerator
@@ -80,6 +92,8 @@ class ForgeGenerator:
         model_id: str | None = None,
         *,
         refine_max_iter: int = 300,
+        refine_margin: int = REFINE_MARGIN,
+        max_voltage_steps: int = DEFAULT_MAX_VOLTAGE_STEPS,
     ) -> None:
         self.k = k
         self.g = g
@@ -92,6 +106,8 @@ class ForgeGenerator:
 
         self._model_id = model_id
         self._refine_max_iter = refine_max_iter
+        self._refine_margin = refine_margin
+        self._max_voltage_steps = max_voltage_steps
         # Same classical-fallback loaders as forge_graph: absent models -> None.
         self._refine_score_fn = _load_refine_score_fn(verbose=False)
         self._repair_policy = load_repair_policy()
@@ -115,6 +131,11 @@ class ForgeGenerator:
     def is_regular(self) -> bool:
         return is_k_regular(self.graph, self.k)
 
+    @property
+    def voltage(self) -> VoltageSearchGenerator:
+        """The embedded voltage search (exposes its best near-miss lift)."""
+        return self._voltage
+
     def step(self) -> None:
         """Advance the active stage by one move and update self.graph / self.stage."""
         if self.start_time == 0:
@@ -137,32 +158,60 @@ class ForgeGenerator:
         self.graph = self._voltage.graph
         action = f"voltage: attempt {self._voltage.step_count}"
 
-        if self._voltage.is_complete:
-            if not self._voltage.success:
-                # Voltage exhausted without a k-regular lift -> forge failed.
-                self._finish(False, "voltage_exhausted", action + " (no lift)")
-                return
-            lift = self._voltage.graph
-            girth = _girth_value(lift)
+        # Direct hit: the voltage search found a valid (k,g)-lift on its own.
+        if self._voltage.is_complete and self._voltage.success:
+            girth = _girth_value(self._voltage.graph)
             action = f"voltage: attempt {self._voltage.step_count} girth {girth}"
-            if girth >= self.g:
-                # Already a valid (k,g)-lift: skip refine, start excision.
-                self._enter_excision(action)
-                return
-            # k-regular but girth < g: hand the lift to the refine stage.
-            # Minimal build: we do NOT loop back to try further voltage bases if
-            # refine fails on this lift (known limitation).
-            self._refiner = TabuRefineGenerator(
-                lift,
-                g_target=self.g,
-                score_fn=self._refine_score_fn,
-                max_iter=self._refine_max_iter,
-            )
-            self.stage = "refine"
-            self._emit(action + " -> refine", done=False)
+            # Already a valid (k,g)-lift: skip refine, start excision.
+            self._enter_excision(action)
+            return
+
+        # The voltage search reports is_complete=True only on a direct hit, so it
+        # otherwise runs unbounded.  Bound it with our own step budget; when the
+        # budget (or, defensively, the search's own completion) is reached we
+        # hand the best near-miss lift to refine instead of searching forever.
+        budget_reached = self._voltage.step_count >= self._max_voltage_steps
+        if budget_reached or self._voltage.is_complete:
+            self._end_voltage_to_refine_or_fail(action)
             return
 
         self._emit(action, done=False)
+
+    def _end_voltage_to_refine_or_fail(self, action: str) -> None:
+        """Voltage ended without a direct girth>=g lift: refine the best near-miss.
+
+        The best near-miss is the highest-girth k-regular, connected lift seen
+        during the search.  Refine can realistically only close a small girth
+        gap, so we only hand it off when within ``refine_margin`` of g; otherwise
+        the forge fails.
+        """
+        near_miss = self._voltage.best_near_miss
+        best_girth = self._voltage.best_near_miss_girth
+        if near_miss is None:
+            # No k-regular connected lift was ever found -> nothing to refine.
+            self._finish(False, "voltage_exhausted", action + " (no lift)")
+            return
+        if best_girth < self.g - self._refine_margin:
+            # Too far from g for refine to plausibly close the gap.
+            self._finish(
+                False,
+                "voltage_exhausted",
+                action + f" (best girth {best_girth} too low)",
+            )
+            return
+
+        # Hand the near-miss lift to the refine stage.  Minimal build: we do NOT
+        # loop back to try further voltage bases if refine fails on this lift, nor
+        # fall through to the next-best near-miss (known limitation).
+        self.graph = near_miss
+        self._refiner = TabuRefineGenerator(
+            near_miss,
+            g_target=self.g,
+            score_fn=self._refine_score_fn,
+            max_iter=self._refine_max_iter,
+        )
+        self.stage = "refine"
+        self._emit(f"voltage: best near-miss girth {best_girth} -> refine", done=False)
 
     # --- refine stage ----------------------------------------------------
 

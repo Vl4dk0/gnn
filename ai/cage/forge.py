@@ -55,6 +55,12 @@ from backend.utils.graph_utils import compute_girth, is_k_regular
 # Default on-disk location of the trained move oracle (refine scorer).
 _MOVE_ORACLE_DIR = "move_oracle/move_oracle"
 
+# Refine only realistically closes a small girth gap (the move oracle is trained
+# on g-1 / g-2 near-misses), so a near-miss lift is only worth refining when its
+# girth is within this many of the target.  Keep in sync with
+# ``ai.cage.registry.forge.REFINE_MARGIN``.
+REFINE_MARGIN = 2
+
 # Score function signature accepted by TabuRefiner.
 _ScoreFn: TypeAlias = "Callable[[nx.Graph[int], list[Swap2]], torch.Tensor]"
 
@@ -109,6 +115,7 @@ def _find_valid_lift(
     max_group_order: int,
     tabu_iterations: int,
     refine_max_iter: int,
+    refine_margin: int,
     beam_width: int,
     time_budget: float | None,
     start_time: float,
@@ -168,8 +175,17 @@ def _find_valid_lift(
                     )
                 return lift
 
-            # Lift is k-regular but girth < g: try to refine it up.
+            # Lift is k-regular but girth < g: try to refine it up, but only when
+            # it is a near-miss within refine_margin of g (refine cannot close a
+            # large gap).  Lifts further away are skipped, matching ForgeGenerator.
             lift_girth = _girth_value(lift)
+            if lift_girth < g - refine_margin:
+                if verbose:
+                    print(
+                        f"[refine] {base_name}/{group.name}: girth={lift_girth} too "
+                        f"far below {g}; skipping refine"
+                    )
+                continue
             if verbose:
                 print(
                     f"[refine] {base_name}/{group.name}: girth={lift_girth} < {g}, "
@@ -203,6 +219,7 @@ def forge_graph(
     max_group_order: int = 60,
     tabu_iterations: int = 2000,
     refine_max_iter: int = 300,
+    refine_margin: int = REFINE_MARGIN,
     beam_width: int = 30,
     excision_max_roots: int | None = None,
     excision_backtracks: int = 10000,
@@ -246,6 +263,7 @@ def forge_graph(
         max_group_order=max_group_order,
         tabu_iterations=tabu_iterations,
         refine_max_iter=refine_max_iter,
+        refine_margin=refine_margin,
         beam_width=beam_width,
         time_budget=time_budget,
         start_time=start_time,
