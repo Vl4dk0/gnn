@@ -193,10 +193,12 @@ export const useCageGeneration = () => {
     setPhase("complete");
 
     if (currentStatus.success) {
-      setSuccessMessage(`Valid cage! (${formatElapsed(currentStatus.elapsed_time)})`);
+      setSuccessMessage(
+        `Valid (${currentStatus.k},${currentStatus.g})-graph! (${formatElapsed(currentStatus.elapsed_time)})`
+      );
     } else {
       setError(
-        `Generation completed but cage is not valid. Nodes: ${currentStatus.num_nodes}, Girth: ${currentStatus.girth ?? "∞"}`
+        `Generation completed but the (${currentStatus.k},${currentStatus.g})-graph is not valid. Nodes: ${currentStatus.num_nodes}, Girth: ${currentStatus.girth ?? "∞"}`
       );
     }
   }, []);
