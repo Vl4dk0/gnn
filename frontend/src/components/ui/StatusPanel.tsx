@@ -66,7 +66,7 @@ export const StatusPanel = ({ status, error, successMessage, stoppedByUser }: St
       {status.last_event && (
         <div className="mt-3 rounded-xl border border-line2 bg-bg2/75 p-3">
           <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.8px] text-textDim">
-            Last RL Move
+            Last Move
           </div>
           <div>
             <strong>Action:</strong> {formatAction(status.last_event.action)}
