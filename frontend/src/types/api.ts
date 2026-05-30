@@ -66,7 +66,8 @@ export type GeneratorType =
   | "astar"
   | "rl"
   | "voltage"
-  | "voltage_rl";
+  | "voltage_rl"
+  | "forge";
 export type CageExecutionMode = "async" | "stepped";
 
 export interface CageStepEvent {
@@ -105,6 +106,7 @@ export interface CageStatusResponse {
   session_id: string;
   mode: CageExecutionMode;
   generator: GeneratorType;
+  stage?: "voltage" | "refine" | "excision" | null;
   k: number;
   g: number;
   step_count: number;

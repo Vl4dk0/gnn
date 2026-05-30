@@ -55,10 +55,13 @@ const normalizeSettings = (settings: CageSettings): CageSettings => {
     ...merged,
     // Preserve the user's executionMode for all generator types.
     executionMode: merged.executionMode,
-    // Only voltage keeps a model_id (auto-resolved girth predictor).
+    // Only voltage and forge keep a model_id (auto-resolved girth predictor).
     // RL sends null so the backend picks the best actor-critic model.
     // All other generators never use a model_id.
-    modelId: merged.generatorType === "voltage" ? merged.modelId : null,
+    modelId:
+      merged.generatorType === "voltage" || merged.generatorType === "forge"
+        ? merged.modelId
+        : null,
     pollingInterval: Math.max(50, Math.min(2000, merged.pollingInterval)),
     stepsPerTick: Math.max(1, Math.min(100, Math.round(merged.stepsPerTick))),
     autoStepInterval: Math.max(50, Math.min(2000, merged.autoStepInterval))
@@ -125,13 +128,14 @@ export const useCageGeneration = () => {
     void loadVoltageGirthModels();
   }, []);
 
-  // Auto-select the unified girth predictor whenever the voltage generator
-  // is active and modelId is unset (null). Since there is no user-facing
-  // model dropdown, modelId for voltage is always either null (initial /
-  // post-generator-switch) or the resolved default id (after this effect runs).
+  // Auto-select the unified girth predictor whenever the voltage or forge
+  // generator is active and modelId is unset (null). Since there is no
+  // user-facing model dropdown, modelId for these generators is always either
+  // null (initial / post-generator-switch) or the resolved default id (after
+  // this effect runs).
   useEffect(() => {
     if (
-      settings.generatorType === "voltage" &&
+      (settings.generatorType === "voltage" || settings.generatorType === "forge") &&
       settings.modelId === null &&
       voltageGirthDefault !== null
     ) {
@@ -425,13 +429,13 @@ export const useCageGeneration = () => {
   const saveSettings = useCallback(
     (nextSettings: CageSettings) => {
       const safe = normalizeSettings(nextSettings);
-      // If the user is saving the voltage generator with modelId still
+      // If the user is saving the voltage or forge generator with modelId still
       // unresolved (null = auto-select pending) and the default has loaded,
       // resolve it before persisting. Without this, a fast save followed by
       // a reload would re-enter the legacy-migration path and flip the
       // user from ML-guided to pure tabu/random.
       const resolved: CageSettings =
-        safe.generatorType === "voltage" &&
+        (safe.generatorType === "voltage" || safe.generatorType === "forge") &&
         safe.modelId === null &&
         voltageGirthDefault !== null
           ? { ...safe, modelId: voltageGirthDefault }

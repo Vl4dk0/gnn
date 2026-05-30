@@ -15,6 +15,21 @@ const formatAction = (action: string) => {
   return action.replace(/^edge_/, "").replaceAll("_", " ");
 };
 
+const STAGE_STYLES: Record<"voltage" | "refine" | "excision", { label: string; className: string }> = {
+  voltage: {
+    label: "Voltage",
+    className: "bg-[#1a4a7a] text-[#7bc8ff] border-[#2a6aa0]"
+  },
+  refine: {
+    label: "Refine",
+    className: "bg-[#3a4a1a] text-[#b8e05a] border-[#5a7a2a]"
+  },
+  excision: {
+    label: "Excision",
+    className: "bg-[#4a1a3a] text-[#e07ab8] border-[#7a2a5a]"
+  }
+};
+
 export const StatusPanel = ({ status, error, successMessage, stoppedByUser }: StatusPanelProps) => {
   if (error) {
     return (
@@ -36,6 +51,16 @@ export const StatusPanel = ({ status, error, successMessage, stoppedByUser }: St
       <div className="mb-2">
         <strong>Mode:</strong> {status.mode === "stepped" ? "RL step inspection" : "Fast search"}
       </div>
+      {status.generator === "forge" && status.stage != null && (
+        <div className="mb-2 flex items-center gap-2">
+          <strong>Stage:</strong>
+          <span
+            className={`inline-block rounded border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.8px] ${STAGE_STYLES[status.stage].className}`}
+          >
+            {STAGE_STYLES[status.stage].label}
+          </span>
+        </div>
+      )}
       <div className="mb-2">
         <strong>Step:</strong> {status.step_count}
       </div>

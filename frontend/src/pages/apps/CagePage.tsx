@@ -293,6 +293,7 @@ export const CagePage = () => {
           <option value="rl">RL Agent (GNN-Guided)</option>
           <option value="voltage">Voltage Graph Lift (Algebraic)</option>
           <option value="voltage_rl">Voltage RL (Learned Assignments)</option>
+          <option value="forge">Forge (Lift → Refine → Excision)</option>
         </SelectField>
 
         <SelectField
