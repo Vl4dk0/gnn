@@ -92,6 +92,7 @@ def train(
     cycle_lengths: list[int] | None = None,
     rwpe_dim: int = 0,
     workers: int | None = None,
+    pos_weight: float = 5.0,
 ) -> tuple[GirthPredictor, dict[str, object]]:
     """Train the girth predictor model. Returns (model, info_dict)."""
 
@@ -112,6 +113,7 @@ def train(
     print(f"  Hidden dim:       {hidden_dim}")
     print(f"  Layers:           {num_layers}")
     print(f"  Learning rate:    {lr}")
+    print(f"  Pos weight:       {pos_weight}")
     print(f"  Seed:             {seed}")
     print(f"  Cycle lengths:    {cycle_lengths or []}")
     print(f"  RWPE dim:         {rwpe_dim}")
@@ -177,10 +179,17 @@ def train(
         f"Test: {test_n} ({test_pos} pos, {test_rate * 100:.1f}%)"
     )
 
+    # Stratify over (k, g_target, achieves-target) so the rare positive class
+    # (girth >= g_target) is not drowned out within each (k, g) bucket. Without
+    # the label component, hard targets like (5, 7) collapse to all-negative.
     train_loader = make_stratified_loader(
         train_data,
         batch_size,
-        lambda d: (int(cast(int, d.k)), int(cast(int, d.g_target))),
+        lambda d: (
+            int(cast(int, d.k)),
+            int(cast(int, d.g_target)),
+            int(int(cast(int, d.girth)) >= int(cast(int, d.g_target))),
+        ),
     )
 
     val_loader = DataLoader(val_data, batch_size=batch_size)
@@ -197,6 +206,7 @@ def train(
         max_group_order=max_group_order,
     ).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
 
     best_val_loss = float("inf")
     best_state: dict[str, torch.Tensor] | None = None
@@ -214,10 +224,21 @@ def train(
             girth_pred = model(batch)
 
             girth_true = cast(torch.Tensor, batch.girth).float().unsqueeze(-1)
+            g_target_t = cast(torch.Tensor, batch.g_target).float().unsqueeze(-1)
 
-            loss = F.mse_loss(girth_pred / GIRTH_NORM, girth_true / GIRTH_NORM)
+            # Label-aware weighting: upweight the rare positive class (lifts that
+            # achieve girth >= g_target) so the regressor does not collapse onto
+            # the all-negative majority on hard, heavily imbalanced targets.
+            is_pos = (girth_true >= g_target_t).float()
+            weight = 1.0 + (pos_weight - 1.0) * is_pos
+            per_elem = F.mse_loss(
+                girth_pred / GIRTH_NORM,
+                girth_true / GIRTH_NORM,
+                reduction="none",
+            )
+            loss = (weight * per_elem).sum() / weight.sum()
 
-            _ = loss.backward()  # pyright: ignore[reportUnknownMemberType]
+            _ = loss.backward()
             _ = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
 
@@ -225,6 +246,7 @@ def train(
             train_loss += float(loss.item()) * n_b
             train_count += n_b
 
+        scheduler.step()
         avg_train_loss = train_loss / max(train_count, 1)
 
         if epoch % print_every == 0 or epoch == 1 or epoch == epochs:
@@ -287,6 +309,7 @@ def train(
         "node_feat_dim": node_feat_dim,
         "max_group_order": max_group_order,
         "learning_rate": lr,
+        "pos_weight": pos_weight,
         "seed": seed,
         "weight_decay": weight_decay,
         "best_epoch": best_epoch,
@@ -376,6 +399,13 @@ def parse_args() -> argparse.Namespace:
     )
     _ = parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate")
     _ = parser.add_argument(
+        "--pos-weight",
+        type=float,
+        default=5.0,
+        help="Loss multiplier for the positive class (girth >= g_target). >1 "
+        "upweights rare positives on hard, imbalanced targets.",
+    )
+    _ = parser.add_argument(
         "--print-every", type=int, default=10, help="Print every N epochs"
     )
     _ = parser.add_argument("--seed", type=int, default=42, help="Random seed")
@@ -431,4 +461,5 @@ if __name__ == "__main__":
         cycle_lengths=parsed_cycle_lengths,
         rwpe_dim=cast(int, args.rwpe_dim),
         workers=cast("int | None", args.workers),
+        pos_weight=cast(float, args.pos_weight),
     )

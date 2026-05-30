@@ -12,6 +12,7 @@ import random
 from concurrent.futures import Future, ProcessPoolExecutor, as_completed
 from typing import Any, cast
 
+import networkx as nx
 import numpy as np
 import torch
 from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
@@ -23,13 +24,17 @@ from ai.cage.voltage.base_graphs import (
     dumbbell,
     prism_base,
 )
-from ai.cage.voltage.cycle_analysis import compute_lift_girth
+from ai.cage.voltage.cycle_analysis import (
+    compute_lift_girth,
+    count_short_identity_walks,
+)
 from ai.cage.voltage.lift import build_lift
 from ai.cage.voltage.groups import (
     FiniteGroup,
     cyclic_group,
     dihedral_group,
     direct_product,
+    semidirect_product_cyclic,
 )
 from ai.utils.structural_features import add_structural_features
 from backend.utils.graph_utils import is_k_regular, moore_bound
@@ -117,6 +122,19 @@ def _candidate_groups(max_order: int) -> list[FiniteGroup]:
             if a * b <= max_order:
                 _add(direct_product(cyclic_group(a), cyclic_group(b)))
 
+    # Non-abelian semidirect products Z_n ⋊ Z_m. Abelian groups (cyclic,
+    # dihedral, direct products) cannot host high-girth lifts for hard targets
+    # like (5, 7) — the trajectory stalls at girth 6 — so we add the same
+    # non-abelian family the cage search relies on for those targets.
+    for n in range(3, min(30, max_order + 1)):
+        for m in range(2, min(10, max_order + 1)):
+            if n * m > max_order:
+                continue
+            for phi in range(2, n):
+                if pow(phi, m, n) == 1:
+                    _add(semidirect_product_cyclic(n, m, phi))
+                    break  # one nontrivial action per (n, m) is enough
+
     return groups
 
 
@@ -192,6 +210,127 @@ def _spec_to_data(spec: dict[str, Any]) -> Data:
     return data
 
 
+def _tabu_trajectory(
+    base: BaseGraph,
+    group: FiniteGroup,
+    g_target: int,
+    rng: random.Random,
+    num_iterations: int,
+    tabu_tenure: int = 10,
+    candidate_cap: int = 8,
+) -> list[list[int]]:
+    """Run a tabu descent on the short-walk cost, logging every visited assignment.
+
+    Mirrors the tabu search in supervised/search.py (spanning-tree
+    normalization, single-edge moves, aspiration) but instead of returning only
+    the best, it records each accepted assignment along the trajectory. These
+    concentrate near high girth (cost 0 means girth >= g_target), giving the
+    predictor the positive examples that uniform-random sampling almost never
+    produces for hard targets.
+
+    Per move, at most ``candidate_cap`` new values are tried per free edge
+    (sampled when the group is larger). This bounds the per-iteration cost
+    independently of group order, which is essential for large groups (e.g. the
+    order-100 groups needed for (5, 7)); a full scan there is intractable at
+    data-generation scale.
+
+    Returns a list of full-length voltage vectors (tree edges fixed to 0).
+    """
+    free_indices = base.free_edge_indices()
+    m = base.num_undirected_edges()
+    order = group.order
+
+    volts = [0] * m
+    for idx in free_indices:
+        volts[idx] = rng.randint(0, order - 1)
+
+    if not free_indices:
+        return [volts[:]]
+
+    visited: list[list[int]] = [volts[:]]
+    current_cost = count_short_identity_walks(base, group, volts, g_target)
+    best_cost = current_cost
+
+    tabu: dict[tuple[int, int], int] = {}
+
+    for iteration in range(num_iterations):
+        best_move_cost = current_cost + 1
+        best_move_edge = -1
+        best_move_val = -1
+
+        # Cost 0 here may be a genuine high-girth assignment OR a degenerate
+        # disconnected lift (also walk-free). Either way we keep moving: real
+        # positives are still harvested via _make_sample's exact-girth label,
+        # and we escape degenerate basins instead of stalling on them.
+        if current_cost > 0:
+            for edge_idx in free_indices:
+                old_val = volts[edge_idx]
+                if order - 1 <= candidate_cap:
+                    candidate_vals = [v for v in range(order) if v != old_val]
+                else:
+                    candidate_vals = rng.sample(
+                        [v for v in range(order) if v != old_val], candidate_cap
+                    )
+                for new_val in candidate_vals:
+                    is_tabu = tabu.get((edge_idx, old_val), -1) > iteration
+                    volts[edge_idx] = new_val
+                    new_cost = count_short_identity_walks(base, group, volts, g_target)
+                    volts[edge_idx] = old_val
+                    if new_cost < best_cost or (
+                        not is_tabu and new_cost < best_move_cost
+                    ):
+                        best_move_cost = new_cost
+                        best_move_edge = edge_idx
+                        best_move_val = new_val
+
+        if best_move_edge < 0:
+            # Local optimum (or cost-0 basin): perturb with a random move so the
+            # trajectory keeps harvesting diverse near-feasible assignments.
+            best_move_edge = rng.choice(free_indices)
+            best_move_val = rng.randint(0, order - 1)
+
+        old_val = volts[best_move_edge]
+        volts[best_move_edge] = best_move_val
+        tabu[(best_move_edge, old_val)] = iteration + tabu_tenure
+        current_cost = count_short_identity_walks(base, group, volts, g_target)
+        best_cost = min(best_cost, current_cost)
+        visited.append(volts[:])
+
+    return visited
+
+
+def _make_sample(
+    base: BaseGraph,
+    base_name: str,
+    group: FiniteGroup,
+    volt: list[int],
+    k: int,
+    g_target: int,
+    cycle_lengths: list[int] | None,
+    rwpe_dim: int,
+) -> tuple[_DedupKey, dict[str, Any]] | None:
+    """Label one voltage assignment with its exact girth and pack it for IPC.
+
+    Returns None for degenerate lifts (not k-regular, or disconnected). A
+    disconnected lift has no short identity walk and would otherwise be labeled
+    as high-girth, teaching the model that disconnection means high girth. The
+    search itself only accepts connected k-regular lifts, so we mirror that.
+    """
+    key = (k, g_target, base_name, group.name, tuple(volt))
+    lift_graph = build_lift(base, group, volt)
+    if not is_k_regular(lift_graph, k):
+        return None
+    if lift_graph.number_of_nodes() == 0 or not nx.is_connected(lift_graph):
+        return None
+    girth = compute_lift_girth(base, group, volt, max_girth=2 * g_target)
+    data = base_graph_to_pyg(base, volt, group, k, g_target, girth)
+    if cycle_lengths or rwpe_dim > 0:
+        data = add_structural_features(
+            data, cycle_lengths=cycle_lengths, rwpe_dim=rwpe_dim
+        )
+    return key, _data_to_spec(data, base_name, group.name)
+
+
 def _generate_chunk(
     chunk_seed: int,
     chunk_size: int,
@@ -199,8 +338,15 @@ def _generate_chunk(
     max_group_order: int,
     cycle_lengths: list[int] | None,
     rwpe_dim: int,
+    traj_fraction: float = 0.6,
 ) -> list[tuple[_DedupKey, dict[str, Any]]]:
-    """Worker: produce `chunk_size` candidate (dedup_key, spec_dict) pairs.
+    """Worker: produce roughly `chunk_size` candidate (dedup_key, spec_dict) pairs.
+
+    A `traj_fraction` portion of the budget comes from tabu-search trajectories
+    (near-feasible assignments that the search actually visits), the rest from
+    uniform-random sampling for coverage. Mixing fixes the train/serve
+    distribution skew: random assignments almost never reach high girth, so the
+    trajectory source supplies the positive examples for hard targets.
 
     Workers do the expensive work (girth detection + structural features) and
     convert the resulting Data to a primitive spec dict so IPC pickling does
@@ -213,37 +359,51 @@ def _generate_chunk(
         (k, g): moore_bound(k, g) for (k, g) in targets
     }
 
-    out: list[tuple[_DedupKey, dict[str, Any]]] = []
-    for _ in range(chunk_size):
+    def _pick_config() -> tuple[int, int, str, BaseGraph, FiniteGroup]:
         k, g_target = rng.choice(targets)
         if k not in base_cache:
             base_cache[k] = _candidate_base_graphs(k)
-        bases = base_cache[k]
-        base_name, base = rng.choice(bases)
-
+        base_name, base = rng.choice(base_cache[k])
         mb = moore_cache[(k, g_target)]
         valid_groups = [
             g for g in groups if mb <= base.num_nodes * g.order <= max(4 * mb, mb + 200)
         ]
         if not valid_groups:
             valid_groups = groups
-
         group = rng.choice(valid_groups)
+        return k, g_target, base_name, base, group
+
+    out: list[tuple[_DedupKey, dict[str, Any]]] = []
+    n_traj_target = int(round(chunk_size * traj_fraction))
+
+    # Trajectory-sourced samples: each tabu run yields several near-feasible
+    # assignments, so we keep launching runs until the trajectory budget is met.
+    traj_produced = 0
+    while traj_produced < n_traj_target:
+        k, g_target, base_name, base, group = _pick_config()
+        trajectory = _tabu_trajectory(base, group, g_target, rng, num_iterations=60)
+        added = 0
+        for volt in trajectory:
+            sample = _make_sample(
+                base, base_name, group, volt, k, g_target, cycle_lengths, rwpe_dim
+            )
+            if sample is not None:
+                out.append(sample)
+                added += 1
+        # Always count a run as progress (>= 1) so a config that yields nothing
+        # usable — every visited lift degenerate — cannot spin the loop forever.
+        traj_produced += max(added, 1)
+
+    # Uniform-random samples for coverage.
+    for _ in range(chunk_size - n_traj_target):
+        k, g_target, base_name, base, group = _pick_config()
         n_edges = base.num_undirected_edges()
         volt = [rng.randint(0, group.order - 1) for _ in range(n_edges)]
-        key = (k, g_target, base_name, group.name, tuple(volt))
-
-        lift_graph = build_lift(base, group, volt)
-        if not is_k_regular(lift_graph, k):
-            continue
-        girth = compute_lift_girth(base, group, volt, max_girth=2 * g_target)
-        data = base_graph_to_pyg(base, volt, group, k, g_target, girth)
-        if cycle_lengths or rwpe_dim > 0:
-            data = add_structural_features(
-                data, cycle_lengths=cycle_lengths, rwpe_dim=rwpe_dim
-            )
-
-        out.append((key, _data_to_spec(data, base_name, group.name)))
+        sample = _make_sample(
+            base, base_name, group, volt, k, g_target, cycle_lengths, rwpe_dim
+        )
+        if sample is not None:
+            out.append(sample)
 
     return out
 
@@ -257,6 +417,7 @@ def generate_dataset(
     cycle_lengths: list[int] | None = None,
     rwpe_dim: int = 0,
     workers: int | None = None,
+    traj_fraction: float = 0.6,
 ) -> tuple[list[Data], dict[str, object]]:
     """Generate deduplicated training data for the girth predictor.
 
@@ -321,6 +482,7 @@ def generate_dataset(
                 max_group_order,
                 cycle_lengths,
                 rwpe_dim,
+                traj_fraction,
             )
             attempts += len(batch)
             _ingest(batch)
@@ -337,6 +499,7 @@ def generate_dataset(
                     max_group_order,
                     cycle_lengths,
                     rwpe_dim,
+                    traj_fraction,
                 )
                 in_flight.add(fut)
 

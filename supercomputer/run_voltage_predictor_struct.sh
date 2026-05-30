@@ -26,8 +26,8 @@ cd ~/gnn
 uv run python -u -m ai.cage.voltage.train \
   --targets "3,5;3,6;3,7;3,8;3,9;3,10;4,5;4,6;4,7;4,8;5,5;5,6;5,7" \
   --samples 1000000 --epochs 100 --batch-size 256 \
-  --hidden-dim 192 --num-layers 4 --max-group-order 100 \
-  --weight-decay 1e-4 \
+  --hidden-dim 192 --num-layers 6 --max-group-order 100 \
+  --lr 1e-3 --weight-decay 1e-4 \
   --cycle-lengths "3,4,5,6,7,8" --rwpe-dim 8 \
   --workers 8 \
   --model-id "${MODEL_ID:?set MODEL_ID, e.g. MODEL_ID=girth_predictor_struct}" \
