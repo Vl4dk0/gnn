@@ -28,7 +28,13 @@ from ai.cage.voltage.supervised.model import GirthPredictor, load_girth_predicto
 from ai.cage.voltage.supervised.search import beam_search
 from backend.utils.graph_utils import is_k_regular, moore_bound
 
-BEAM_PROBE_INTERVAL = 50
+# Default beam-probe interval when a girth predictor is loaded.
+# Lowered from 50 to 5 so the probe fires on short runs (many targets solve
+# in <50 steps, so the old value meant it never fired).  beam_search is a
+# bounded one-shot, but it IS proportional to beam_width * group.order * m,
+# so very small values add per-step overhead on large groups.  5 is a
+# reasonable default; expose as a constructor parameter for benchmarking.
+BEAM_PROBE_INTERVAL = 5
 
 
 class VoltageSearchGenerator:
@@ -70,9 +76,16 @@ class VoltageSearchGenerator:
     _feat_cycle_lengths: list[int] | None
     _feat_rwpe_dim: int
     _kind: str
+    _beam_probe_interval: int
 
     def __init__(
-        self, k: int, g: int, model_id: str | None = None, *, harvest: bool = False
+        self,
+        k: int,
+        g: int,
+        model_id: str | None = None,
+        *,
+        harvest: bool = False,
+        beam_probe_interval: int = BEAM_PROBE_INTERVAL,
     ) -> None:
         self.k = k
         self.g = g
@@ -91,6 +104,7 @@ class VoltageSearchGenerator:
         self._feat_cycle_lengths = None
         self._feat_rwpe_dim = 0
         self._kind = "girth"
+        self._beam_probe_interval = beam_probe_interval
         if model_id is not None:
             model, feat_cl, feat_rwpe, kind = load_girth_predictor(model_id)
             self._model = model
@@ -215,7 +229,7 @@ class VoltageSearchGenerator:
         # ML-guided beam-search probe: when a girth predictor is loaded,
         # periodically run a full beam search on the current (base, group)
         # config. Cheap one-shot — beam_search is sequential and bounded.
-        if self._model is not None and self.step_count % BEAM_PROBE_INTERVAL == 0:
+        if self._model is not None and self.step_count % self._beam_probe_interval == 0:
             volts_b, girth_b = beam_search(
                 self._base,
                 self._group,
@@ -228,10 +242,11 @@ class VoltageSearchGenerator:
                 feat_rwpe_dim=self._feat_rwpe_dim,
                 kind=self._kind,
             )
-            if isinstance(girth_b, int) and girth_b >= self.g and volts_b is not None:
+            if isinstance(girth_b, int) and volts_b is not None:
                 lifted = build_lift(self._base, self._group, volts_b)
                 props = verify_lift(lifted, self.k, self.g)
-                if props["is_valid_kg"]:
+                if girth_b >= self.g and props["is_valid_kg"]:
+                    # Full solution found via beam: mark complete (or harvest).
                     self._voltages = volts_b
                     self.graph = lifted
                     if self.harvest:
@@ -241,6 +256,22 @@ class VoltageSearchGenerator:
                         self.success = True
                         self._best_girth = girth_b
                         return
+                elif (
+                    props["is_k_regular"]
+                    and props["is_connected"]
+                    and girth_b > self._best_girth
+                ):
+                    # Warm-start adoption: the beam found a valid k-regular,
+                    # connected lift whose girth beats our running best even
+                    # though it does not yet reach g.  Adopt the new voltage
+                    # assignment as the tabu starting point and clear the tabu
+                    # list — the move history no longer applies to the new
+                    # assignment.
+                    self._voltages = volts_b
+                    self._best_girth = girth_b
+                    self.graph = lifted
+                    self._tabu.clear()
+                    self._record_near_miss(lifted, girth_b)
 
         # Check intermediate girth periodically.  In harvest mode we probe on
         # EVERY step (the forge producer wants a steady stream of lifts), and
