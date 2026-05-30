@@ -176,6 +176,12 @@ def _voltage_rl_model_exists(model_id: str) -> bool:
     return info.get("model_type") == "voltage_actor_critic"
 
 
+# Both the girth predictor and the tabu-cost predictor live under voltage_girth/
+# and share the same network; only the regression target differs. The voltage
+# generator loads either, so accept both model types everywhere.
+_VOLTAGE_PREDICTOR_TYPES = ("voltage_girth_predictor", "voltage_tabu_predictor")
+
+
 def _voltage_girth_model_exists(model_id: str) -> bool:
     model_dir = get_trained_dir("voltage_girth") / model_id
     info_path = model_dir / "info.json"
@@ -184,7 +190,7 @@ def _voltage_girth_model_exists(model_id: str) -> bool:
         return False
     with open(info_path) as f:
         info = cast(dict[str, object], json.load(f))
-    return info.get("model_type") == "voltage_girth_predictor"
+    return info.get("model_type") in _VOLTAGE_PREDICTOR_TYPES
 
 
 def _list_voltage_girth_models() -> list[dict[str, object]]:
@@ -202,13 +208,15 @@ def _list_voltage_girth_models() -> list[dict[str, object]]:
             continue
         with open(info_path) as f:
             info = cast(dict[str, object], json.load(f))
-        if info.get("model_type") != "voltage_girth_predictor":
+        if info.get("model_type") not in _VOLTAGE_PREDICTOR_TYPES:
             continue
         training = cast(dict[str, object], info.get("training", {}))
         metrics = cast(dict[str, object], info.get("metrics", {}))
+        kind = info.get("kind", "girth")
         out.append(
             {
                 "model_id": model_dir.name,
+                "kind": kind,
                 "targets": training.get("targets"),
                 "test_f1": metrics.get("test_f1"),
                 "test_accuracy": metrics.get("test_accuracy"),
@@ -418,9 +426,10 @@ def generate() -> Response | tuple[Response, int]:
             return jsonify(
                 {
                     "error": (
-                        f"Unknown voltage girth predictor model_id: "
+                        f"Unknown voltage predictor model_id: "
                         f"{requested_model_id}. Expected a model under "
-                        "voltage_girth/ with model_type=voltage_girth_predictor."
+                        "voltage_girth/ with model_type=voltage_girth_predictor "
+                        "or voltage_tabu_predictor."
                     )
                 }
             ), 400
