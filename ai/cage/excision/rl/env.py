@@ -17,7 +17,14 @@ Reward :
   +1   per deficient vertex whose degree is fully restored by the step
   +10  on full repair success (all deficiencies resolved)
   -1   if no legal action remains but deficiencies persist (episode failure)
-  0    otherwise (partial step with no new full restorations)
+
+  In addition to those terminal/restoration rewards, a small potential-based
+  shaping term is added so the agent gets signal *before* the episode ends:
+    + SHAPE_RESOLVE * (deficiency units resolved this step)
+    - DEADEND_PENALTY * (number of still-deficient vertices left with zero
+                         legal partners after this step)
+  Shaping never changes the success/failure terminal semantics (a stuck step
+  still terminates with FAILURE_REWARD, a full repair still gets SUCCESS_REWARD).
 """
 
 from __future__ import annotations
@@ -28,7 +35,7 @@ import networkx as nx
 import torch
 from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
 
-from ai.cage.excision.legality import is_legal_edge
+from ai.cage.excision.legality import DistanceCache
 from ai.utils.structural_features import add_structural_features
 
 
@@ -50,6 +57,9 @@ class RepairEnv:
     SUCCESS_REWARD: float = 10.0
     RESOLVE_REWARD: float = 1.0
     FAILURE_REWARD: float = -1.0
+    # Potential-based shaping (intermediate signal; does not alter terminals).
+    SHAPE_RESOLVE: float = 0.5
+    DEADEND_PENALTY: float = 0.5
 
     def __init__(
         self,
@@ -74,6 +84,9 @@ class RepairEnv:
         # Current episode state
         self._graph: nx.Graph[int] = starting_graph.copy()
         self._deficiency: dict[int, int] = self._compute_deficiency(self._graph)
+        # Incremental BFS-distance cache over the working graph; invalidated
+        # per added edge so legal_actions() avoids recomputing all-pairs BFS.
+        self._dist: DistanceCache = DistanceCache(self._graph, g_target)
 
     # ------------------------------------------------------------------
     # Public API
@@ -83,6 +96,7 @@ class RepairEnv:
         """Reset to the initial excised state."""
         self._graph = self._starting_graph.copy()
         self._deficiency = self._compute_deficiency(self._graph)
+        self._dist = DistanceCache(self._graph, self.g_target)
         return self._build_obs()
 
     def step(
@@ -102,8 +116,10 @@ class RepairEnv:
         assert not self._graph.has_edge(u, v), "Edge already exists"
 
         prev_deficient_count = sum(1 for d in self._deficiency.values() if d > 0)
+        prev_units = sum(d for d in self._deficiency.values() if d > 0)
 
         self._graph.add_edge(u, v)
+        self._dist.invalidate_edge(u, v)
 
         # Update deficiency
         if u in self._deficiency:
@@ -112,7 +128,9 @@ class RepairEnv:
             self._deficiency[v] -= 1
 
         now_deficient_count = sum(1 for d in self._deficiency.values() if d > 0)
+        now_units = sum(d for d in self._deficiency.values() if d > 0)
         resolved = prev_deficient_count - now_deficient_count
+        units_resolved = prev_units - now_units  # always 2 (one per endpoint)
 
         # Check termination
         fully_repaired = now_deficient_count == 0
@@ -121,12 +139,26 @@ class RepairEnv:
 
         done = fully_repaired or stuck
 
+        # Potential-based shaping: reward deficiency units resolved this step and
+        # penalise leaving any still-deficient vertex with no legal partner
+        # (a dead end). Applied only on non-terminal steps so success/failure
+        # terminal semantics stay unchanged.
         if fully_repaired:
             reward = self.RESOLVE_REWARD * resolved + self.SUCCESS_REWARD
         elif stuck:
             reward = self.FAILURE_REWARD
         else:
-            reward = self.RESOLVE_REWARD * resolved
+            partners = self._legal_partner_counts(legal)
+            dead_ends = sum(
+                1
+                for w, d in self._deficiency.items()
+                if d > 0 and partners.get(w, 0) == 0
+            )
+            reward = (
+                self.RESOLVE_REWARD * resolved
+                + self.SHAPE_RESOLVE * units_resolved
+                - self.DEADEND_PENALTY * dead_ends
+            )
 
         info: dict[str, Any] = {
             "action": action,
@@ -152,9 +184,20 @@ class RepairEnv:
         actions: list[tuple[int, int]] = []
         for i, u in enumerate(deficient_now):
             for v in deficient_now[i + 1 :]:
-                if is_legal_edge(self._graph, u, v, self.g_target):
+                if self._dist.is_legal(u, v):
                     actions.append((u, v))
         return actions
+
+    @staticmethod
+    def _legal_partner_counts(
+        legal: list[tuple[int, int]],
+    ) -> dict[int, int]:
+        """Count, per vertex, how many legal actions currently touch it."""
+        counts: dict[int, int] = {}
+        for a, b in legal:
+            counts[a] = counts.get(a, 0) + 1
+            counts[b] = counts.get(b, 0) + 1
+        return counts
 
     # ------------------------------------------------------------------
     # Internal helpers

@@ -4,17 +4,17 @@ Usage:
     uv run python -m ai.cage.excision.rl.train --episodes 50 --g-target 5 --depth 1
 
 The agent learns to repair degree-deficient graphs produced by BFS-excision of
-a known (k,g)-graph.  No curriculum: the starting bank is fixed (Petersen +
-Heawood) and excision depth is fixed per run.  This keeps the smoke-scale
-training simple and honest.
+a known (k,g)-graph.  Excision depth is fixed per run and the bank is filtered
+to graphs whose girth is at least --g-target.
 
-Starting graph bank:
-  - Petersen graph  (3-regular, girth 5, 10 vertices) — nx.petersen_graph()
-  - Heawood graph   (3-regular, girth 6, 14 vertices) — nx.heawood_graph()
+Starting graph bank (the four smallest cubic cages, girths 5..8):
+  - Petersen graph       (3-regular, girth 5, 10 vertices) — nx.petersen_graph()
+  - Heawood graph        (3-regular, girth 6, 14 vertices) — nx.heawood_graph()
+  - McGee graph          (3-regular, girth 7, 24 vertices) — LCF [12, 7, -7]^8
+  - Tutte-Coxeter graph  (3-regular, girth 8, 30 vertices) — LCF [-13,-9,7,-7,9,13]^5
 
-  Note: NetworkX does not include the Tutte-Coxeter (Levi) graph directly;
-  using Petersen + Heawood gives two distinct girth targets for smoke-scale
-  runs.  Tutte-Coxeter can be added later via a hardcoded edge list.
+  Only graphs with girth >= g_target are kept: a source with girth < g_target
+  can never be repaired back to a valid (k, g_target)-graph.
 
 Saves to: ai/trained/excision_repair/excision_repair_policy/
     weights.pt   — best (or final) policy weights
@@ -29,7 +29,7 @@ import os
 import random
 import time
 from collections import deque
-from typing import Any, cast
+from typing import Any, TypeAlias, cast
 
 import networkx as nx
 import numpy as np
@@ -44,13 +44,139 @@ from torch_geometric.data import Data  # pyright: ignore[reportMissingTypeStubs]
 from ai.cage.excision.excise import excise_tree
 from ai.cage.excision.rl.env import RepairEnv
 from ai.cage.excision.rl.model import RepairActorCritic
+from ai.cage.voltage.base_graphs import dumbbell
+from ai.cage.voltage.groups import cyclic_group
+from ai.cage.voltage.lift import build_lift
 from ai.utils.device import configure_torch_device
 from ai.utils.structural_features import structural_feature_dim
+
+Instance: TypeAlias = "tuple[nx.Graph[int], list[int], dict[int, int]]"
 
 
 # ---------------------------------------------------------------------------
 # Graph bank
 # ---------------------------------------------------------------------------
+
+
+def _remove_matching_instance(
+    H: nx.Graph[int], match_size: int, rng: random.Random
+) -> Instance | None:
+    """Remove a random partial matching from a valid (k,g)-graph H.
+
+    Returns (reduced, deficient, deficiency_levels) where ``reduced = H - M`` for
+    a matching M of up to ``match_size`` edges. Because H has girth >= g, every
+    removed edge is a *legal* repair edge of reduced (its cycle in H has length
+    >= g), so re-adding M is a guaranteed witness solution. Deficient vertices
+    are exactly the endpoints of M, each with deficiency 1.
+
+    Returns None if no non-empty matching could be drawn (degenerate H).
+    """
+    edges = list(H.edges())
+    rng.shuffle(edges)
+    matching: list[tuple[int, int]] = []
+    used: set[int] = set()
+    for u, v in edges:
+        if u in used or v in used:
+            continue
+        matching.append((u, v))
+        used.add(u)
+        used.add(v)
+        if len(matching) >= match_size:
+            break
+
+    if not matching:
+        return None
+
+    reduced: nx.Graph[int] = H.copy()
+    reduced.remove_edges_from(matching)
+    deficient = sorted(used)
+    deficiency_levels = {v: 1 for v in deficient}
+    return reduced, deficient, deficiency_levels
+
+
+def _synthetic_base_graphs(g_target: int) -> list[nx.Graph[int]]:
+    """Valid (k,g_target)-source graphs for the synthetic generator.
+
+    Uses the known cubic cages whose girth is >= g_target. Every such graph is a
+    valid (3, g_target)-graph, so removing a matching yields a solvable instance.
+    """
+    candidates = [
+        nx.petersen_graph(),  # (3,5)-cage
+        nx.heawood_graph(),  # (3,6)-cage
+        nx.LCF_graph(24, [12, 7, -7], 8),  # McGee, (3,7)-cage
+        nx.LCF_graph(30, [-13, -9, 7, -7, 9, 13], 5),  # Tutte-Coxeter, (3,8)-cage
+    ]
+    graphs: list[nx.Graph[int]] = []
+    for graph in candidates:
+        if nx.girth(graph) < g_target:
+            continue
+        graphs.append(cast("nx.Graph[int]", nx.convert_node_labels_to_integers(graph)))
+    return graphs
+
+
+def _find_lift_graph(g_target: int) -> nx.Graph[int] | None:
+    """Search dumbbell(3) cyclic lifts for a 3-regular graph with girth >= g_target.
+
+    Returns the first lift found (connected, 3-regular, girth >= g_target), or
+    None if the bounded search exhausts. Lifts are bigger than the cages, giving
+    larger, more varied solvable instances.
+    """
+    base = dumbbell(3)
+    for n in range(g_target, 40):
+        group = cyclic_group(n)
+        # One tree edge can be fixed to 0; search the two free voltages.
+        for a in range(1, n):
+            for b in range(a + 1, n):
+                lift = build_lift(base, group, [0, a, b])
+                if (
+                    nx.is_connected(lift)
+                    and all(d == 3 for _, d in lift.degree())
+                    and nx.girth(lift) >= g_target
+                ):
+                    return cast("nx.Graph[int]", lift)
+    return None
+
+
+def _build_synthetic_bank(
+    g_target: int, match_size: int, num_instances: int, seed: int
+) -> list[Instance]:
+    """Guaranteed-solvable instances by matching-removal from valid (k,g)-graphs."""
+    bases = _synthetic_base_graphs(g_target)
+    if not bases:
+        raise ValueError(
+            f"No cubic cage has girth >= g_target={g_target} (max available girth 8)."
+        )
+    rng = random.Random(seed)
+    instances: list[Instance] = []
+    attempts = 0
+    while len(instances) < num_instances and attempts < num_instances * 10:
+        attempts += 1
+        H = rng.choice(bases)
+        inst = _remove_matching_instance(H, match_size, rng)
+        if inst is not None:
+            instances.append(inst)
+    return instances
+
+
+def _build_lift_bank(
+    g_target: int, match_size: int, num_instances: int, seed: int
+) -> list[Instance]:
+    """Guaranteed-solvable instances by matching-removal from a voltage lift."""
+    H = _find_lift_graph(g_target)
+    if H is None:
+        raise ValueError(
+            f"No dumbbell(3) cyclic lift with girth >= g_target={g_target} found "
+            "in the bounded search."
+        )
+    rng = random.Random(seed)
+    instances: list[Instance] = []
+    attempts = 0
+    while len(instances) < num_instances and attempts < num_instances * 10:
+        attempts += 1
+        inst = _remove_matching_instance(H, match_size, rng)
+        if inst is not None:
+            instances.append(inst)
+    return instances
 
 
 def _build_graph_bank(
@@ -60,13 +186,31 @@ def _build_graph_bank(
 
     Tries every vertex of every bank graph as a root and returns only those
     excisions that produce at least one deficient vertex (otherwise the repair
-    task is trivial).  If g_target doesn't match any bank graph, uses all.
+    task is trivial).  Only bank graphs whose girth is at least ``g_target`` are
+    used: a source with girth < g_target can never be repaired back to a valid
+    (k, g_target)-graph, so its excisions would be guaranteed failures that
+    poison training.
     """
-    bank_graphs: list[nx.Graph[int]] = []
+    # The four smallest cubic cages, one per girth 5..8.  McGee and
+    # Tutte-Coxeter are built from LCF notation since NetworkX has no direct
+    # constructor for them.
+    candidate_graphs = [
+        nx.petersen_graph(),  # (3,5)-cage, 10 vertices
+        nx.heawood_graph(),  # (3,6)-cage, 14 vertices
+        nx.LCF_graph(24, [12, 7, -7], 8),  # McGee, (3,7)-cage, 24 vertices
+        nx.LCF_graph(30, [-13, -9, 7, -7, 9, 13], 5),  # Tutte-Coxeter, (3,8)-cage
+    ]
 
-    for graph in (nx.petersen_graph(), nx.heawood_graph()):
+    bank_graphs: list[nx.Graph[int]] = []
+    for graph in candidate_graphs:
+        if nx.girth(graph) < g_target:
+            continue
         relabeled = nx.convert_node_labels_to_integers(graph)
         bank_graphs.append(cast("nx.Graph[int]", relabeled))
+
+    if not bank_graphs:
+        msg = f"No bank graph has girth >= g_target={g_target} (largest available girth is 8, from Tutte-Coxeter)."
+        raise ValueError(msg)
 
     instances: list[tuple[nx.Graph[int], list[int], dict[int, int]]] = []
     for G in bank_graphs:
@@ -105,6 +249,11 @@ def train_repair_ppo(
     gae_lambda: float = 0.95,
     clip_epsilon: float = 0.2,
     value_coef: float = 0.5,
+    instance_source: str = "synthetic",
+    match_size: int = 2,
+    num_instances: int = 64,
+    max_grad_norm: float = 0.5,
+    entropy_coef_final: float = 0.005,
 ) -> RepairActorCritic:
     """Train PPO agent for graph repair.
 
@@ -125,13 +274,26 @@ def train_repair_ppo(
     console.print(
         f"  hidden_dim={hidden_dim}, cycle_lengths={cycle_lengths}, rwpe_dim={rwpe_dim}"
     )
+    console.print(f"  instance_source={instance_source}, match_size={match_size}")
 
-    # Build instance bank
-    instances = _build_graph_bank(g_target, depth)
+    # Build instance bank.  `synthetic`/`lifts` produce guaranteed-solvable
+    # matching-removal instances (a known witness exists); `cages` keeps the
+    # original tree-excision bank for eval/comparison.
+    if instance_source == "synthetic":
+        instances = _build_synthetic_bank(g_target, match_size, num_instances, seed)
+    elif instance_source == "lifts":
+        instances = _build_lift_bank(g_target, match_size, num_instances, seed)
+    elif instance_source == "cages":
+        instances = _build_graph_bank(g_target, depth)
+    else:
+        raise ValueError(
+            f"Unknown instance_source={instance_source!r} "
+            "(expected synthetic|lifts|cages)."
+        )
     if not instances:
         raise RuntimeError(
-            f"No valid excision instances for g_target={g_target}, depth={depth}. "
-            "Check that the bank graphs have girth >= g_target."
+            f"No instances for source={instance_source}, g_target={g_target}, "
+            f"depth={depth}."
         )
     console.print(f"  Bank size: {len(instances)} instances")
 
@@ -279,6 +441,14 @@ def train_repair_ppo(
                 b_logps = torch.stack(logp_buf)
                 N = len(obs_buf)
 
+                # Linearly decay the entropy coefficient from entropy_coef
+                # (high, encourages exploration early) to entropy_coef_final
+                # (low, sharpens the policy late in training).
+                progress = min(episode_idx / max(total_episodes, 1), 1.0)
+                cur_entropy_coef = (
+                    entropy_coef + (entropy_coef_final - entropy_coef) * progress
+                )
+
                 for _ppo_epoch in range(4):
                     perm = np.random.permutation(N)
                     for start in range(0, N, 16):
@@ -314,7 +484,7 @@ def train_repair_ppo(
                             step_loss: torch.Tensor = (
                                 pol_loss
                                 + value_coef * val_loss
-                                - entropy_coef * entropy
+                                - cur_entropy_coef * entropy
                             )
                             total_loss = total_loss + step_loss
                             valid += 1
@@ -322,6 +492,9 @@ def train_repair_ppo(
                         if valid > 0:
                             avg_loss = total_loss / valid
                             avg_loss.backward()  # pyright: ignore[reportUnknownMemberType]
+                            _ = torch.nn.utils.clip_grad_norm_(
+                                agent.parameters(), max_grad_norm
+                            )
                             _ = optimizer.step()  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
 
                 # Clear buffers
@@ -346,8 +519,10 @@ def train_repair_ppo(
                 f"elapsed={elapsed:.1f}s"
             )
 
-        # Track best
-        if len(success_flags) >= 5:
+        # Track best.  Update from the very first completed episode so short runs
+        # still save a meaningful checkpoint (the old >= 5 threshold left
+        # best_success_rate stuck at the -1.0 sentinel for runs under 5 episodes).
+        if success_flags:
             sr = sum(success_flags) / len(success_flags)
             if sr > best_success_rate:
                 best_success_rate = sr
@@ -380,6 +555,8 @@ def train_repair_ppo(
             "dropout": dropout,
             "g_target": g_target,
             "depth": depth,
+            "instance_source": instance_source,
+            "match_size": match_size,
             "total_episodes": total_episodes,
             "seed": seed,
             "lr": lr,
@@ -406,7 +583,8 @@ def train_repair_ppo(
 # ---------------------------------------------------------------------------
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """CLI entrypoint for the excision-repair PPO trainer."""
     parser = argparse.ArgumentParser(
         description="Train PPO repair policy for tree-excision",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -425,6 +603,26 @@ if __name__ == "__main__":
         help="Comma-separated cycle lengths for structural features",
     )
     _ = parser.add_argument("--rwpe-dim", type=int, default=8, help="RWPE dimension")
+    _ = parser.add_argument(
+        "--instance-source",
+        type=str,
+        default="synthetic",
+        choices=["synthetic", "lifts", "cages"],
+        help="Repair-instance source: synthetic/lifts are guaranteed-solvable "
+        "matching-removal instances; cages is the original tree-excision bank.",
+    )
+    _ = parser.add_argument(
+        "--match-size",
+        type=int,
+        default=2,
+        help="Matching size removed to build a solvable instance (difficulty knob).",
+    )
+    _ = parser.add_argument(
+        "--num-instances",
+        type=int,
+        default=64,
+        help="Number of synthetic/lift instances to pre-generate for the bank.",
+    )
     args = parser.parse_args()
 
     cycle_lengths_parsed: list[int] = [
@@ -439,4 +637,11 @@ if __name__ == "__main__":
         hidden_dim=cast(int, args.hidden_dim),
         cycle_lengths=cycle_lengths_parsed,
         rwpe_dim=cast(int, args.rwpe_dim),
+        instance_source=cast(str, args.instance_source),
+        match_size=cast(int, args.match_size),
+        num_instances=cast(int, args.num_instances),
     )
+
+
+if __name__ == "__main__":
+    main()

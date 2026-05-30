@@ -14,12 +14,15 @@ source .activate_scratch
 
 cd ~/gnn
 
-# PPO repair policy for tree excision (depth 1, Petersen + Heawood bank).
-# Compares against the classical backtracking baseline on the same instances.
+# PPO repair policy for tree excision.
+# Trains on guaranteed-solvable matching-removal instances (synthetic source),
+# so the policy gets real success signal (repairing a cage back to its own girth
+# is provably impossible). g=5 is non-trivial and now solvable via the generator.
 # Saves to ai/trained/excision_repair/excision_repair_policy/.
 
 uv run python -u -m ai.cage.excision.train \
-  --episodes 5000 --g-target 4 --depth 1 \
+  --episodes 20000 --g-target 5 --depth 1 \
+  --instance-source synthetic \
   --hidden-dim 128 \
   --cycle-lengths "3,4,5,6,7,8" --rwpe-dim 8 \
   --seed 42
