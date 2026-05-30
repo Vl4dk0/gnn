@@ -1024,6 +1024,10 @@ export class InteractiveGraphEditor {
     return this.graph.nodes;
   }
 
+  public toEdgeList(): string {
+    return this.graph.toEdgeList();
+  }
+
   public getNodePredictions(): Map<number, GraphNodePredictionView> {
     const map = new Map<number, GraphNodePredictionView>();
 

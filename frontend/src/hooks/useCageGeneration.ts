@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import type { CageExecutionMode, CageSettings, CageStatusResponse } from "../types/api";
+import type { CageExportFormat, CageExecutionMode, CageSettings, CageStatusResponse } from "../types/api";
 import {
+  exportCageGraph,
   fetchCageStatus,
   fetchCageVoltageGirthModels,
   startCageGeneration,
@@ -394,6 +395,33 @@ export const useCageGeneration = () => {
     editorRef.current?.clear();
   }, []);
 
+  const downloadGraph = useCallback(
+    async (format: CageExportFormat) => {
+      const edgeList = editorRef.current?.toEdgeList() ?? "";
+      if (!edgeList.trim()) {
+        setError("No graph to download");
+        return;
+      }
+      try {
+        const result = await exportCageGraph(edgeList, format, degreeK, girthG);
+        const blob = new Blob([result.content], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = result.filename;
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+        URL.revokeObjectURL(url);
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : "Download failed");
+      }
+    },
+    [degreeK, girthG]
+  );
+
+  const canDownload = status !== null && status.num_nodes > 0;
+
   const saveSettings = useCallback(
     (nextSettings: CageSettings) => {
       const safe = normalizeSettings(nextSettings);
@@ -444,6 +472,8 @@ export const useCageGeneration = () => {
     startAutoStepping,
     pauseAutoStepping,
     stop,
-    clearCanvas
+    clearCanvas,
+    downloadGraph,
+    canDownload
   };
 };

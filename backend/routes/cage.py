@@ -33,6 +33,7 @@ from backend.utils.graph_utils import (
     is_k_regular,
     moore_bound,
     moore_hoffman_upper_bound,
+    parse_edge_list,
 )
 
 
@@ -105,6 +106,13 @@ class _AnalyzeRequest(TypedDict, total=False):
     k: Required[int]
     g: Required[int]
     edges: Required[list[list[int]]]
+
+
+class _ExportRequest(TypedDict, total=False):
+    edge_list: Required[str]
+    format: Required[str]
+    k: int
+    g: int
 
 
 # Create blueprint with /api/cage prefix
@@ -654,6 +662,61 @@ def analyze() -> Response | tuple[Response, int]:
             "is_optimal": is_cage and num_nodes == mb,
         }
     )
+
+
+@cage_bp.route("/export", methods=["POST"])
+def export_graph() -> Response | tuple[Response, int]:
+    """Export the current editor graph as graph6 or adjacency matrix."""
+    data: _ExportRequest | None = cast(_ExportRequest | None, request.get_json())
+
+    if not data or "edge_list" not in data or "format" not in data:
+        return jsonify({"error": "Missing edge_list or format"}), 400
+
+    fmt: str = data["format"]
+    if fmt not in {"g6", "adjacency"}:
+        return jsonify(
+            {"error": f"Invalid format '{fmt}'. Must be 'g6' or 'adjacency'"}
+        ), 400
+
+    edge_list_str: str = data["edge_list"]
+    G = parse_edge_list(edge_list_str)
+
+    if G.number_of_nodes() == 0:
+        return jsonify({"error": "No graph to export"}), 400
+
+    k_val: int | None = data.get("k")
+    g_val: int | None = data.get("g")
+
+    sorted_nodes = sorted(G.nodes())
+    n = len(sorted_nodes)
+    mapping = {old: new for new, old in enumerate(sorted_nodes)}
+    H: nx.Graph[int] = nx.relabel_nodes(G, mapping)
+    # Ensure all nodes 0..n-1 exist (relabel_nodes keeps them, but be explicit)
+    H.add_nodes_from(range(n))
+
+    if fmt == "g6":
+        H.remove_edges_from(list(nx.selfloop_edges(H)))
+        content = (
+            cast(bytes, nx.to_graph6_bytes(H, header=False)).decode("ascii").strip()
+        )
+        if k_val is not None and g_val is not None:
+            filename = f"cage_k{k_val}_g{g_val}_n{n}.g6"
+        else:
+            filename = f"cage_n{n}.g6"
+    else:
+        rows: list[str] = []
+        for i in range(n):
+            row: list[str] = []
+            for j in range(n):
+                row.append("1" if H.has_edge(i, j) else "0")
+            rows.append(" ".join(row))
+        content = "\n".join(rows)
+        if k_val is not None and g_val is not None:
+            filename = f"cage_k{k_val}_g{g_val}_n{n}_adjacency.txt"
+        else:
+            filename = f"cage_n{n}_adjacency.txt"
+
+    return jsonify({"filename": filename, "content": content, "format": fmt})
 
 
 def cleanup_old_sessions() -> None:

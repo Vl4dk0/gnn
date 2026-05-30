@@ -43,7 +43,9 @@ export const CagePage = () => {
     startAutoStepping,
     pauseAutoStepping,
     stop,
-    clearCanvas
+    clearCanvas,
+    downloadGraph,
+    canDownload
   } = useCageGeneration();
 
   const [draftSettings, setDraftSettings] = useState<CageSettings>(settings);
@@ -213,6 +215,9 @@ export const CagePage = () => {
           onClear={clearCanvas}
           settingsTitle="Generation Settings"
           clearTitle="Clear Graph"
+          onDownload={downloadGraph}
+          downloadTitle="Download Graph"
+          canDownload={canDownload}
         />
 
         <div className="pointer-events-none absolute inset-x-0 bottom-6 z-20 flex justify-center px-4 max-[900px]:bottom-4">

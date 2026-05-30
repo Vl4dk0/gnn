@@ -1,3 +1,11 @@
+export type CageExportFormat = "g6" | "adjacency";
+
+export interface CageExportResponse {
+  filename: string;
+  content: string;
+  format: CageExportFormat;
+}
+
 export interface ApiError {
   error: string;
 }

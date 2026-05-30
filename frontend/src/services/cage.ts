@@ -1,6 +1,8 @@
 import { fetchJson } from "../api/apiClient";
 import { getRuntimeConfig } from "../api/config";
 import type {
+  CageExportFormat,
+  CageExportResponse,
   CageGenerateResponse,
   CageExecutionMode,
   CageStatusResponse,
@@ -52,5 +54,18 @@ export const stopCageGeneration = async (sessionId: string): Promise<void> => {
   const runtime = getRuntimeConfig();
   await fetchJson<{ message: string }>(`${runtime.cageUrl}/stop/${sessionId}`, {
     method: "POST"
+  });
+};
+
+export const exportCageGraph = async (
+  edgeList: string,
+  format: CageExportFormat,
+  k?: number,
+  g?: number
+): Promise<CageExportResponse> => {
+  const runtime = getRuntimeConfig();
+  return fetchJson<CageExportResponse>(`${runtime.cageUrl}/export`, {
+    method: "POST",
+    body: { edge_list: edgeList, format, ...(k !== undefined ? { k } : {}), ...(g !== undefined ? { g } : {}) }
   });
 };
