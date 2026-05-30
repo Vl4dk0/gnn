@@ -16,6 +16,7 @@ class RunConfig:
     cage_time_budget_s: float = 20.0
     cage_max_steps: int = 200_000
     workers: int | None = None  # default in runner = min(8, cpu-2)
+    task_timeout_s: float = 120.0  # hard per-task wall-clock cap (SIGALRM in worker)
     extra: dict[str, object] = field(default_factory=dict)
 
 

@@ -12,11 +12,13 @@ import argparse
 import dataclasses
 import json
 import os
+import signal
 import sys
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
+from types import FrameType
 
 import torch
 
@@ -26,46 +28,70 @@ import results.report
 from results.metrics import TrialResult
 from results.registry import REGISTRY, RunConfig, Task
 
+# Hard per-task wall-clock cap, set per worker via the pool initializer. A task
+# that exceeds it (a runaway search step, an O(|E|^2) refine, …) is interrupted
+# by SIGALRM and recorded as a timeout, rather than hanging the whole run.
+_task_timeout_s: int = 120
 
-def _init_worker() -> None:
-    """Worker initializer: force CPU-only torch, disable MPS/CUDA.
 
-    Sets CUDA_VISIBLE_DEVICES before any CUDA context is created, then
-    restricts torch to one thread per worker and patches the device selector
-    so all model loads and inference use CPU only.  This avoids MPS +
-    multiprocessing incompatibilities on macOS.
+def _timeout_handler(_signum: int, _frame: FrameType | None) -> None:
+    raise TimeoutError(f"task exceeded {_task_timeout_s}s hard cap")
+
+
+def _init_worker(task_timeout_s: float) -> None:
+    """Worker initializer: force CPU-only torch and arm the per-task timeout.
+
+    Sets CUDA_VISIBLE_DEVICES before any CUDA context is created, restricts
+    torch to one thread per worker, patches the device selector so all model
+    loads and inference use CPU only (avoids MPS/CUDA + multiprocessing
+    issues), and installs a SIGALRM handler used to bound each task.
     """
+    global _task_timeout_s
+    _task_timeout_s = max(1, int(task_timeout_s))
     os.environ["CUDA_VISIBLE_DEVICES"] = ""
     torch.set_num_threads(1)
     _dev.get_preferred_device = lambda: "cpu"
     torch.set_default_device("cpu")
+    _ = signal.signal(signal.SIGALRM, _timeout_handler)
+
+
+def _error_result(task: Task, message: str) -> TrialResult:
+    return TrialResult(
+        benchmark=task.benchmark,
+        approach="",
+        variant="",
+        label=task.label,
+        instance="",
+        target={},
+        success=False,
+        elapsed_s=0.0,
+        steps=None,
+        n_nodes=None,
+        n_edges=None,
+        error=message,
+    )
 
 
 def _execute(task: Task) -> list[TrialResult]:
-    """Module-level worker entrypoint: look up benchmark and run the task."""
+    """Module-level worker entrypoint: run the task under a hard SIGALRM cap."""
+    signal.alarm(_task_timeout_s)
     try:
         return REGISTRY[task.benchmark].execute(task)
+    except TimeoutError as exc:
+        return [_error_result(task, f"timeout: {exc}")]
     except Exception as exc:
-        return [
-            TrialResult(
-                benchmark=task.benchmark,
-                approach="",
-                variant="",
-                label=task.label,
-                instance="",
-                target={},
-                success=False,
-                elapsed_s=0.0,
-                steps=None,
-                n_nodes=None,
-                n_edges=None,
-                error=repr(exc),
-            )
-        ]
+        return [_error_result(task, repr(exc))]
+    finally:
+        signal.alarm(0)
 
 
-def run(config: RunConfig) -> list[TrialResult]:
-    """Gather tasks and run them in parallel; return all TrialResults."""
+def run(config: RunConfig, out_dir: Path) -> list[TrialResult]:
+    """Gather tasks, run them in parallel, and stream results to disk.
+
+    Each completed task's records are appended to ``out_dir/results.jsonl`` as
+    they arrive, so partial results survive even if the process is later killed
+    (OOM, time limit). Returns all collected TrialResults.
+    """
     if config.benchmarks == ["all"]:
         names = list(REGISTRY.keys())
     else:
@@ -87,33 +113,31 @@ def run(config: RunConfig) -> list[TrialResult]:
 
     trial_results: list[TrialResult] = []
     done = 0
+    jsonl_path = out_dir / "results.jsonl"
 
-    with ProcessPoolExecutor(max_workers=workers, initializer=_init_worker) as pool:
-        futures = {pool.submit(_execute, task): task for task in tasks}
-        for future in as_completed(futures):
-            task = futures[future]
-            done += 1
-            try:
-                batch = future.result()
-            except Exception as exc:
-                batch = [
-                    TrialResult(
-                        benchmark=task.benchmark,
-                        approach="",
-                        variant="",
-                        label=task.label,
-                        instance="",
-                        target={},
-                        success=False,
-                        elapsed_s=0.0,
-                        steps=None,
-                        n_nodes=None,
-                        n_edges=None,
-                        error=repr(exc),
-                    )
-                ]
-            print(f"[{done}/{total}] {task.label}")
-            trial_results.extend(batch)
+    with open(jsonl_path, "w") as jsonl:
+        try:
+            with ProcessPoolExecutor(
+                max_workers=workers,
+                initializer=_init_worker,
+                initargs=(config.task_timeout_s,),
+            ) as pool:
+                futures = {pool.submit(_execute, task): task for task in tasks}
+                for future in as_completed(futures):
+                    task = futures[future]
+                    done += 1
+                    try:
+                        batch = future.result()
+                    except Exception as exc:
+                        batch = [_error_result(task, repr(exc))]
+                    for record in batch:
+                        _ = jsonl.write(json.dumps(dataclasses.asdict(record)) + "\n")
+                    jsonl.flush()
+                    trial_results.extend(batch)
+                    ok = sum(1 for r in batch if r.success)
+                    print(f"[{done}/{total}] {task.label}  ({ok}/{len(batch)} ok)")
+        except Exception as exc:  # pool broke (e.g. worker OOM-killed)
+            print(f"[error] pool failed after {done}/{total}: {exc!r}", file=sys.stderr)
 
     return trial_results
 
@@ -143,6 +167,13 @@ def main() -> None:
     )
     parser.add_argument("--workers", type=int, default=None, help="Worker processes")
     parser.add_argument(
+        "--task-timeout",
+        type=float,
+        default=120.0,
+        dest="task_timeout",
+        help="Hard per-task wall-clock cap in seconds (SIGALRM)",
+    )
+    parser.add_argument(
         "--out-root",
         default="results/runs",
         dest="out_root",
@@ -157,6 +188,7 @@ def main() -> None:
     cage_budget: float = float(args.cage_budget)
     cage_max_steps: int = int(args.cage_max_steps)
     workers: int | None = int(args.workers) if args.workers is not None else None
+    task_timeout: float = float(args.task_timeout)
     out_root: str = str(args.out_root)
 
     benchmark_names = [b.strip() for b in benchmarks_str.split(",")]
@@ -168,15 +200,17 @@ def main() -> None:
         cage_time_budget_s=cage_budget,
         cage_max_steps=cage_max_steps,
         workers=workers,
+        task_timeout_s=task_timeout,
     )
-
-    t0 = time.perf_counter()
-    run_results = run(config)
-    wall = time.perf_counter() - t0
 
     stamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     out_dir = Path(out_root) / stamp
     out_dir.mkdir(parents=True, exist_ok=True)
+    print(f"Output: {out_dir}")
+
+    t0 = time.perf_counter()
+    run_results = run(config, out_dir)
+    wall = time.perf_counter() - t0
 
     raw_path = out_dir / "raw.json"
     _ = raw_path.write_text(
