@@ -77,14 +77,17 @@ def _execute(task: Task) -> list[TrialResult]:
 
     all_true: list[int] = []
     all_pred: list[float] = []
+    first_error: str | None = None
+    n_failed = 0
 
     t0 = time.perf_counter()
     for _name, G in graphs:
         try:
             results = predict_fn(G, model_id)
-        except Exception:
-            # Skip graphs where inference fails; if all fail the empty
-            # aggregation below will still produce a valid (zero-accuracy) result.
+        except Exception as exc:
+            n_failed += 1
+            if first_error is None:
+                first_error = repr(exc)
             continue
         for row in results:
             all_true.append(cast(int, row["true"]))
@@ -110,6 +113,10 @@ def _execute(task: Task) -> list[TrialResult]:
 
     params, size_mb, hparams = model_meta(task_name, model_id)
 
+    # A model that produced no predictions (errored on every graph, e.g. a
+    # weights/architecture mismatch) is a FAILURE, not a 0%-accuracy success.
+    success = n_total > 0
+
     return [
         TrialResult(
             benchmark=task_name,
@@ -118,7 +125,7 @@ def _execute(task: Task) -> list[TrialResult]:
             label=f"{task_name}:{model_id}",
             instance="battery",
             target={},
-            success=True,
+            success=success,
             elapsed_s=elapsed,
             steps=None,
             n_nodes=None,
@@ -130,11 +137,13 @@ def _execute(task: Task) -> list[TrialResult]:
                 "off_by_one": off_by_one,
                 "n_graphs": float(n_graphs),
                 "n_nodes": float(n_total),
+                "n_failed_graphs": float(n_failed),
             },
             model_id=model_id,
             model_params=params,
             model_size_mb=size_mb,
             model_hparams=hparams,
+            error=first_error,
         )
     ]
 

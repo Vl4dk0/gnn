@@ -20,9 +20,10 @@
 # across CPU cores via a ProcessPoolExecutor. Workers are pinned to CPU + 1
 # torch thread each, so this belongs on the CPU partition, not the GPU one.
 #
-# Outputs land in training_runs/benchmark/<timestamp>/ (raw.json, summary.md,
-# per-benchmark CSVs). training_runs/ is NOT gitignored, so results can be
-# committed straight from PERUN and pulled locally.
+# Outputs land in results/runs/<timestamp>/ (raw.json, results.jsonl,
+# summary.md, per-benchmark CSVs). results/runs/ is gitignored, so to retrieve
+# a run, force-add that run dir from PERUN (git add -f results/runs/<stamp>),
+# commit, push, then git pull locally.
 
 set -uo pipefail
 
@@ -33,7 +34,8 @@ uv run python -u -m results.runner \
     --seeds 2 \
     --cage-budget 60 \
     --cage-max-steps 200000 \
+    --task-timeout 120 \
     --workers 30 \
-    --out-root training_runs/benchmark
+    --out-root results/runs
 
 echo "==> benchmark done"
