@@ -56,3 +56,6 @@ timestamps/
 /ai/trained/excision_repair/
 /.claude/settings.local.json
 /.claude/skills/typst/SKILL.md
+
+# Benchmark run outputs
+/results/runs
