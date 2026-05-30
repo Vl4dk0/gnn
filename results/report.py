@@ -6,6 +6,7 @@ import csv
 import statistics
 from pathlib import Path
 
+from backend.utils.graph_utils import moore_bound
 from results.metrics import TrialResult
 
 
@@ -103,7 +104,67 @@ def _write_summary(out_dir: Path, by_benchmark: dict[str, list[TrialResult]]) ->
 
         lines.append("")
 
+        _append_solvability_matrix(lines, bench_results)
+
     _ = (out_dir / "summary.md").write_text("\n".join(lines))
+
+
+def _append_solvability_matrix(
+    lines: list[str], bench_results: list[TrialResult]
+) -> None:
+    """Append a (k,g) x approach solvability matrix (✓ / ✗ / partial fraction).
+
+    Only emitted for benchmarks whose results carry both a k and a g target
+    (cage, refine, excision); skipped for node tasks that have no (k,g) grid.
+    Rows are sorted by Moore bound so harder targets sit lower in the table.
+    """
+    targeted = [r for r in bench_results if "k" in r.target and "g" in r.target]
+    if not targeted:
+        return
+
+    # Column per approach[variant], deterministic order.
+    col_keys = sorted({(r.approach, r.variant) for r in targeted})
+    col_labels = [
+        approach if not variant else f"{approach}[{variant}]"
+        for approach, variant in col_keys
+    ]
+
+    # Row per (k,g), sorted by Moore bound (tie-break on k, then g).
+    kg_pairs = sorted(
+        {(int(r.target["k"]), int(r.target["g"])) for r in targeted},
+        key=lambda kg: (moore_bound(*kg), kg[0], kg[1]),
+    )
+
+    lines.append("### Solvability by (k, g)\n")
+    header = ["(k,g)", "Moore"] + col_labels
+    lines.append("| " + " | ".join(header) + " |")
+    lines.append("| " + " | ".join("---" for _ in header) + " |")
+
+    for k, g in kg_pairs:
+        row = [f"({k},{g})", str(moore_bound(k, g))]
+        for approach, variant in col_keys:
+            cell = [
+                r
+                for r in targeted
+                if int(r.target["k"]) == k
+                and int(r.target["g"]) == g
+                and r.approach == approach
+                and r.variant == variant
+            ]
+            if not cell:
+                row.append("·")
+                continue
+            solved = sum(1 for r in cell if r.success)
+            total = len(cell)
+            if solved == total:
+                row.append("✓")
+            elif solved == 0:
+                row.append("✗")
+            else:
+                row.append(f"{solved}/{total}")
+        lines.append("| " + " | ".join(row) + " |")
+
+    lines.append("")
 
 
 def _write_csv(out_dir: Path, benchmark: str, results: list[TrialResult]) -> None:

@@ -39,6 +39,7 @@ def make_tasks(config: RunConfig) -> list[Task]:
                             "name": name,
                             "k": k,
                             "g": g,
+                            "approach": "tabu_refine",
                             "variant": variant,
                             "seed": seed,
                             "quick": config.quick,

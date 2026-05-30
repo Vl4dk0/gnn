@@ -175,6 +175,7 @@ def make_tasks(config: RunConfig) -> list[Task]:
                         "name": name,
                         "k": k,
                         "g": g,
+                        "approach": "excision_repair",
                         "variant": variant,
                         "quick": config.quick,
                         "seed": 0,

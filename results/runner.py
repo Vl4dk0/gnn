@@ -56,13 +56,28 @@ def _init_worker(task_timeout_s: float) -> None:
 
 
 def _error_result(task: Task, message: str) -> TrialResult:
+    """Build a failure stub for a timeout/crash.
+
+    Carries (k,g), approach and variant from the task payload so timeouts and
+    crashes still show up in the summary tables and the (k,g) solvability
+    matrix as explicit failures, instead of dropping out with empty keys.
+    """
+    payload = task.payload
+    k = payload.get("k")
+    g = payload.get("g")
+    target: dict[str, int] = (
+        {"k": k, "g": g} if isinstance(k, int) and isinstance(g, int) else {}
+    )
+    approach = payload.get("approach", "")
+    variant = payload.get("variant", "")
+    name = payload.get("name")
     return TrialResult(
         benchmark=task.benchmark,
-        approach="",
-        variant="",
+        approach=approach if isinstance(approach, str) else "",
+        variant=variant if isinstance(variant, str) else "",
         label=task.label,
-        instance="",
-        target={},
+        instance=name if isinstance(name, str) else "",
+        target=target,
         success=False,
         elapsed_s=0.0,
         steps=None,
