@@ -281,17 +281,25 @@ def beam_search(
     verbose: bool = False,
     feat_cycle_lengths: list[int] | None = None,
     feat_rwpe_dim: int = 0,
+    kind: str = "girth",
 ) -> tuple[list[int] | None, int | float]:
-    """Beam search over voltage assignments guided by the girth predictor.
+    """Beam search over voltage assignments guided by the predictor.
 
-    Assigns voltages one edge at a time, keeping the top-B partial
-    assignments according to the model's predicted girth.
+    Assigns voltages one edge at a time, keeping the top-B partial assignments
+    by the model's predicted score. The ranking DIRECTION depends on the model's
+    target kind:
+      - "girth":     higher predicted girth is better -> keep the LARGEST scores.
+      - "tabu_cost": lower predicted short-walk cost is better -> keep the
+                     SMALLEST scores.
+    Both kinds verify finalists with the exact girth, so feasibility is identical.
 
     feat_cycle_lengths / feat_rwpe_dim: structural feature config that was used
     during training. Must match the saved feature_config in the model's info.json.
     """
     m = base.num_undirected_edges()
     order = group.order
+    # Lower-is-better for tabu cost flips the keep direction at every prune.
+    higher_is_better = kind != "tabu_cost"
 
     _ = model.eval()
     device = next(model.parameters()).device
@@ -320,13 +328,14 @@ def beam_search(
                             rwpe_dim=feat_rwpe_dim,
                         )
                     data = data.to(device)
-                    girth_pred = model(data)
-                    score = float(girth_pred.item())
+                    pred = model(data)
+                    score = float(pred.item())
 
                     new_candidates.append((extended, score))
 
-            # Keep top beam_width
-            new_candidates.sort(key=lambda x: x[1], reverse=True)
+            # Keep top beam_width — descending for girth (higher better),
+            # ascending for tabu cost (lower better).
+            new_candidates.sort(key=lambda x: x[1], reverse=higher_is_better)
             candidates = new_candidates[:beam_width]
 
             if verbose:
@@ -479,11 +488,14 @@ def meta_search(
     num_workers: int = 1,
     feat_cycle_lengths: list[int] | None = None,
     feat_rwpe_dim: int = 0,
+    kind: str = "girth",
 ) -> dict[str, object]:
     """Search over base graphs and groups for small (k, g)-graphs.
 
     Uses random + tabu search in parallel across (base, group) configs.
-    Beam search runs if a model is provided (sequential, requires GPU).
+    Beam search runs if a model is provided (sequential, requires GPU); its
+    ranking direction follows ``kind`` (girth descending, tabu cost
+    ascending).
     """
     bases = _candidate_bases(k)
 
@@ -554,6 +566,7 @@ def meta_search(
                     verbose=False,
                     feat_cycle_lengths=feat_cycle_lengths,
                     feat_rwpe_dim=feat_rwpe_dim,
+                    kind=kind,
                 )
                 if (
                     isinstance(girth_b, int)
@@ -636,11 +649,12 @@ if __name__ == "__main__":
     loaded_model: GirthPredictor | None = None
     loaded_feat_cl: list[int] | None = None
     loaded_feat_rwpe: int = 0
+    loaded_kind: str = "girth"
     if args.model_id is not None:
-        loaded_model, loaded_feat_cl, loaded_feat_rwpe = load_girth_predictor(
-            str(args.model_id)
+        loaded_model, loaded_feat_cl, loaded_feat_rwpe, loaded_kind = (
+            load_girth_predictor(str(args.model_id))
         )
-        print(f"Loaded girth predictor: {args.model_id}")
+        print(f"Loaded {loaded_kind} predictor: {args.model_id}")
 
     _ = meta_search(
         args.k,
@@ -653,4 +667,5 @@ if __name__ == "__main__":
         beam_width=args.beam_width,
         feat_cycle_lengths=loaded_feat_cl,
         feat_rwpe_dim=loaded_feat_rwpe,
+        kind=loaded_kind,
     )

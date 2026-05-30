@@ -84,7 +84,9 @@ def base_graph_to_pyg(
     edge_index = torch.tensor([src_list, dst_list], dtype=torch.long)
     edge_attr = torch.tensor(edge_voltage, dtype=torch.long).unsqueeze(-1)
 
-    # Label — infinite girth means girth > 2*g_target, treat as lower bound
+    # Label — infinite girth means girth > 2*g_target, treat as lower bound.
+    # The label is stored in `data.girth` regardless of target kind so the GNN
+    # code is unchanged; for tabu_cost callers pass the walk count as `girth`.
     girth_int = 2 * g_target if isinstance(girth, float) else int(girth)
 
     data = Data(
@@ -308,12 +310,19 @@ def _make_sample(
     g_target: int,
     cycle_lengths: list[int] | None,
     rwpe_dim: int,
+    kind: str = "girth",
 ) -> tuple[_DedupKey, dict[str, Any]] | None:
-    """Label one voltage assignment with its exact girth and pack it for IPC.
+    """Label one voltage assignment and pack it for IPC.
+
+    The label depends on ``kind``:
+      - "girth":     the exact girth of the lift (higher = better).
+      - "tabu_cost": count_short_identity_walks (the dense cost the tabu search
+                     minimizes; 0 iff girth >= g_target, lower = better).
+    Either way it is stored in the ``girth`` field so the model code is unchanged.
 
     Returns None for degenerate lifts (not k-regular, or disconnected). A
     disconnected lift has no short identity walk and would otherwise be labeled
-    as high-girth, teaching the model that disconnection means high girth. The
+    as high-girth / zero-cost, teaching the model that disconnection is good. The
     search itself only accepts connected k-regular lifts, so we mirror that.
     """
     key = (k, g_target, base_name, group.name, tuple(volt))
@@ -322,8 +331,11 @@ def _make_sample(
         return None
     if lift_graph.number_of_nodes() == 0 or not nx.is_connected(lift_graph):
         return None
-    girth = compute_lift_girth(base, group, volt, max_girth=2 * g_target)
-    data = base_graph_to_pyg(base, volt, group, k, g_target, girth)
+    if kind == "tabu_cost":
+        label: int | float = count_short_identity_walks(base, group, volt, g_target)
+    else:
+        label = compute_lift_girth(base, group, volt, max_girth=2 * g_target)
+    data = base_graph_to_pyg(base, volt, group, k, g_target, label)
     if cycle_lengths or rwpe_dim > 0:
         data = add_structural_features(
             data, cycle_lengths=cycle_lengths, rwpe_dim=rwpe_dim
@@ -339,6 +351,7 @@ def _generate_chunk(
     cycle_lengths: list[int] | None,
     rwpe_dim: int,
     traj_fraction: float = 0.6,
+    kind: str = "girth",
 ) -> list[tuple[_DedupKey, dict[str, Any]]]:
     """Worker: produce roughly `chunk_size` candidate (dedup_key, spec_dict) pairs.
 
@@ -385,7 +398,15 @@ def _generate_chunk(
         added = 0
         for volt in trajectory:
             sample = _make_sample(
-                base, base_name, group, volt, k, g_target, cycle_lengths, rwpe_dim
+                base,
+                base_name,
+                group,
+                volt,
+                k,
+                g_target,
+                cycle_lengths,
+                rwpe_dim,
+                kind,
             )
             if sample is not None:
                 out.append(sample)
@@ -400,7 +421,15 @@ def _generate_chunk(
         n_edges = base.num_undirected_edges()
         volt = [rng.randint(0, group.order - 1) for _ in range(n_edges)]
         sample = _make_sample(
-            base, base_name, group, volt, k, g_target, cycle_lengths, rwpe_dim
+            base,
+            base_name,
+            group,
+            volt,
+            k,
+            g_target,
+            cycle_lengths,
+            rwpe_dim,
+            kind,
         )
         if sample is not None:
             out.append(sample)
@@ -418,8 +447,13 @@ def generate_dataset(
     rwpe_dim: int = 0,
     workers: int | None = None,
     traj_fraction: float = 0.6,
+    kind: str = "girth",
 ) -> tuple[list[Data], dict[str, object]]:
-    """Generate deduplicated training data for the girth predictor.
+    """Generate deduplicated training data for the predictor.
+
+    ``kind`` selects the label stored in each sample's ``girth`` field:
+    "girth" (the lift's exact girth, higher = better) or "tabu_cost" (the count
+    of short identity walks the tabu search minimizes, lower = better).
 
     `targets` is a list of (k, g_target) pairs. Each attempt picks a target
     uniformly at random; the produced sample carries that target in its
@@ -469,7 +503,15 @@ def generate_dataset(
             data = _spec_to_data(spec)
             dataset.append(data)
             per_target[attempts_local_target]["produced"] += 1
-            if int(spec["girth"]) >= int(spec["g_target"]):
+            # "positive" = achieves target. For girth that is girth >= g_target;
+            # for tabu_cost it is count == 0 (equivalent feasibility condition).
+            label = int(spec["girth"])
+            is_pos = (
+                label == 0
+                if kind == "tabu_cost"
+                else label >= int(spec["g_target"])
+            )
+            if is_pos:
                 per_target[attempts_local_target]["positives"] += 1
 
     if workers <= 1:
@@ -483,6 +525,7 @@ def generate_dataset(
                 cycle_lengths,
                 rwpe_dim,
                 traj_fraction,
+                kind,
             )
             attempts += len(batch)
             _ingest(batch)
@@ -500,6 +543,7 @@ def generate_dataset(
                     cycle_lengths,
                     rwpe_dim,
                     traj_fraction,
+                    kind,
                 )
                 in_flight.add(fut)
 

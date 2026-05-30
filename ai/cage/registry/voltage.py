@@ -60,6 +60,7 @@ class VoltageSearchGenerator:
     _model_id: str | None
     _feat_cycle_lengths: list[int] | None
     _feat_rwpe_dim: int
+    _kind: str
 
     def __init__(self, k: int, g: int, model_id: str | None = None) -> None:
         self.k = k
@@ -74,11 +75,13 @@ class VoltageSearchGenerator:
         self._model_id = model_id
         self._feat_cycle_lengths = None
         self._feat_rwpe_dim = 0
+        self._kind = "girth"
         if model_id is not None:
-            model, feat_cl, feat_rwpe = load_girth_predictor(model_id)
+            model, feat_cl, feat_rwpe, kind = load_girth_predictor(model_id)
             self._model = model
             self._feat_cycle_lengths = feat_cl
             self._feat_rwpe_dim = feat_rwpe
+            self._kind = kind
         else:
             self._model = None
 
@@ -191,6 +194,7 @@ class VoltageSearchGenerator:
                 verbose=False,
                 feat_cycle_lengths=self._feat_cycle_lengths,
                 feat_rwpe_dim=self._feat_rwpe_dim,
+                kind=self._kind,
             )
             if isinstance(girth_b, int) and girth_b >= self.g and volts_b is not None:
                 lifted = build_lift(self._base, self._group, volts_b)

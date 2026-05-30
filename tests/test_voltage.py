@@ -1,3 +1,8 @@
+from typing import cast
+
+import torch
+
+from ai.cage.utils import normalize_target
 from ai.cage.voltage.base_graphs import dumbbell
 from ai.cage.voltage.cycle_analysis import (
     compute_lift_girth,
@@ -6,6 +11,7 @@ from ai.cage.voltage.cycle_analysis import (
 )
 from ai.cage.voltage.groups import cyclic_group, dihedral_group
 from ai.cage.voltage.lift import build_lift, lift_order, verify_lift
+from ai.cage.voltage.supervised.data_gen import generate_dataset
 
 
 def test_cyclic_group_operations() -> None:
@@ -60,3 +66,54 @@ def test_voltage_girth_analysis_detects_bad_short_cycles() -> None:
     assert compute_lift_girth(base, group, voltages, max_girth=6) == 4
     assert not has_girth_at_least(base, group, voltages, g_target=5)
     assert count_short_identity_walks(base, group, voltages, g_target=5) > 0
+
+
+def test_dataset_labels_girth_vs_tabu_cost() -> None:
+    """The dataset label stored in `girth` must match the requested kind.
+
+    For "girth" it is the lift's girth (>= g_target on feasible samples); for
+    "tabu_cost" it is count_short_identity_walks (0 iff girth >= g_target). The
+    two are stored in the same field so the model code is shared, so we verify
+    they actually differ and stay consistent on a tiny deterministic run.
+    """
+    girth_data, _ = generate_dataset(
+        targets=[(3, 5)], num_samples=80, max_group_order=30, seed=0, workers=1
+    )
+    tabu_data, _ = generate_dataset(
+        targets=[(3, 5)],
+        num_samples=80,
+        max_group_order=30,
+        seed=0,
+        workers=1,
+        kind="tabu_cost",
+    )
+
+    girth_labels = [int(cast(int, d.girth)) for d in girth_data]
+    tabu_labels = [int(cast(int, d.girth)) for d in tabu_data]
+
+    # girth labels are girths (>= 3); tabu labels are non-negative counts that
+    # include both feasible zeros and infeasible positives.
+    assert all(v >= 3 for v in girth_labels)
+    assert all(v >= 0 for v in tabu_labels)
+    assert min(tabu_labels) == 0
+    assert max(tabu_labels) > 0
+    # The same seed/config yields the same samples, so feasibility agrees:
+    # girth >= g_target exactly when tabu cost == 0.
+    assert (girth_labels[0] >= 5) == (tabu_labels[0] == 0)
+
+
+def test_normalize_target_ranking_direction() -> None:
+    """Normalization preserves the per-kind 'better' direction.
+
+    girth is ranked DESCENDING (higher girth better) and tabu_cost ASCENDING
+    (lower cost better). normalize_target must keep girth monotone increasing
+    and tabu cost monotone increasing in the raw value, so the search can flip
+    the sort direction by kind alone.
+    """
+    girth = normalize_target(torch.tensor([4.0, 6.0, 12.0]), "girth")
+    assert bool(girth[0] < girth[1] < girth[2])
+
+    tabu = normalize_target(torch.tensor([0.0, 3.0, 50.0]), "tabu_cost")
+    assert bool(tabu[0] < tabu[1] < tabu[2])
+    # cost 0 (feasible) maps to the smallest normalized value.
+    assert float(tabu[0]) == 0.0

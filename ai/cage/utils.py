@@ -72,6 +72,25 @@ def compute_gae(
 
 GIRTH_NORM = 12.0
 
+# The tabu-cost target (count of short identity walks) is non-negative and
+# heavy-tailed, so we regress it in log1p space and divide by a fixed scale.
+# log1p(count) for the counts seen in practice (single to low hundreds) lands
+# in roughly [0, 6], so this keeps the normalized target O(1) like girth/NORM.
+TABU_NORM = 6.0
+
+
+def normalize_target(label: torch.Tensor, kind: str) -> torch.Tensor:
+    """Map a raw label tensor into the normalized space the loss operates in.
+
+    girth: linear divide by GIRTH_NORM (higher = better).
+    tabu_cost: log1p then divide by TABU_NORM (lower = better, heavy-tailed).
+    Reused by the loss in train.py and the eval metrics below.
+    """
+    if kind == "tabu_cost":
+        return torch.log1p(label.clamp(min=0)) / TABU_NORM
+    return label / GIRTH_NORM
+
+
 _T = TypeVar("_T", bound=Data)
 
 
@@ -142,10 +161,16 @@ def evaluate_girth_predictor(
     model: torch.nn.Module,
     loader: DataLoader,
     device: torch.device,
+    kind: str = "girth",
 ) -> dict[str, float]:
     """Compute MSE loss, MAE, and binary classification metrics.
 
-    Treats girth_pred >= g_target as positive (achieves target girth).
+    The label lives in ``batch.girth`` for both kinds (girth value, or tabu
+    cost), so the GNN code is identical. The "achieves target" positive is
+    defined per kind so the A/B is fair:
+      - girth:     pred >= g_target  (higher is better)
+      - tabu_cost: pred < 0.5        (count == 0, i.e. girth >= g_target)
+    The loss is MSE in the kind-specific normalized space.
     """
     _ = model.eval()
     total_loss = 0.0
@@ -156,21 +181,27 @@ def evaluate_girth_predictor(
     with torch.no_grad():
         for batch in loader:
             batch = batch.to(device)
-            girth_pred = model(batch)
+            pred = model(batch)
 
-            girth_true = cast(torch.Tensor, batch.girth).float().unsqueeze(-1)
+            label_true = cast(torch.Tensor, batch.girth).float().unsqueeze(-1)
             g_target = cast(torch.Tensor, batch.g_target).float().unsqueeze(-1)
 
-            loss = F.mse_loss(girth_pred / GIRTH_NORM, girth_true / GIRTH_NORM)
-
-            n = int(girth_true.size(0))
-            total_loss += float(loss.item()) * n
-            total_mae += float(
-                F.l1_loss(girth_pred, girth_true, reduction="sum").item()
+            loss = F.mse_loss(
+                normalize_target(pred, kind),
+                normalize_target(label_true, kind),
             )
 
-            pred_class = (girth_pred >= g_target).float()
-            class_true = (girth_true >= g_target).float()
+            n = int(label_true.size(0))
+            total_loss += float(loss.item()) * n
+            total_mae += float(F.l1_loss(pred, label_true, reduction="sum").item())
+
+            if kind == "tabu_cost":
+                # count == 0 is the feasible (achieves-target) class.
+                pred_class = (pred < 0.5).float()
+                class_true = (label_true < 0.5).float()
+            else:
+                pred_class = (pred >= g_target).float()
+                class_true = (label_true >= g_target).float()
             tp += int(
                 cast(torch.Tensor, ((pred_class == 1) & (class_true == 1)).sum()).item()
             )

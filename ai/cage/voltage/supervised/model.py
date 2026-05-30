@@ -151,17 +151,21 @@ def load_girth_predictor(
     *,
     cycle_lengths: list[int] | None = None,
     rwpe_dim: int = 0,
-) -> tuple["GirthPredictor", list[int] | None, int]:
-    """Load a trained girth predictor from `ai/trained/voltage_girth/<model_id>/`.
+) -> tuple["GirthPredictor", list[int] | None, int, str]:
+    """Load a trained predictor from `ai/trained/voltage_girth/<model_id>/`.
 
     Reads the architecture parameters from the saved info.json and the weights
-    from weights.pt. Raises FileNotFoundError if either is missing.
+    from weights.pt. Raises FileNotFoundError if either is missing. Loads both
+    girth predictors and tabu-cost predictors (the network is identical; only
+    the regression target differs).
 
     If cycle_lengths or rwpe_dim are provided they must match the feature_config
     saved in info.json (if any). A mismatch raises ValueError so callers cannot
     silently run inference with wrong features.
 
-    Returns (model, saved_cycle_lengths, saved_rwpe_dim). Callers must apply
+    Returns (model, saved_cycle_lengths, saved_rwpe_dim, kind). The
+    kind ("girth" or "tabu_cost") tells the search how to rank the
+    model's output (descending vs ascending). Callers must apply
     add_structural_features with the returned config before scoring any graph.
     """
     model_dir = (
@@ -177,6 +181,10 @@ def load_girth_predictor(
             f"Girth predictor {model_id!r} not found at {model_dir}"
         )
     training = cast(dict[str, object], info.get("training", {}))
+
+    # kind ("girth" / "tabu_cost") lives at top level; default to girth for
+    # legacy models that predate the tabu predictor.
+    kind = cast(str, info.get("kind", "girth"))
 
     # Read saved feature_config (absent for legacy models trained without features)
     saved_cfg = cast(dict[str, object], training.get("feature_config", {}))
@@ -217,4 +225,4 @@ def load_girth_predictor(
     )
     _ = model.load_state_dict(state)
     _ = model.eval()
-    return model, saved_cycle_lengths, saved_rwpe_dim
+    return model, saved_cycle_lengths, saved_rwpe_dim, kind

@@ -26,9 +26,9 @@ from torch_geometric.loader import DataLoader  # pyright: ignore[reportMissingTy
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../.."))
 
 from ai.cage.utils import (
-    GIRTH_NORM,
     evaluate_girth_predictor,
     make_stratified_loader,
+    normalize_target,
     parse_targets,
     save_predictor_artifacts,
     set_seed,
@@ -39,14 +39,15 @@ from ai.utils.device import get_preferred_device
 from ai.utils.structural_features import structural_feature_dim
 
 
-def _derive_model_id(targets: list[tuple[int, int]]) -> str:
+def _derive_model_id(targets: list[tuple[int, int]], kind: str) -> str:
     """Save-folder name for the predictor.
 
     The predictor is always a single (k, g)-independent model trained over a
-    grid of targets, so the id is fixed rather than encoding any one target.
+    grid of targets, so the id is fixed per target kind rather than encoding any
+    one target: "girth_predictor" for girth, "tabu_predictor" for tabu_cost.
     """
     _ = targets
-    return "girth_predictor"
+    return "tabu_predictor" if kind == "tabu_cost" else "girth_predictor"
 
 
 def _evaluate_per_target(
@@ -54,6 +55,7 @@ def _evaluate_per_target(
     test_data: list,  # pyright: ignore[reportMissingTypeArgument, reportUnknownParameterType]
     device: torch.device,
     batch_size: int,
+    kind: str,
 ) -> dict[str, dict[str, float]]:
     """Group test set by (k, g_target) and compute per-target metrics."""
     groups: dict[tuple[int, int], list] = {}  # pyright: ignore[reportMissingTypeArgument, reportUnknownVariableType]
@@ -64,7 +66,7 @@ def _evaluate_per_target(
     out: dict[str, dict[str, float]] = {}
     for (k, g), items in groups.items():  # pyright: ignore[reportUnknownVariableType]
         loader = DataLoader(items, batch_size=batch_size)  # pyright: ignore[reportUnknownArgumentType]
-        m = evaluate_girth_predictor(model, loader, device)
+        m = evaluate_girth_predictor(model, loader, device, kind)
         out[f"{k}_{g}"] = {
             "n": float(len(items)),  # pyright: ignore[reportUnknownArgumentType]
             "mae": round(m["mae"], 4),
@@ -93,16 +95,27 @@ def train(
     rwpe_dim: int = 0,
     workers: int | None = None,
     pos_weight: float = 5.0,
+    kind: str = "girth",
 ) -> tuple[GirthPredictor, dict[str, object]]:
-    """Train the girth predictor model. Returns (model, info_dict)."""
+    """Train the predictor model. Returns (model, info_dict).
+
+    ``kind`` is "girth" (default; regresses the lift's girth, ranked
+    DESCENDING in search) or "tabu_cost" (regresses the dense short-walk cost
+    the tabu search minimizes, ranked ASCENDING). The architecture, features,
+    and loss form are identical; only the label and its normalization differ.
+    """
 
     set_seed(seed)
     device = torch.device(get_preferred_device())
 
-    model_id = model_id_override or _derive_model_id(targets)
+    model_id = model_id_override or _derive_model_id(targets, kind)
+
+    def _is_pos(label: int, g_target: int) -> bool:
+        """Achieves-target predicate per kind (tabu cost 0 == girth >= g)."""
+        return label == 0 if kind == "tabu_cost" else label >= g_target
 
     print("=" * 60)
-    print(f"Training Girth Predictor: {model_id}")
+    print(f"Training {kind} predictor: {model_id}")
     print(f"  Targets: {targets}")
     print("=" * 60)
     print(f"  Device:           {device}")
@@ -128,6 +141,7 @@ def train(
         cycle_lengths=cycle_lengths,
         rwpe_dim=rwpe_dim,
         workers=workers,
+        kind=kind,
     )
     print(
         f"  Produced {gen_stats['produced']}/{gen_stats['requested']} unique samples "
@@ -166,7 +180,7 @@ def train(
         pos = sum(
             1
             for d in data_list  # pyright: ignore[reportUnknownVariableType]
-            if int(cast(int, d.girth)) >= int(cast(int, d.g_target))
+            if _is_pos(int(cast(int, d.girth)), int(cast(int, d.g_target)))
         )
         return total, pos, pos / max(total, 1)
 
@@ -180,15 +194,16 @@ def train(
     )
 
     # Stratify over (k, g_target, achieves-target) so the rare positive class
-    # (girth >= g_target) is not drowned out within each (k, g) bucket. Without
-    # the label component, hard targets like (5, 7) collapse to all-negative.
+    # (girth >= g_target, equivalently tabu cost == 0) is not drowned out within
+    # each (k, g) bucket. Without the label component, hard targets like (5, 7)
+    # collapse to all-negative.
     train_loader = make_stratified_loader(
         train_data,
         batch_size,
         lambda d: (
             int(cast(int, d.k)),
             int(cast(int, d.g_target)),
-            int(int(cast(int, d.girth)) >= int(cast(int, d.g_target))),
+            int(_is_pos(int(cast(int, d.girth)), int(cast(int, d.g_target)))),
         ),
     )
 
@@ -221,19 +236,23 @@ def train(
             batch = batch.to(device)
             optimizer.zero_grad()
 
-            girth_pred = model(batch)
+            pred = model(batch)
 
-            girth_true = cast(torch.Tensor, batch.girth).float().unsqueeze(-1)
+            label_true = cast(torch.Tensor, batch.girth).float().unsqueeze(-1)
             g_target_t = cast(torch.Tensor, batch.g_target).float().unsqueeze(-1)
 
             # Label-aware weighting: upweight the rare positive class (lifts that
-            # achieve girth >= g_target) so the regressor does not collapse onto
-            # the all-negative majority on hard, heavily imbalanced targets.
-            is_pos = (girth_true >= g_target_t).float()
+            # achieve the target — girth >= g_target, equivalently tabu cost 0)
+            # so the regressor does not collapse onto the all-negative majority
+            # on hard, heavily imbalanced targets.
+            if kind == "tabu_cost":
+                is_pos = (label_true < 0.5).float()
+            else:
+                is_pos = (label_true >= g_target_t).float()
             weight = 1.0 + (pos_weight - 1.0) * is_pos
             per_elem = F.mse_loss(
-                girth_pred / GIRTH_NORM,
-                girth_true / GIRTH_NORM,
+                normalize_target(pred, kind),
+                normalize_target(label_true, kind),
                 reduction="none",
             )
             loss = (weight * per_elem).sum() / weight.sum()
@@ -242,7 +261,7 @@ def train(
             _ = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
 
-            n_b = int(girth_true.size(0))
+            n_b = int(label_true.size(0))
             train_loss += float(loss.item()) * n_b
             train_count += n_b
 
@@ -250,7 +269,7 @@ def train(
         avg_train_loss = train_loss / max(train_count, 1)
 
         if epoch % print_every == 0 or epoch == 1 or epoch == epochs:
-            val = evaluate_girth_predictor(model, val_loader, device)
+            val = evaluate_girth_predictor(model, val_loader, device, kind)
             print(
                 f"Epoch {epoch:4d} | Train: {avg_train_loss:.4f} | "
                 f"Val: {val['loss']:.4f} | MAE: {val['mae']:.2f} | "
@@ -273,7 +292,7 @@ def train(
 
     # Final evaluation on held-out test set (overall + per-target)
     print("\nEvaluating on held-out test set...")
-    test_metrics = evaluate_girth_predictor(model, test_loader, device)
+    test_metrics = evaluate_girth_predictor(model, test_loader, device, kind)
     print(
         f"  Test loss: {test_metrics['loss']:.4f} | "
         f"MAE: {test_metrics['mae']:.2f} | "
@@ -283,7 +302,7 @@ def train(
         f"F1: {test_metrics['f1']:.3f}"
     )
 
-    test_per_target = _evaluate_per_target(model, test_data, device, batch_size)
+    test_per_target = _evaluate_per_target(model, test_data, device, batch_size, kind)
     if len(test_per_target) > 1:
         print("  Per-target test metrics:")
         for tkey, m in test_per_target.items():
@@ -322,10 +341,14 @@ def train(
         training_block["k"] = primary_k
         training_block["g_target"] = primary_g
 
+    model_type = (
+        "voltage_tabu_predictor" if kind == "tabu_cost" else "voltage_girth_predictor"
+    )
     info: dict[str, object] = {
-        "model_type": "voltage_girth_predictor",
+        "model_type": model_type,
         "model_id": model_id,
-        "task": "voltage_girth",
+        "task": "voltage_tabu" if kind == "tabu_cost" else "voltage_girth",
+        "kind": kind,
         "training": training_block,
         "data": {
             "requested": gen_stats["requested"],
@@ -382,6 +405,15 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default=None,
         help="Override the auto-derived model id (save folder name)",
+    )
+    _ = parser.add_argument(
+        "--kind",
+        type=str,
+        default="girth",
+        choices=["girth", "tabu_cost"],
+        help="Regression target: 'girth' (default; ranked descending in search) "
+        "or 'tabu_cost' (the short-walk cost the tabu search minimizes; ranked "
+        "ascending). Default keeps girth_predictor behavior unchanged.",
     )
     _ = parser.add_argument(
         "--samples", type=int, default=50000, help="Number of training samples"
@@ -462,4 +494,5 @@ if __name__ == "__main__":
         rwpe_dim=cast(int, args.rwpe_dim),
         workers=cast("int | None", args.workers),
         pos_weight=cast(float, args.pos_weight),
+        kind=cast(str, args.kind),
     )

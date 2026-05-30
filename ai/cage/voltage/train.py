@@ -42,4 +42,5 @@ if __name__ == "__main__":
         rwpe_dim=cast(int, args.rwpe_dim),
         workers=cast("int | None", args.workers),
         pos_weight=cast(float, args.pos_weight),
+        kind=cast(str, args.kind),
     )
