@@ -295,9 +295,21 @@ class VoltageSearchGenerator:
 
 
 def _build_configs(k: int, g: int) -> list[tuple[BaseGraph, FiniteGroup, str]]:
-    """Build candidate (base_graph, group) configurations for target (k, g)."""
+    """Build candidate (base_graph, group) configurations for target (k, g).
+
+    A lift has exactly ``base.num_nodes * group.order`` vertices, known before
+    searching.  A (k,g)-graph needs at least ``moore_bound(k, g)`` vertices, so
+    any config whose lift order is below the Moore bound can NEVER yield a valid
+    (k,g)-graph; we skip those outright rather than waste search on them.
+    """
     mb = moore_bound(k, g)
     configs: list[tuple[BaseGraph, FiniteGroup, str]] = []
+
+    def _add(base: BaseGraph, group: FiniteGroup, name: str) -> None:
+        # Skip sub-Moore lifts: they cannot reach girth g at any voltage.
+        if base.num_nodes * group.order < mb:
+            return
+        configs.append((base, group, name))
 
     if k == 3:
         bases: list[tuple[BaseGraph, str]] = [
@@ -316,16 +328,18 @@ def _build_configs(k: int, g: int) -> list[tuple[BaseGraph, FiniteGroup, str]]:
             for n in range(
                 min_order, max_order + 1, max(1, (max_order - min_order) // 5)
             ):
-                group = cyclic_group(n)
-                configs.append((base, group, f"{bname}+Z_{n}"))
+                _add(base, cyclic_group(n), f"{bname}+Z_{n}")
     else:
         base = dumbbell(k)
         min_order = max(5, mb // 2)
         max_order = min(80, max(min_order + 10, (3 * mb) // 2))
         for n in range(min_order, max_order + 1, max(1, (max_order - min_order) // 5)):
-            configs.append((base, cyclic_group(n), f"dumbbell+Z_{n}"))
+            _add(base, cyclic_group(n), f"dumbbell+Z_{n}")
 
     if not configs:
-        configs.append((dumbbell(k), cyclic_group(max(5, mb // 2)), "fallback"))
+        # Last resort: a dumbbell lift sized at or above the Moore bound.
+        n_base = 2
+        order = max(5, -(-mb // n_base))  # ceil(mb / n_base)
+        configs.append((dumbbell(k), cyclic_group(order), "fallback"))
 
     return configs

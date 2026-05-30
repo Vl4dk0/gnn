@@ -27,7 +27,7 @@ from ai.cage.excision.baseline import backtracking_repair
 from ai.cage.excision.excise import excise_tree
 from ai.cage.excision.rl.env import RepairEnv
 from ai.cage.excision.rl.model import RepairActorCritic
-from backend.utils.graph_utils import compute_girth, is_k_regular
+from backend.utils.graph_utils import compute_girth, is_k_regular, moore_bound
 
 
 # Default location of the trained excision-repair policy on disk.
@@ -163,18 +163,32 @@ def try_excise_root(
     root: int,
     policy: RepairPolicy | None = None,
     *,
+    depth: int | None = None,
     max_backtracks: int = 10000,
 ) -> nx.Graph[int] | None:
-    """Try ONE root: excise a depth-(g-1)//2 tree and repair it.
+    """Try ONE root: excise a depth-d tree and repair it.
+
+    ``depth`` defaults to the maximal girth-safe depth ``(g - 1) // 2``.  A
+    *smaller* depth excises a smaller tree, which is the right choice when the
+    full-depth excision would shrink the graph below the Moore bound (and thus
+    be unrepairable) or leave a boundary the classical repair cannot close;
+    callers that want incremental shrink can sweep depths from 1 upward.
 
     Returns the repaired graph iff it is a strictly smaller valid (k,g)-graph,
     else None.  This is the single-root core of ``excise_and_repair`` so callers
     that step through roots one at a time (e.g. the forge generator) can reuse
     the exact same excision + repair + validation logic.
     """
-    depth = (g - 1) // 2
+    if depth is None:
+        depth = (g - 1) // 2
     reduced, deficient, _levels = excise_tree(G, root, depth)
-    if not deficient or reduced.number_of_nodes() == 0:
+    # A (k,g)-graph needs at least moore_bound(k, g) vertices, so a reduced graph
+    # below that bound can never be repaired into a valid (k,g)-graph.
+    if (
+        not deficient
+        or reduced.number_of_nodes() == 0
+        or reduced.number_of_nodes() < moore_bound(k, g)
+    ):
         return None
 
     repaired = repair_reduced(
