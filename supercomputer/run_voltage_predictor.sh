@@ -14,15 +14,17 @@ source .activate_scratch
 
 cd ~/gnn
 
-# Retrain the girth predictor across the full (k, g) grid.
-# Bigger sample budget (1M) plus weight decay to address the bimodal F1
-# pattern in v1 (great on easy targets, near-zero on heavily class-imbalanced
-# cells like (5,7)/(4,7)/(4,8)).
+# Girth predictor across the full (k, g) grid. Structural node features
+# (cycle counts + RWPE) are standard, so they are the train.py defaults.
+# Saves to ai/trained/voltage_girth/girth_predictor/ (the id the search,
+# registry, and backend all load).
 
 uv run python -u -m ai.cage.voltage.train \
   --targets "3,5;3,6;3,7;3,8;3,9;3,10;4,5;4,6;4,7;4,8;5,5;5,6;5,7" \
   --samples 1000000 --epochs 100 --batch-size 256 \
-  --hidden-dim 192 --num-layers 4 --max-group-order 100 \
-  --weight-decay 1e-4 \
+  --hidden-dim 192 --num-layers 6 --max-group-order 100 \
+  --lr 1e-3 --weight-decay 1e-4 \
+  --cycle-lengths "3,4,5,6,7,8" --rwpe-dim 8 \
   --workers 8 \
+  --model-id girth_predictor \
   --print-every 5 --seed 42

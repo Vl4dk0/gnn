@@ -418,14 +418,14 @@ def parse_args() -> argparse.Namespace:
     _ = parser.add_argument(
         "--cycle-lengths",
         type=str,
-        default="",
-        help='Comma-separated list of cycle lengths to add as node features, e.g. "3,4,5,6,7,8". Empty = no cycle features.',
+        default="3,4,5,6,7,8",
+        help='Comma-separated cycle lengths added as node features (structural features are standard). Pass "" to disable.',
     )
     _ = parser.add_argument(
         "--rwpe-dim",
         type=int,
-        default=0,
-        help="Dimension K for Random-Walk Positional Encoding. 0 = disabled.",
+        default=8,
+        help="Dimension K for Random-Walk Positional Encoding (structural feature, standard). 0 = disabled.",
     )
     _ = parser.add_argument(
         "--workers",

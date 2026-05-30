@@ -9,7 +9,7 @@ Generator specs:
   bruteforce  —  BruteforceGenerator (deterministic)
   rl          —  RLGenerator with best actor_critic model (torch)
   voltage/no_gnn  —  VoltageSearchGenerator, model_id=None (tabu only)
-  voltage/gnn     —  VoltageSearchGenerator, model_id="girth_predictor_struct"
+  voltage/gnn     —  VoltageSearchGenerator, model_id="girth_predictor"
   voltage_rl  —  VoltageRLGenerator with best voltage_actor_critic model
 """
 
@@ -69,9 +69,9 @@ def _best_voltage_actor_critic() -> str | None:
 
 
 def _girth_predictor_exists() -> bool:
-    """Return True if girth_predictor_struct exists under voltage_girth task."""
+    """Return True if girth_predictor exists under voltage_girth task."""
     return any(
-        m["model_id"] == "girth_predictor_struct"
+        m["model_id"] == "girth_predictor"
         for m in list_trained_models("voltage_girth")
     )
 
@@ -96,7 +96,7 @@ if _ACTOR_CRITIC_ID is not None:
 _SPECS.append(("voltage", "no_gnn", None))
 
 if _GIRTH_PREDICTOR_OK:
-    _SPECS.append(("voltage", "gnn", "girth_predictor_struct"))
+    _SPECS.append(("voltage", "gnn", "girth_predictor"))
 
 if _VOLTAGE_AC_ID is not None:
     _SPECS.append(("voltage_rl", "", _VOLTAGE_AC_ID))

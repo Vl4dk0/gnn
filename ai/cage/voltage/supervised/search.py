@@ -626,7 +626,7 @@ if __name__ == "__main__":
         "--model-id",
         type=str,
         default=None,
-        help="Girth predictor model_id (e.g. girth_predictor_k3_g7) — enables beam search",
+        help="Girth predictor model_id (e.g. girth_predictor) — enables beam search",
     )
     _ = parser.add_argument(
         "--beam-width", type=int, default=50, help="Beam width when --model-id is set"

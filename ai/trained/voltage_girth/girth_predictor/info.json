@@ -1,6 +1,6 @@
 {
   "model_type": "voltage_girth_predictor",
-  "model_id": "girth_predictor_struct",
+  "model_id": "girth_predictor",
   "task": "voltage_girth",
   "training": {
     "targets": [
