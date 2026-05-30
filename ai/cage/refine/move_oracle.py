@@ -31,6 +31,15 @@ from ai.cage.refine.data_gen import graph_to_pyg
 from ai.cage.refine.swaps import Swap2
 from ai.utils.structural_features import structural_feature_dim
 
+# Score function signature accepted by TabuRefiner / TabuRefineGenerator.
+ScoreFn = Callable[["nx.Graph[int]", list[Swap2]], torch.Tensor]
+
+# Default on-disk location of the trained move oracle (refine scorer):
+# .../ai/trained/move_oracle/move_oracle (this file is .../ai/cage/refine/).
+_MOVE_ORACLE_DIR = (
+    Path(__file__).resolve().parents[2] / "trained" / "move_oracle" / "move_oracle"
+)
+
 
 class MoveOracle(nn.Module):
     """Predicts Δcost for a 2-switch move on a k-regular graph.
@@ -200,6 +209,23 @@ def build_score_fn(
             return model(data, swap_idx)
 
     return score_fn
+
+
+def load_refine_score_fn(verbose: bool = False) -> ScoreFn | None:
+    """Load the trained move oracle as a TabuRefiner score_fn, or None if absent.
+
+    Degrades gracefully: when the weights/info are missing the refine stage
+    falls back to classical exact-delta scoring.
+    """
+    try:
+        oracle, cycle_lengths, rwpe_dim = load_move_oracle(_MOVE_ORACLE_DIR)
+    except FileNotFoundError:
+        if verbose:
+            print("[refine] move oracle not found; classical refine")
+        return None
+    if verbose:
+        print("[refine] loaded move oracle scorer")
+    return build_score_fn(oracle, cycle_lengths, rwpe_dim)
 
 
 def save_move_oracle(

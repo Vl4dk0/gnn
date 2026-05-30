@@ -50,6 +50,12 @@ class VoltageSearchGenerator:
     best_near_miss: nx.Graph[int] | None
     best_near_miss_girth: int
 
+    # Harvest mode (off by default; used by the forge producer).  When enabled
+    # every k-regular, connected lift the search computes is appended to
+    # ``harvested`` as ``(graph, girth)`` for a downstream consumer to drain.
+    harvest: bool
+    harvested: list[tuple[nx.Graph[int], int]]
+
     _base: BaseGraph
     _group: FiniteGroup
     _voltages: list[int]
@@ -65,7 +71,9 @@ class VoltageSearchGenerator:
     _feat_rwpe_dim: int
     _kind: str
 
-    def __init__(self, k: int, g: int, model_id: str | None = None) -> None:
+    def __init__(
+        self, k: int, g: int, model_id: str | None = None, *, harvest: bool = False
+    ) -> None:
         self.k = k
         self.g = g
         self.step_count = 0
@@ -74,6 +82,8 @@ class VoltageSearchGenerator:
         self.start_time = 0.0
         self.best_near_miss = None
         self.best_near_miss_girth = 0
+        self.harvest = harvest
+        self.harvested = []
         self._best_girth = 0
         self._tabu = {}
         self._restarts = 0
@@ -156,10 +166,15 @@ class VoltageSearchGenerator:
                 props = verify_lift(lifted, self.k, self.g)
                 if props["is_valid_kg"]:
                     self.graph = lifted
-                    self.is_complete = True
-                    self.success = True
-                    self._best_girth = girth
-                    return
+                    if self.harvest:
+                        # Harvest the hit and keep searching: the forge producer
+                        # owns the lifecycle, so we never self-complete.
+                        self.harvested.append((lifted, girth))
+                    else:
+                        self.is_complete = True
+                        self.success = True
+                        self._best_girth = girth
+                        return
 
             # Degenerate — random restart
             self._random_restart()
@@ -219,29 +234,43 @@ class VoltageSearchGenerator:
                 if props["is_valid_kg"]:
                     self._voltages = volts_b
                     self.graph = lifted
-                    self.is_complete = True
-                    self.success = True
-                    self._best_girth = girth_b
-                    return
+                    if self.harvest:
+                        self.harvested.append((lifted, girth_b))
+                    else:
+                        self.is_complete = True
+                        self.success = True
+                        self._best_girth = girth_b
+                        return
 
-        # Check intermediate girth periodically
-        if self.step_count % 20 == 0:
+        # Check intermediate girth periodically.  In harvest mode we probe on
+        # EVERY step (the forge producer wants a steady stream of lifts), and
+        # collect every k-regular, connected lift; otherwise we keep the
+        # original best-girth-gated behaviour so plain voltage is unaffected.
+        if self.harvest or self.step_count % 20 == 0:
             girth = compute_lift_girth(
                 self._base, self._group, self._voltages, max_girth=2 * self.g
             )
-            if isinstance(girth, int) and girth > self._best_girth:
-                self._best_girth = girth
+            if isinstance(girth, int) and (self.harvest or girth > self._best_girth):
                 lifted = build_lift(self._base, self._group, self._voltages)
                 props = verify_lift(lifted, self.k, self.g)
                 if props["is_valid_kg"]:
-                    self.graph = lifted
-                    self.is_complete = True
-                    self.success = True
+                    if not self.harvest:
+                        self._best_girth = girth
+                        self.graph = lifted
+                        self.is_complete = True
+                        self.success = True
+                    else:
+                        self.graph = lifted
+                        self.harvested.append((lifted, girth))
                 elif props["is_k_regular"] and props["is_connected"]:
                     # Valid graph, just not high enough girth yet — show it and
                     # remember it as the best near-miss for a later refine handoff.
                     self.graph = lifted
+                    if not self.harvest:
+                        self._best_girth = girth
                     self._record_near_miss(lifted, girth)
+                    if self.harvest:
+                        self.harvested.append((lifted, girth))
 
         if not self.is_complete:
             self.graph = build_lift(self._base, self._group, self._voltages)
