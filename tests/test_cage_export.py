@@ -41,8 +41,7 @@ def test_triangle_g6_with_k_g(client: FlaskClient) -> None:
     )
     assert status == 200
     assert data["content"] == "Bw"
-    assert "k3_g5" in data["filename"]
-    assert data["filename"].endswith(".g6")
+    assert data["filename"] == "(3,5)-graph.g6"
 
 
 def test_triangle_adjacency(client: FlaskClient) -> None:
@@ -59,8 +58,7 @@ def test_adjacency_filename_with_k_g(client: FlaskClient) -> None:
         {"edge_list": "0 1\n1 2\n0 2", "format": "adjacency", "k": 2, "g": 3},
     )
     assert status == 200
-    assert "k2_g3" in data["filename"]
-    assert data["filename"].endswith(".txt")
+    assert data["filename"] == "(2,3)-graph.txt"
 
 
 def test_invalid_format_returns_400(client: FlaskClient) -> None:

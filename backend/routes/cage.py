@@ -695,9 +695,9 @@ def export_graph() -> Response | tuple[Response, int]:
             cast(bytes, nx.to_graph6_bytes(H, header=False)).decode("ascii").strip()
         )
         if k_val is not None and g_val is not None:
-            filename = f"cage_k{k_val}_g{g_val}_n{n}.g6"
+            filename = f"({k_val},{g_val})-graph.g6"
         else:
-            filename = f"cage_n{n}.g6"
+            filename = "graph.g6"
     else:
         rows: list[str] = []
         for i in range(n):
@@ -707,9 +707,9 @@ def export_graph() -> Response | tuple[Response, int]:
             rows.append(" ".join(row))
         content = "\n".join(rows)
         if k_val is not None and g_val is not None:
-            filename = f"cage_k{k_val}_g{g_val}_n{n}_adjacency.txt"
+            filename = f"({k_val},{g_val})-graph.txt"
         else:
-            filename = f"cage_n{n}_adjacency.txt"
+            filename = "graph.txt"
 
     return jsonify({"filename": filename, "content": content, "format": fmt})
 
