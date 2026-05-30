@@ -118,6 +118,16 @@ if _VOLTAGE_AC_ID is not None:
 # predictor when present (graceful classical fallback otherwise).
 _SPECS.append(("forge", "", "girth_predictor" if _GIRTH_PREDICTOR_OK else None))
 
+# forge ablation variants: isolate the contribution of each stage.
+#   forge_no_refine  — voltage + excision (near-misses dropped; only direct hits shrunk)
+#   forge_no_excision — voltage + refine, no shrink (first valid graph returned unshrunk)
+_SPECS.append(
+    ("forge", "no_refine", "girth_predictor" if _GIRTH_PREDICTOR_OK else None)
+)
+_SPECS.append(
+    ("forge", "no_excision", "girth_predictor" if _GIRTH_PREDICTOR_OK else None)
+)
+
 # ---------------------------------------------------------------------------
 # make_tasks
 # ---------------------------------------------------------------------------
@@ -213,7 +223,13 @@ def execute(task: Task) -> list[TrialResult]:
     elif approach == "voltage_rl":
         gen = VoltageRLGenerator(k, g, model_id=model_id)
     elif approach == "forge":
-        gen = ForgeGenerator(k, g, model_id=model_id)
+        gen = ForgeGenerator(
+            k,
+            g,
+            model_id=model_id,
+            use_refine=variant != "no_refine",
+            use_excision=variant != "no_excision",
+        )
     else:
         raise ValueError(f"Unknown approach: {approach!r}")
 

@@ -48,6 +48,8 @@ def forge_graph(
     excision_max_roots: int | None = None,
     excision_backtracks: int = 10000,
     time_budget: float | None = None,
+    no_refine: bool = False,
+    no_excision: bool = False,
     verbose: bool = False,
 ) -> nx.Graph[int] | None:
     """Forge a (k,g)-graph by driving the queue-driven pipeline to completion.
@@ -64,6 +66,10 @@ def forge_graph(
         refine_margin:         Max girth gap below g a near-miss may have to be
                                worth refining.
         time_budget:           Optional wall-clock cap (seconds) for the forge.
+        no_refine:             Disable the refine stage; near-misses are dropped.
+        no_excision:           Disable the excision stage; the first valid
+                               (k,g)-graph from voltage (or refine) is returned
+                               unshrunk.
         verbose:               Print pipeline progress.
 
     The ``max_voltage_attempts``, ``max_group_order``, ``tabu_iterations``,
@@ -84,10 +90,22 @@ def forge_graph(
         k,
         g,
         model_id=predictor,
+        use_refine=not no_refine,
+        use_excision=not no_excision,
         refine_max_iter=refine_max_iter,
         refine_margin=refine_margin,
         max_candidates=max_candidates,
     )
+
+    if verbose:
+        stages = "voltage"
+        if not no_refine:
+            stages += " -> refine"
+        if not no_excision:
+            stages += " -> excision"
+        else:
+            stages += " (no excision)"
+        print(f"[forge] pipeline stages: {stages}")
 
     start_time = time.time()
     while not gen.is_complete:
@@ -135,6 +153,16 @@ def main() -> None:
         default=None,
         help="Optional wall-clock cap in seconds",
     )
+    _ = parser.add_argument(
+        "--no-refine",
+        action="store_true",
+        help="Disable refine stage; near-misses are dropped (voltage-only or voltage+excision)",
+    )
+    _ = parser.add_argument(
+        "--no-excision",
+        action="store_true",
+        help="Disable excision stage; first valid (k,g)-graph is returned unshrunk",
+    )
     _ = parser.add_argument("--quiet", action="store_true", help="Suppress progress")
     args = parser.parse_args()
 
@@ -147,6 +175,8 @@ def main() -> None:
         predictor=predictor,
         max_candidates=cast(int, args.max_candidates),
         time_budget=cast("float | None", args.time_budget),
+        no_refine=cast(bool, args.no_refine),
+        no_excision=cast(bool, args.no_excision),
         verbose=not cast(bool, args.quiet),
     )
 
@@ -156,9 +186,17 @@ def main() -> None:
         print(f"No ({k},{g})-graph forged.")
         return
 
+    no_refine_flag = cast(bool, args.no_refine)
+    no_excision_flag = cast(bool, args.no_excision)
+    stages_ran = "voltage"
+    if not no_refine_flag:
+        stages_ran += " + refine"
+    if not no_excision_flag:
+        stages_ran += " + excision"
+
     girth = compute_girth(graph)
     print("=" * 50)
-    print(f"Forged ({k},{g})-graph:")
+    print(f"Forged ({k},{g})-graph [{stages_ran}]:")
     print(f"  order:      {graph.number_of_nodes()}")
     print(f"  edges:      {graph.number_of_edges()}")
     print(f"  k-regular:  {is_k_regular(graph, k)}")

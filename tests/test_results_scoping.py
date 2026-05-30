@@ -45,8 +45,8 @@ class TestCageScoping:
                 targets=[(3, 6)],
             )
         )
-        # one approach x one target x two seeds
-        assert len(tasks) == 2
+        # forge has 3 spec entries (full, no_refine, no_excision) x 1 target x 2 seeds
+        assert len(tasks) == 6
         assert _approaches(tasks) == {"forge"}
         assert _targets(tasks) == {(3, 6)}
 

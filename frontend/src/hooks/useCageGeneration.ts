@@ -14,7 +14,7 @@ import { InteractiveGraphEditor } from "../graph/InteractiveGraphEditor";
 import { mooreBound, resolveMooreBoundLimit } from "../utils/mooreBound";
 
 const DEFAULT_SETTINGS: CageSettings = {
-  generatorType: "randomwalk",
+  generatorType: "voltage_rl",
   executionMode: "async",
   modelId: null,
   pollingInterval: 500,

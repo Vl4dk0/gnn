@@ -226,6 +226,8 @@ class ForgeGenerator:
     last_event: CageStepEvent | None
 
     _model_id: str | None
+    _use_refine: bool
+    _use_excision: bool
     _refine_max_iter: int
     _refine_sample_size: int
     _refine_margin: int
@@ -263,6 +265,8 @@ class ForgeGenerator:
         g: int,
         model_id: str | None = None,
         *,
+        use_refine: bool = True,
+        use_excision: bool = True,
         refine_max_iter: int = 300,
         refine_sample_size: int = _REFINE_SAMPLE_SIZE,
         refine_margin: int = REFINE_MARGIN,
@@ -279,6 +283,8 @@ class ForgeGenerator:
         self.last_event = None
 
         self._model_id = model_id
+        self._use_refine = use_refine
+        self._use_excision = use_excision
         self._refine_max_iter = refine_max_iter
         self._refine_sample_size = refine_sample_size
         self._refine_margin = refine_margin
@@ -473,12 +479,12 @@ class ForgeGenerator:
                 self._excise_queue.append(lift)
                 self._pushed += 1
                 queued_msgs.append(f"valid girth {girth} -> excise")
-            elif girth >= self.g - self._refine_margin:
+            elif self._use_refine and girth >= self.g - self._refine_margin:
                 self._seen_hashes.add(h)
                 self._refine_queue.append(lift)
                 self._pushed += 1
                 queued_msgs.append(f"near-miss girth {girth} -> refine")
-            # else: dropped (too far below g for refine to close)
+            # else: dropped (too far below g for refine to close, or refine disabled)
         producer.harvested.clear()
 
         # Producer is done once the cap is hit or every producer has finished.
@@ -499,6 +505,8 @@ class ForgeGenerator:
     # --- refine worker ---------------------------------------------------
 
     def _step_refine(self) -> bool:
+        if not self._use_refine:
+            return False
         # Start a refiner if idle and there is a near-miss waiting.
         if self._refiner is None:
             if not self._refine_queue:
@@ -540,6 +548,20 @@ class ForgeGenerator:
     # --- excision worker -------------------------------------------------
 
     def _step_excision(self) -> bool:
+        # When excision is disabled, the first valid graph from the excise queue
+        # is the result immediately — unshrunk.
+        if not self._use_excision:
+            if not self._excise_queue:
+                return False
+            graph = self._excise_queue.pop(0)
+            self._result = graph
+            self.graph = graph
+            self.stage = "excision"
+            self._emit(
+                f"excision: disabled, using first valid (k,g)-graph unshrunk {self._queue_tag()}"
+            )
+            return True
+
         # Start an excision if idle and there is a valid graph waiting.
         if self._excision is None:
             if not self._excise_queue:
