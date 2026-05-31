@@ -9,7 +9,12 @@ from ai.cage.voltage.cycle_analysis import (
     count_short_identity_walks,
     has_girth_at_least,
 )
-from ai.cage.voltage.groups import cyclic_group, dihedral_group
+from ai.cage.voltage.groups import (
+    cyclic_group,
+    dihedral_group,
+    direct_product,
+    semidirect_product_cyclic,
+)
 from ai.cage.voltage.lift import build_lift, lift_order, verify_lift
 from ai.cage.voltage.supervised.data_gen import generate_dataset
 
@@ -29,6 +34,33 @@ def test_dihedral_group_has_identity_and_inverses() -> None:
     for element in group.elements():
         assert group.mult(group.identity(), element) == element
         assert group.mult(element, group.inv(element)) == group.identity()
+
+
+def test_direct_product_group_identity_and_inverses() -> None:
+    """Z_4 x Z_5 should have order 20, identity at 0, and full inverses."""
+    group = direct_product(cyclic_group(4), cyclic_group(5))
+
+    assert group.order == 20
+    assert group.identity() == 0
+    assert list(group.elements()) == list(range(20))
+    for elem in group.elements():
+        assert group.mult(group.identity(), elem) == elem
+        assert group.mult(elem, group.identity()) == elem
+        assert group.mult(elem, group.inv(elem)) == group.identity()
+
+
+def test_semidirect_product_group_identity_and_inverses() -> None:
+    """Z_3 ⋊ Z_2 (phi=2, i.e. inversion in Z_3) should have order 6."""
+    # phi=2, since 2^2 = 4 ≡ 1 (mod 3)
+    group = semidirect_product_cyclic(3, 2, 2)
+
+    assert group.order == 6
+    assert group.identity() == 0
+    assert list(group.elements()) == list(range(6))
+    for elem in group.elements():
+        assert group.mult(group.identity(), elem) == elem
+        assert group.mult(elem, group.identity()) == elem
+        assert group.mult(elem, group.inv(elem)) == group.identity()
 
 
 def test_heawood_voltage_lift_is_valid_3_6_graph() -> None:

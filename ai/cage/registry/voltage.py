@@ -22,7 +22,13 @@ from ai.cage.voltage.cycle_analysis import (
     compute_lift_girth,
     count_short_identity_walks,
 )
-from ai.cage.voltage.groups import FiniteGroup, cyclic_group
+from ai.cage.voltage.groups import (
+    FiniteGroup,
+    cyclic_group,
+    dihedral_group,
+    direct_product,
+    semidirect_product_cyclic,
+)
 from ai.cage.voltage.lift import build_lift, verify_lift
 from ai.cage.voltage.supervised.model import GirthPredictor, load_girth_predictor
 from ai.cage.voltage.supervised.search import beam_search
@@ -325,6 +331,66 @@ class VoltageSearchGenerator:
             self._voltages[idx] = random.randint(0, self._group.order - 1)
 
 
+def _candidate_groups_for_order_range(
+    min_order: int,
+    max_order: int,
+) -> list[tuple[FiniteGroup, str]]:
+    """Return a diverse set of groups whose order is in [min_order, max_order].
+
+    Includes cyclic groups (Z_n), dihedral groups (D_m, order 2m), direct
+    products of two cyclic groups (Z_a x Z_b), and semidirect products
+    Z_n ⋊ Z_m — the same variety used by the supervised meta-search and
+    the known records for hard targets like (8,5)/(9,5)/(10,5)/(11,6).
+    """
+    groups: list[tuple[FiniteGroup, str]] = []
+
+    for n in range(min_order, max_order + 1):
+        groups.append((cyclic_group(n), f"Z_{n}"))
+
+    # Dihedral D_m has order 2m — include when 2m is in range.
+    for m in range(max(2, min_order // 2), max_order // 2 + 1):
+        order = 2 * m
+        if min_order <= order <= max_order:
+            groups.append((dihedral_group(m), f"D_{m}"))
+
+    # Direct products Z_a x Z_b (a <= b, both >= 2, order in range, a != b to
+    # avoid duplicating Z_n for prime powers).
+    for a in range(2, max_order):
+        for b in range(a + 1, max_order):
+            order = a * b
+            if order < min_order:
+                continue
+            if order > max_order:
+                break
+            groups.append(
+                (
+                    direct_product(cyclic_group(a), cyclic_group(b)),
+                    f"Z_{a}xZ_{b}",
+                )
+            )
+
+    # Semidirect products Z_n ⋊_phi Z_m where phi generates a non-trivial
+    # action (phi != 1, phi^m == 1 mod n).  One phi per (n, m) is enough.
+    for n in range(3, max_order):
+        for m in range(2, max_order):
+            order = n * m
+            if order < min_order:
+                continue
+            if order > max_order:
+                break
+            for phi in range(2, n):
+                if pow(phi, m, n) == 1:
+                    groups.append(
+                        (
+                            semidirect_product_cyclic(n, m, phi),
+                            f"Z_{n}rtZ_{m}",
+                        )
+                    )
+                    break  # one phi per (n, m) pair is sufficient
+
+    return groups
+
+
 def _build_configs(k: int, g: int) -> list[tuple[BaseGraph, FiniteGroup, str]]:
     """Build candidate (base_graph, group) configurations for target (k, g).
 
@@ -332,6 +398,11 @@ def _build_configs(k: int, g: int) -> list[tuple[BaseGraph, FiniteGroup, str]]:
     searching.  A (k,g)-graph needs at least ``moore_bound(k, g)`` vertices, so
     any config whose lift order is below the Moore bound can NEVER yield a valid
     (k,g)-graph; we skip those outright rather than waste search on them.
+
+    Groups are diverse: cyclic, dihedral, direct products Z_a x Z_b, and
+    semidirect products.  The cyclic-only restriction was identified as the
+    likely blocker for hard targets such as (8,5)/(9,5)/(10,5)/(11,6) whose
+    known records use non-cyclic groups (e.g. SmallGroup(80,32)).
     """
     mb = moore_bound(k, g)
     configs: list[tuple[BaseGraph, FiniteGroup, str]] = []
@@ -355,17 +426,18 @@ def _build_configs(k: int, g: int) -> list[tuple[BaseGraph, FiniteGroup, str]]:
             n_base = base.num_nodes
             min_order = max(5, mb // n_base)
             max_order = min(80, max(min_order + 10, (3 * mb) // n_base))
-            # Pick a few group orders spread across the range
-            for n in range(
-                min_order, max_order + 1, max(1, (max_order - min_order) // 5)
-            ):
-                _add(base, cyclic_group(n), f"{bname}+Z_{n}")
+            for group, gname in _candidate_groups_for_order_range(min_order, max_order):
+                _add(base, group, f"{bname}+{gname}")
     else:
         base = dumbbell(k)
         min_order = max(5, mb // 2)
-        max_order = min(80, max(min_order + 10, (3 * mb) // 2))
-        for n in range(min_order, max_order + 1, max(1, (max_order - min_order) // 5)):
-            _add(base, cyclic_group(n), f"dumbbell+Z_{n}")
+        # Window above the Moore-bound minimum: covers the "could beat the
+        # record" band (known record group orders sit ~7-12 above min_order for
+        # (8,5)/(9,5)/(10,5)/(11,6)) without a richer-group config explosion or
+        # the old fixed-80 ceiling that excluded high-k targets like (11,6).
+        max_order = min_order + 30
+        for group, gname in _candidate_groups_for_order_range(min_order, max_order):
+            _add(base, group, f"dumbbell+{gname}")
 
     if not configs:
         # Last resort: a dumbbell lift sized at or above the Moore bound.

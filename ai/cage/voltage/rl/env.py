@@ -24,7 +24,13 @@ from ai.cage.voltage.base_graphs import (
     prism_base,
     cubic_multigraph_4nodes,
 )
-from ai.cage.voltage.groups import FiniteGroup, cyclic_group
+from ai.cage.voltage.groups import (
+    FiniteGroup,
+    cyclic_group,
+    dihedral_group,
+    direct_product,
+    semidirect_product_cyclic,
+)
 from ai.cage.voltage.lift import build_lift, verify_lift
 from ai.utils.device import get_preferred_device
 from backend.utils.graph_utils import moore_bound
@@ -114,24 +120,25 @@ class VoltageAssignmentEnv:
         - dumbbell(3): works well for girth 5-6 with larger cyclic groups
         - cubic_4nodes: works for girth 7-10
         - prism: works for girth 8-12
-        Groups must be large enough that random voltages CAN achieve the target.
+
+        Groups are sampled from a diverse pool: cyclic (Z_n), dihedral (D_m),
+        direct products (Z_a x Z_b), and semidirect products (Z_n ⋊ Z_m).
+        Cyclic-only was the likely blocker for (8,5)/(9,5)/(10,5)/(11,6):
+        their known records require non-cyclic groups.
         """
         mb = moore_bound(self.k, self.g_target)
 
         if self.k == 3:
             if self.g_target <= 6:
-                # Dumbbell works for girth 5-6, but needs group order >= 7
                 bases = [dumbbell(3)]
                 min_order = max(7, mb // 2)
                 max_order = max(min_order + 5, (2 * mb) // 2)
             elif self.g_target <= 10:
-                # Larger base graphs needed for girth 7-10
                 bases = [cubic_multigraph_4nodes(), prism_base()]
                 n_base = random.choice([4, 6])
                 min_order = max(5, mb // n_base)
                 max_order = max(min_order + 5, (2 * mb) // n_base)
             else:
-                # Girth 11+: prism only
                 bases = [prism_base()]
                 min_order = max(10, mb // 6)
                 max_order = max(min_order + 5, (2 * mb) // 6)
@@ -141,14 +148,37 @@ class VoltageAssignmentEnv:
             min_order = max(5, mb // n_base)
             max_order = max(min_order + 5, (2 * mb) // n_base)
 
-        # No artificial group-order cap: the per-branch max_order above is
-        # already >= min_order, and for a record search the lift size should be
-        # bounded only by the Moore-bound-derived range, not a fixed ceiling.
         base = random.choice(bases)
-
         g_order = random.randint(min_order, max_order)
-        group = cyclic_group(g_order)
 
+        # Build a pool of groups at this order and sample one uniformly.
+        # Cyclic is always available; dihedral, direct-product, and semidirect
+        # variants are added when a valid construction exists at this order.
+        pool: list[FiniteGroup] = [cyclic_group(g_order)]
+
+        # Dihedral D_m has order 2m.
+        if g_order >= 4 and g_order % 2 == 0:
+            pool.append(dihedral_group(g_order // 2))
+
+        # Direct product Z_a x Z_b where a * b == g_order, a < b, both >= 2.
+        for a in range(2, g_order):
+            if g_order % a == 0:
+                b = g_order // a
+                if b > a:
+                    pool.append(direct_product(cyclic_group(a), cyclic_group(b)))
+
+        # Semidirect product Z_n ⋊_phi Z_m with n * m == g_order, phi != 1,
+        # phi^m ≡ 1 (mod n). One phi per (n, m) suffices.
+        for n in range(3, g_order):
+            if g_order % n == 0:
+                m = g_order // n
+                if m >= 2:
+                    for phi in range(2, n):
+                        if pow(phi, m, n) == 1:
+                            pool.append(semidirect_product_cyclic(n, m, phi))
+                            break
+
+        group = random.choice(pool)
         return base, group
 
     def reset(self) -> Data:
