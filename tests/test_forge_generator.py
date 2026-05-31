@@ -17,11 +17,19 @@ from __future__ import annotations
 import random
 import time
 
+import pytest
+
 import networkx as nx
 
 from ai.cage.refine.tabu import TabuRefineGenerator
-from ai.cage.registry.forge import ForgeGenerator, _ExcisionWorker
-from ai.cage.registry.voltage import _build_configs
+from ai.cage.registry.forge import (
+    FORGE_PRODUCERS,
+    ForgeGenerator,
+    _ExcisionWorker,
+    _MAX_PRODUCER_CONFIGS,
+)
+from ai.cage.registry.voltage import VoltageSearchGenerator, _build_configs
+from ai.cage.registry.voltage_rl import VoltageRLGenerator
 from backend.utils.graph_utils import compute_girth, is_k_regular, moore_bound
 
 
@@ -42,7 +50,7 @@ def _girth(G: nx.Graph[int]) -> int | float:
 
 class TestForgeGenerator:
     def test_forge_3_6_step_through(self) -> None:
-        gen = ForgeGenerator(3, 6, model_id=None, refine_max_iter=200)
+        gen = ForgeGenerator(3, 6, refine_max_iter=200)
         assert gen.k == 3 and gen.g == 6
         assert gen.stage == "voltage"
 
@@ -71,7 +79,7 @@ class TestProducerMultiBase:
     """The producer must stream MULTIPLE distinct candidates across >1 base/group."""
 
     def test_producer_queues_multiple_distinct_candidates(self) -> None:
-        gen = ForgeGenerator(3, 6, model_id=None, max_candidates=20)
+        gen = ForgeGenerator(3, 6, max_candidates=20)
         # More than one cycled voltage config => the producer can use >1 base.
         assert len(gen._producers) > 1  # pyright: ignore[reportPrivateUsage]
 
@@ -95,7 +103,7 @@ class TestRefineWorker:
         # The 3-prism is 3-regular, girth 3; target g=4 (within refine_margin=2),
         # so the refine worker should close the gap to girth 4 and hand the
         # result to excision, which then terminates the pipeline.
-        gen = ForgeGenerator(3, 4, model_id=None, refine_max_iter=300, max_candidates=4)
+        gen = ForgeGenerator(3, 4, refine_max_iter=300, max_candidates=4)
         gen._producer_done = True  # pyright: ignore[reportPrivateUsage]  isolate refine/excision
         prism = nx.convert_node_labels_to_integers(nx.circular_ladder_graph(3))
         assert is_k_regular(prism, 3) and _girth(prism) == 3
@@ -123,9 +131,7 @@ class TestRoundRobinFairness:
         # Petersen is girth 5; target g=6 (within refine_margin), so refining
         # 5 -> 6 keeps the refiner busy for many steps.  Meanwhile the producer
         # (not exhausted) must keep getting scheduled.
-        gen = ForgeGenerator(
-            3, 6, model_id=None, refine_max_iter=400, max_candidates=20
-        )
+        gen = ForgeGenerator(3, 6, refine_max_iter=400, max_candidates=20)
         gen._refine_queue.append(  # pyright: ignore[reportPrivateUsage]
             nx.convert_node_labels_to_integers(nx.petersen_graph())
         )
@@ -154,7 +160,7 @@ class TestTerminationAtFirstExcisionResult:
         # Seed the excision queue with the Heawood graph (the (3,6)-cage): it
         # cannot shrink, so the excision worker terminates immediately and that
         # graph is the result -> success + stop.
-        gen = ForgeGenerator(3, 6, model_id=None, max_candidates=4)
+        gen = ForgeGenerator(3, 6, max_candidates=4)
         gen._producer_done = True  # pyright: ignore[reportPrivateUsage]
         heawood = nx.convert_node_labels_to_integers(nx.heawood_graph())
         gen._excise_queue.append(heawood)  # pyright: ignore[reportPrivateUsage]
@@ -173,7 +179,7 @@ class TestTerminationAtFirstExcisionResult:
     def test_drained_pipeline_fails_cleanly(self) -> None:
         # Producer done, both queues empty, no workers: the pipeline must fail
         # (not hang) and report it.
-        gen = ForgeGenerator(3, 6, model_id=None, max_candidates=4)
+        gen = ForgeGenerator(3, 6, max_candidates=4)
         gen._producer_done = True  # pyright: ignore[reportPrivateUsage]
         gen.step()
         assert gen.is_complete and not gen.success
@@ -276,7 +282,6 @@ class TestRefineRunsEndToEnd:
         gen = ForgeGenerator(
             3,
             7,
-            model_id=None,
             refine_max_iter=200,
             max_total_steps=3000,
         )
@@ -324,3 +329,43 @@ class TestRefineRunsEndToEnd:
             f"in-progress graph did not change on most swaps "
             f"({graph_changed_on_swap}/{refine_swaps})"
         )
+
+
+class TestProducerSelection:
+    """ForgeGenerator must build the correct producer pool for each producer kind."""
+
+    def test_voltage_rl_producer(self) -> None:
+        gen = ForgeGenerator(3, 6, producer="voltage_rl")
+        assert len(gen._producers) == _MAX_PRODUCER_CONFIGS  # pyright: ignore[reportPrivateUsage]
+        for p in gen._producers:  # pyright: ignore[reportPrivateUsage]
+            assert isinstance(p, VoltageRLGenerator)
+
+    def test_voltage_girth_producer(self) -> None:
+        gen = ForgeGenerator(3, 6, producer="voltage_girth")
+        assert len(gen._producers) == _MAX_PRODUCER_CONFIGS  # pyright: ignore[reportPrivateUsage]
+        for p in gen._producers:  # pyright: ignore[reportPrivateUsage]
+            assert isinstance(p, VoltageSearchGenerator)
+
+    def test_voltage_tabu_producer(self) -> None:
+        gen = ForgeGenerator(3, 6, producer="voltage_tabu")
+        assert len(gen._producers) == _MAX_PRODUCER_CONFIGS  # pyright: ignore[reportPrivateUsage]
+        for p in gen._producers:  # pyright: ignore[reportPrivateUsage]
+            assert isinstance(p, VoltageSearchGenerator)
+
+    def test_voltage_algebraic_producer(self) -> None:
+        gen = ForgeGenerator(3, 6, producer="voltage_algebraic")
+        assert len(gen._producers) == _MAX_PRODUCER_CONFIGS  # pyright: ignore[reportPrivateUsage]
+        for p in gen._producers:  # pyright: ignore[reportPrivateUsage]
+            assert isinstance(p, VoltageSearchGenerator)
+
+    def test_all_four_kinds_covered(self) -> None:
+        assert set(FORGE_PRODUCERS) == {
+            "voltage_rl",
+            "voltage_girth",
+            "voltage_tabu",
+            "voltage_algebraic",
+        }
+
+    def test_bogus_producer_raises_value_error(self) -> None:
+        with pytest.raises(ValueError, match="Unknown forge producer"):
+            _ = ForgeGenerator(3, 6, producer="bogus")

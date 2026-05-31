@@ -24,7 +24,7 @@ class TestNoRefineFlag:
     """use_refine=False: no refine steps executed; still solves (3,6) via direct hits."""
 
     def test_zero_refine_steps_on_3_6(self) -> None:
-        gen = ForgeGenerator(3, 6, model_id=None, use_refine=False)
+        gen = ForgeGenerator(3, 6, use_refine=False)
         _run(gen)
 
         assert gen.is_complete, "pipeline did not complete"
@@ -40,7 +40,7 @@ class TestNoRefineFlag:
 
     def test_no_refine_events_in_log(self) -> None:
         """With use_refine=False, no event action should mention 'refine:'."""
-        gen = ForgeGenerator(3, 6, model_id=None, use_refine=False)
+        gen = ForgeGenerator(3, 6, use_refine=False)
 
         refine_actions: list[str] = []
         for _ in range(20_000):
@@ -60,7 +60,7 @@ class TestNoExcisionFlag:
     """use_excision=False: result is the first valid (k,g)-graph, not shrunk."""
 
     def test_result_is_unshrunk_voltage_lift(self) -> None:
-        gen = ForgeGenerator(3, 6, model_id=None, use_excision=False)
+        gen = ForgeGenerator(3, 6, use_excision=False)
         _run(gen)
 
         assert gen.is_complete, "pipeline did not complete"
@@ -80,7 +80,7 @@ class TestNoExcisionFlag:
     def test_no_excision_worker_events(self) -> None:
         """With use_excision=False, no event action should mention 'excision: root'
         (tree shrink steps).  The single 'excision: disabled' event is expected."""
-        gen = ForgeGenerator(3, 6, model_id=None, use_excision=False)
+        gen = ForgeGenerator(3, 6, use_excision=False)
 
         shrink_actions: list[str] = []
         for _ in range(20_000):
@@ -100,7 +100,7 @@ class TestBothFlagsTrue:
     """use_refine=True, use_excision=True: full pipeline regression."""
 
     def test_full_pipeline_still_works(self) -> None:
-        gen = ForgeGenerator(3, 6, model_id=None, use_refine=True, use_excision=True)
+        gen = ForgeGenerator(3, 6, use_refine=True, use_excision=True)
         _run(gen)
 
         assert gen.is_complete

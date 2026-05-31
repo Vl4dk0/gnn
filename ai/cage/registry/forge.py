@@ -9,10 +9,11 @@ candidates WHILE refine and excision work on them.
 
 Stages
 ------
-1. **Producer (voltage)** — streams voltage assignments via the RL policy.  Each
-   step advances one harvest-mode ``VoltageRLGenerator`` (cycled round-robin
-   across a fixed pool) and drains every k-regular, connected lift it found,
-   classifying each:
+1. **Producer (voltage)** — streams voltage assignments via a selectable backend
+   (default: RL policy; alternatives: girth-predictor search, tabu-predictor
+   search, or algebraic search without a GNN).  Each step advances one
+   harvest-mode voltage generator (cycled round-robin across a fixed pool) and
+   drains every k-regular, connected lift it found, classifying each:
 
      * girth >= g                              -> excision queue
      * girth in [g - refine_margin, g - 1]     -> refine queue
@@ -70,10 +71,15 @@ from ai.cage.excision.repair_search import (
 from ai.cage.refine.move_oracle import ScoreFn, load_refine_score_fn
 from ai.cage.refine.tabu import TabuRefineGenerator
 from ai.cage.registry.types import CageStepEvent
+from ai.cage.registry.voltage import VoltageSearchGenerator
 from ai.cage.registry.voltage_rl import VoltageRLGenerator
 from backend.utils.graph_utils import compute_girth, is_k_regular, moore_bound
 
 _Stage = Literal["voltage", "refine", "excision"]
+
+# Valid producer kinds for the voltage stage of the forge pipeline.
+FORGE_PRODUCERS = ("voltage_rl", "voltage_girth", "voltage_tabu", "voltage_algebraic")
+DEFAULT_FORGE_PRODUCER = "voltage_rl"
 
 # Refine only realistically closes a small girth gap (the move oracle is trained
 # on g-1 / g-2 near-misses), so a near-miss lift is only worth refining when its
@@ -221,7 +227,7 @@ class ForgeGenerator:
     start_time: float
     last_event: CageStepEvent | None
 
-    _model_id: str | None
+    _producer: str
     _use_refine: bool
     _use_excision: bool
     _refine_max_iter: int
@@ -233,7 +239,7 @@ class ForgeGenerator:
     _repair_policy: RepairPolicy | None
 
     # Producer state.
-    _producers: list[VoltageRLGenerator]
+    _producers: list[VoltageRLGenerator | VoltageSearchGenerator]
     _producer_idx: int
     _producer_done: bool
     _pushed: int
@@ -259,8 +265,8 @@ class ForgeGenerator:
         self,
         k: int,
         g: int,
-        model_id: str | None = None,
         *,
+        producer: str = DEFAULT_FORGE_PRODUCER,
         use_refine: bool = True,
         use_excision: bool = True,
         refine_max_iter: int = 300,
@@ -269,6 +275,11 @@ class ForgeGenerator:
         max_candidates: int = DEFAULT_MAX_CANDIDATES,
         max_total_steps: int = DEFAULT_MAX_TOTAL_STEPS,
     ) -> None:
+        if producer not in FORGE_PRODUCERS:
+            raise ValueError(
+                f"Unknown forge producer {producer!r}; expected one of {FORGE_PRODUCERS}"
+            )
+
         self.k = k
         self.g = g
         self.step_count = 0
@@ -278,7 +289,7 @@ class ForgeGenerator:
         self.start_time = 0.0
         self.last_event = None
 
-        self._model_id = model_id
+        self._producer = producer
         self._use_refine = use_refine
         self._use_excision = use_excision
         self._refine_max_iter = refine_max_iter
@@ -290,8 +301,8 @@ class ForgeGenerator:
         self._refine_score_fn = load_refine_score_fn(verbose=False)
         self._repair_policy = load_repair_policy()
 
-        # Build a fixed pool of harvest-mode RL voltage producers, cycled
-        # round-robin so multiple concurrent policy rollouts explore in parallel.
+        # Build a fixed pool of harvest-mode voltage producers (kind determined
+        # by self._producer), cycled round-robin for parallel exploration.
         self._producers = self._build_producers(k, g)
         self._producer_idx = 0
         self._producer_done = len(self._producers) == 0
@@ -319,17 +330,36 @@ class ForgeGenerator:
         for i in range(mb):
             _ = self.graph.add_node(i)
 
-    def _build_producers(self, k: int, g: int) -> list[VoltageRLGenerator]:
-        """Fixed pool of harvest-mode RL voltage generators.
+    def _build_producers(
+        self, k: int, g: int
+    ) -> list[VoltageRLGenerator | VoltageSearchGenerator]:
+        """Fixed pool of harvest-mode voltage generators for the selected producer.
 
-        Each ``VoltageRLGenerator`` runs independent policy rollouts and
-        streams every k-regular connected lift it finds via ``.harvested``.
-        The RL generator's stochastic action sampling gives each producer
-        natural diversity without needing distinct base/group seeds.
+        Builds ``_MAX_PRODUCER_CONFIGS`` instances of the generator kind chosen
+        by ``self._producer``.  Multiple instances provide diversity via internal
+        stochasticity (RL action sampling or tabu restarts) without distinct
+        seeds.
         """
-        producers: list[VoltageRLGenerator] = []
+        producers: list[VoltageRLGenerator | VoltageSearchGenerator] = []
         for _ in range(_MAX_PRODUCER_CONFIGS):
-            producers.append(VoltageRLGenerator(k, g, harvest=True))
+            if self._producer == "voltage_rl":
+                producers.append(VoltageRLGenerator(k, g, harvest=True))
+            elif self._producer == "voltage_girth":
+                producers.append(
+                    VoltageSearchGenerator(
+                        k, g, model_id="girth_predictor", harvest=True
+                    )
+                )
+            elif self._producer == "voltage_tabu":
+                producers.append(
+                    VoltageSearchGenerator(
+                        k, g, model_id="tabu_predictor", harvest=True
+                    )
+                )
+            else:
+                producers.append(
+                    VoltageSearchGenerator(k, g, model_id=None, harvest=True)
+                )
         return producers
 
     def elapsed_time(self) -> float:

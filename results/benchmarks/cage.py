@@ -28,7 +28,7 @@ import torch
 from ai.cage.registry.astar import AStarGenerator
 from ai.cage.registry.bruteforce import BruteforceGenerator
 from ai.cage.registry.direct_rl import RLGenerator
-from ai.cage.registry.forge import ForgeGenerator
+from ai.cage.registry.forge import DEFAULT_FORGE_PRODUCER, ForgeGenerator
 from ai.cage.registry.random_walk import RandomWalkGenerator
 from ai.cage.registry.voltage import VoltageSearchGenerator
 from ai.cage.registry.voltage_rl import VoltageRLGenerator
@@ -114,19 +114,15 @@ if _VOLTAGE_AC_ID is not None:
 
 # forge: the full voltage -> refine -> excision cascade. Unlike the other
 # approaches it shrinks the result toward the cage via the excision loop, so
-# its graph size (and Moore ratio) is the interesting signal. Uses the girth
-# predictor when present (graceful classical fallback otherwise).
-_SPECS.append(("forge", "", "girth_predictor" if _GIRTH_PREDICTOR_OK else None))
+# its graph size (and Moore ratio) is the interesting signal. Uses the RL
+# voltage producer (fastest in benchmarks).
+_SPECS.append(("forge", "", None))
 
 # forge ablation variants: isolate the contribution of each stage.
 #   forge_no_refine  — voltage + excision (near-misses dropped; only direct hits shrunk)
 #   forge_no_excision — voltage + refine, no shrink (first valid graph returned unshrunk)
-_SPECS.append(
-    ("forge", "no_refine", "girth_predictor" if _GIRTH_PREDICTOR_OK else None)
-)
-_SPECS.append(
-    ("forge", "no_excision", "girth_predictor" if _GIRTH_PREDICTOR_OK else None)
-)
+_SPECS.append(("forge", "no_refine", None))
+_SPECS.append(("forge", "no_excision", None))
 
 # ---------------------------------------------------------------------------
 # make_tasks
@@ -226,7 +222,7 @@ def execute(task: Task) -> list[TrialResult]:
         gen = ForgeGenerator(
             k,
             g,
-            model_id=model_id,
+            producer=DEFAULT_FORGE_PRODUCER,
             use_refine=variant != "no_refine",
             use_excision=variant != "no_excision",
         )
@@ -263,8 +259,6 @@ def execute(task: Task) -> list[TrialResult]:
     elif approach == "voltage_rl" and model_id is not None:
         m_params, m_size, m_hparams = model_meta("cage", model_id)
     elif approach == "voltage" and model_id is not None:
-        m_params, m_size, m_hparams = model_meta("voltage_girth", model_id)
-    elif approach == "forge" and model_id is not None:
         m_params, m_size, m_hparams = model_meta("voltage_girth", model_id)
 
     if variant:

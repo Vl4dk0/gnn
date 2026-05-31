@@ -26,7 +26,6 @@ class TestForgeGraph:
         G = forge_graph(
             3,
             6,
-            predictor=None,
             max_voltage_attempts=15,
             max_group_order=20,
             tabu_iterations=800,

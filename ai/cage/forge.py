@@ -20,7 +20,9 @@ from typing import cast
 import networkx as nx
 
 from ai.cage.registry.forge import (
+    DEFAULT_FORGE_PRODUCER,
     DEFAULT_MAX_CANDIDATES,
+    FORGE_PRODUCERS,
     REFINE_MARGIN,
     ForgeGenerator,
 )
@@ -37,7 +39,7 @@ def forge_graph(
     k: int,
     g: int,
     *,
-    predictor: str | None = "girth_predictor",
+    producer: str = DEFAULT_FORGE_PRODUCER,
     max_voltage_attempts: int = 40,
     max_group_order: int = 60,
     tabu_iterations: int = 2000,
@@ -59,8 +61,10 @@ def forge_graph(
 
     Args:
         k, g:                  Target degree and girth.
-        predictor:             Voltage predictor model_id ("girth_predictor" /
-                               "tabu_predictor") or None for classical tabu.
+        producer:              Voltage producer backend: "voltage_rl" (default,
+                               RL policy), "voltage_girth" (girth-predictor
+                               search), "voltage_tabu" (tabu-predictor search),
+                               or "voltage_algebraic" (no-GNN search).
         max_candidates:        Hard cap on lifts the producer pushes downstream.
         refine_max_iter:       Per-near-miss refine step budget.
         refine_margin:         Max girth gap below g a near-miss may have to be
@@ -89,7 +93,7 @@ def forge_graph(
     gen = ForgeGenerator(
         k,
         g,
-        model_id=predictor,
+        producer=producer,
         use_refine=not no_refine,
         use_excision=not no_excision,
         refine_max_iter=refine_max_iter,
@@ -136,10 +140,11 @@ def main() -> None:
     _ = parser.add_argument("k", type=int, help="Degree k")
     _ = parser.add_argument("g", type=int, help="Girth g")
     _ = parser.add_argument(
-        "--predictor",
+        "--producer",
         type=str,
-        default="girth_predictor",
-        help="Voltage predictor model_id, or 'none' for classical tabu",
+        default=DEFAULT_FORGE_PRODUCER,
+        choices=list(FORGE_PRODUCERS),
+        help="Voltage producer: voltage_rl (default), voltage_girth, voltage_tabu, voltage_algebraic",
     )
     _ = parser.add_argument(
         "--max-candidates",
@@ -166,13 +171,10 @@ def main() -> None:
     _ = parser.add_argument("--quiet", action="store_true", help="Suppress progress")
     args = parser.parse_args()
 
-    predictor_arg = cast(str, args.predictor)
-    predictor: str | None = None if predictor_arg.lower() == "none" else predictor_arg
-
     graph = forge_graph(
         cast(int, args.k),
         cast(int, args.g),
-        predictor=predictor,
+        producer=cast(str, args.producer),
         max_candidates=cast(int, args.max_candidates),
         time_budget=cast("float | None", args.time_budget),
         no_refine=cast(bool, args.no_refine),

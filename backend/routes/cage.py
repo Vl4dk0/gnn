@@ -21,6 +21,7 @@ from ai.cage import (
     VoltageRLGenerator,
     ForgeGenerator,
 )
+from ai.cage.registry.forge import DEFAULT_FORGE_PRODUCER, FORGE_PRODUCERS
 from ai.registry import (
     get_trained_dir,
     list_trained_models,
@@ -292,6 +293,7 @@ def _create_generator(
     g: int,
     requested_model_type: str,
     requested_model_id: str | None,
+    requested_producer: str,
 ) -> _Generator:
     if generator_type == "randomwalk":
         return RandomWalkGenerator(k, g)
@@ -304,7 +306,7 @@ def _create_generator(
     if generator_type == "voltage_rl":
         return VoltageRLGenerator(k, g, model_id=requested_model_id)
     if generator_type == "forge":
-        return ForgeGenerator(k, g, model_id=requested_model_id)
+        return ForgeGenerator(k, g, producer=requested_producer)
     return RLGenerator(
         k,
         g,
@@ -405,6 +407,7 @@ def generate() -> Response | tuple[Response, int]:
     raw_mode: str = data.get("mode", "async")
     requested_model_id: str | None = data.get("model_id")
     requested_model_type: str = data.get("model", "gin")
+    requested_producer: str = data.get("producer", DEFAULT_FORGE_PRODUCER)
     generator_type = _normalize_generator_type(raw_generator_type)
     mode = _normalize_mode(raw_mode)
 
@@ -439,6 +442,15 @@ def generate() -> Response | tuple[Response, int]:
                     )
                 }
             ), 400
+    if generator_type == "forge" and requested_producer not in FORGE_PRODUCERS:
+        return jsonify(
+            {
+                "error": (
+                    f"Unknown forge producer: {requested_producer}. "
+                    f"Expected one of {list(FORGE_PRODUCERS)}."
+                )
+            }
+        ), 400
 
     # Validation
     if k < 2:
@@ -474,6 +486,7 @@ def generate() -> Response | tuple[Response, int]:
             g,
             requested_model_type,
             requested_model_id,
+            requested_producer,
         )
     except (FileNotFoundError, RuntimeError, ValueError) as e:
         return jsonify({"error": str(e)}), 400
