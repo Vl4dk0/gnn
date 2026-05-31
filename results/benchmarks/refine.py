@@ -22,13 +22,26 @@ from ..metrics import TrialResult, model_meta_from_dir
 from ..registry import Benchmark, RunConfig, Task, register
 
 _ORACLE_DIR = Path("ai/trained/move_oracle/move_oracle")
+_ORACLE_LOOPY_DIR = Path("ai/trained/move_oracle_loopy_r3/move_oracle_loopy_r3")
+
+# Map the GNN variant name to the move-oracle directory it loads.
+_ORACLE_DIRS = {"gnn": _ORACLE_DIR, "loopy": _ORACLE_LOOPY_DIR}
 
 
 def make_tasks(config: RunConfig) -> list[Task]:
-    """Emit one Task per (instance × variant × seed) combination."""
+    """Emit one Task per (instance × variant × seed) combination.
+
+    The ``loopy`` variant is only emitted when the loopy move oracle has been
+    trained (its weights are on disk); otherwise the comparison is just the
+    algebraic baseline vs the gine oracle.
+    """
+    variants = ["no_gnn", "gnn"]
+    if (_ORACLE_LOOPY_DIR / "weights.pt").exists():
+        variants.append("loopy")
+
     tasks: list[Task] = []
     for idx, (name, k, g, _) in enumerate(refine_instances(config.quick)):
-        for variant in ("no_gnn", "gnn"):
+        for variant in variants:
             for seed in range(config.seed_base, config.seed_base + config.seeds):
                 tasks.append(
                     Task(
@@ -76,10 +89,11 @@ def execute(task: Task) -> list[TrialResult]:
     model_size_mb: float | None = None
     model_hparams: dict[str, object] | None = None
 
-    if variant == "gnn":
+    if variant in _ORACLE_DIRS:
         from ai.cage.refine.move_oracle import build_score_fn, load_move_oracle
 
-        model, cycle_lengths, rwpe_dim = load_move_oracle(_ORACLE_DIR)
+        oracle_dir = _ORACLE_DIRS[variant]
+        model, cycle_lengths, rwpe_dim = load_move_oracle(oracle_dir)
         score_fn = build_score_fn(
             model=model,
             cycle_lengths=cycle_lengths,
@@ -87,8 +101,8 @@ def execute(task: Task) -> list[TrialResult]:
             device="cpu",
         )
         refiner = TabuRefiner(g_target=g, score_fn=score_fn)
-        params, size_mb, hparams = model_meta_from_dir(_ORACLE_DIR)
-        model_id = "move_oracle"
+        params, size_mb, hparams = model_meta_from_dir(oracle_dir)
+        model_id = oracle_dir.parent.name
         model_params = params
         model_size_mb = size_mb
         model_hparams = hparams
