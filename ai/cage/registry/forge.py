@@ -68,6 +68,7 @@ from ai.cage.excision.repair_search import (
     load_repair_policy,
     try_excise_root,
 )
+from ai.cage.refine.cost import short_cycle_edge_fraction
 from ai.cage.refine.move_oracle import ScoreFn, load_refine_score_fn
 from ai.cage.refine.tabu import TabuRefineGenerator
 from ai.cage.registry.types import CageStepEvent
@@ -85,6 +86,15 @@ DEFAULT_FORGE_PRODUCER = "voltage_rl"
 # on g-1 / g-2 near-misses), so a near-miss lift is only worth refining when its
 # girth is within this many of the target.
 REFINE_MARGIN = 2
+
+# Default refine-routing gate.  "girth_margin" keeps the original girth-window
+# rule; "defect_density" routes by the fraction of defective edges instead, so a
+# lift whose girth is low only because of one short cycle is still refined.
+DEFAULT_REFINE_GATE = "girth_margin"
+
+# Default upper bound on defect_fraction (share of edges on a short cycle) for
+# the "defect_density" gate to route a lift to refine instead of dropping it.
+DEFAULT_REFINE_DEFECT_TAU = 0.2
 
 # Default hard cap on the total number of lifts the producer pushes downstream.
 DEFAULT_MAX_CANDIDATES = 20
@@ -233,6 +243,8 @@ class ForgeGenerator:
     _refine_max_iter: int
     _refine_sample_size: int
     _refine_margin: int
+    _refine_gate: str
+    _refine_defect_tau: float
     _max_candidates: int
     _max_total_steps: int
     _refine_score_fn: ScoreFn | None
@@ -273,6 +285,8 @@ class ForgeGenerator:
         refine_max_iter: int = 300,
         refine_sample_size: int = _REFINE_SAMPLE_SIZE,
         refine_margin: int = REFINE_MARGIN,
+        refine_gate: str = DEFAULT_REFINE_GATE,
+        refine_defect_tau: float = DEFAULT_REFINE_DEFECT_TAU,
         max_candidates: int = DEFAULT_MAX_CANDIDATES,
         max_total_steps: int = DEFAULT_MAX_TOTAL_STEPS,
         excision_backtracks: int = 300,
@@ -297,6 +311,8 @@ class ForgeGenerator:
         self._refine_max_iter = refine_max_iter
         self._refine_sample_size = refine_sample_size
         self._refine_margin = refine_margin
+        self._refine_gate = refine_gate
+        self._refine_defect_tau = refine_defect_tau
         self._max_candidates = max_candidates
         self._max_total_steps = max_total_steps
         self._excision_backtracks = excision_backtracks
@@ -473,6 +489,28 @@ class ForgeGenerator:
 
     # --- producer (voltage) ---------------------------------------------
 
+    def _should_refine_lift(self, lift: nx.Graph[int], girth: int) -> bool:
+        """Whether a non-direct-hit lift (girth < g) should be routed to refine.
+
+        Two gate modes:
+
+          * ``girth_margin`` (default): the original rule — refine only when the
+            lift's girth is within ``refine_margin`` of the target.
+          * ``defect_density``: refine when the fraction of edges lying on a
+            short cycle (girth < g) is at most ``refine_defect_tau``, regardless
+            of girth.  A lift whose girth is low purely because of one short
+            cycle is then still refined.  ``max_fraction`` caps the enumeration
+            cost on hopeless high-defect lifts (they are rejected anyway).
+        """
+        if not self._use_refine:
+            return False
+        if self._refine_gate == "defect_density":
+            defect = short_cycle_edge_fraction(
+                lift, self.g, max_fraction=self._refine_defect_tau
+            )
+            return defect <= self._refine_defect_tau
+        return girth >= self.g - self._refine_margin
+
     def _step_producer(self) -> bool:
         if self._producer_done:
             return False
@@ -496,12 +534,12 @@ class ForgeGenerator:
                 self._excise_queue.append(lift)
                 self._pushed += 1
                 queued_msgs.append(f"valid girth {girth} -> excise")
-            elif self._use_refine and girth >= self.g - self._refine_margin:
+            elif self._should_refine_lift(lift, girth):
                 self._seen_hashes.add(h)
                 self._refine_queue.append(lift)
                 self._pushed += 1
                 queued_msgs.append(f"near-miss girth {girth} -> refine")
-            # else: dropped (too far below g for refine to close, or refine disabled)
+            # else: dropped (too defective for refine to close, or refine disabled)
         producer.harvested.clear()
 
         # Producer is done once the cap is hit or every producer has finished.

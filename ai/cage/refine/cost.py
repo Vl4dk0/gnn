@@ -87,3 +87,56 @@ def short_cycle_cost(
         total += w * n_c
 
     return total
+
+
+def short_cycle_edge_fraction(
+    G: nx.Graph[int],
+    g_target: int,
+    max_fraction: float | None = None,
+) -> float:
+    """Fraction of edges that lie on at least one simple cycle shorter than g_target.
+
+    An edge is "bad" if it appears in some simple cycle of length in
+    ``[3, g_target - 1]``.  The returned value is
+
+        |{bad edges}| / |E(G)|
+
+    bounded in [0, 1] and size-invariant.  Unlike ``short_cycle_cost`` (which
+    grows with the total number of short cycles), this measures how much of the
+    graph is defective and is aligned with the refiner's degree-preserving
+    2-switch, which removes a fixed number of edges per move.
+
+    Reuses the same cycle enumeration as the rest of the module
+    (``nx.simple_cycles`` with ``length_bound = g_target - 1``).
+
+    Returns 0.0 when ``g_target <= 3`` (no shorter cycles possible), when G has
+    no edges, or when there are no short cycles.
+
+    Early-exit: when ``max_fraction`` is given, enumeration stops as soon as the
+    number of distinct bad edges exceeds ``max_fraction * |E|`` and a value
+    strictly greater than ``max_fraction`` (1.0) is returned.  Hopeless
+    high-defect lifts are rejected by the caller anyway, so this bounds the
+    enumeration cost on them.
+    """
+    if g_target <= 3:
+        return 0.0
+
+    m = G.number_of_edges()
+    if m == 0:
+        return 0.0
+
+    budget = None if max_fraction is None else max_fraction * m
+
+    bad_edges: set[tuple[int, int]] = set()
+    for cycle in nx.simple_cycles(G, length_bound=g_target - 1):
+        length = len(cycle)
+        if length < 3:
+            continue
+        for i in range(length):
+            u = cycle[i]
+            v = cycle[(i + 1) % length]
+            bad_edges.add((u, v) if u <= v else (v, u))
+        if budget is not None and len(bad_edges) > budget:
+            return 1.0
+
+    return len(bad_edges) / m
