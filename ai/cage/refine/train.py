@@ -362,6 +362,18 @@ def train(
             best_epoch = epoch + 1
             best_state = {k: v.clone() for k, v in model.state_dict().items()}
             patience_counter = 0
+            # Persist best-so-far to disk immediately so a wall-clock kill
+            # never loses the best checkpoint.
+            save_move_oracle(
+                model,
+                save_dir,
+                cycle_lengths=cycle_lengths,
+                rwpe_dim=rwpe_dim,
+            )
+            print(
+                f"  checkpoint saved (epoch {best_epoch}, "
+                f"top1_in_top5={best_top1_in_top5:.3f})"
+            )
         else:
             patience_counter += 1
 
