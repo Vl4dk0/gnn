@@ -11,14 +11,14 @@
     "conv_type": "sage",
     "heads": 8,
     "epochs": 5000,
-    "best_epoch": 280,
+    "best_epoch": 1700,
     "learning_rate": 0.001,
     "graphs_per_epoch": 10
   },
   "metrics": {
-    "mse": 0.082,
-    "mae": 0.0766,
-    "accuracy": 91.66
+    "mse": 0.1006,
+    "mae": 0.1006,
+    "accuracy": 89.98
   },
-  "created_at": "2026-04-16T14:57:03.929721"
+  "created_at": "2026-05-30T06:57:20.864181"
 }

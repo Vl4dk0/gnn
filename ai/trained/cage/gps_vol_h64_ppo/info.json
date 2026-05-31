@@ -18,745 +18,2321 @@
     "save_every": 100000
   },
   "metrics": {
-    "best_avg_reward": 4.92,
+    "best_avg_reward": 13.72,
     "best_avg_reward_by_stage": {
-      "3": 4.92,
-      "4": -1.08,
-      "5": -7.52,
-      "6": -13.6
+      "3": 12.36,
+      "4": 11.34,
+      "5": 10.8,
+      "6": 13.72,
+      "7": 11.34
     },
-    "final_step": 6500000,
-    "final_episode": 1133813,
-    "final_unlocked": 6
+    "final_step": 27900000,
+    "final_episode": 4606485,
+    "final_unlocked": 7
   },
   "save_history": [
     {
       "trigger": "stage_unlock",
       "suffix": "_stage2",
-      "step": 123,
-      "episode": 41,
+      "step": 120,
+      "episode": 40,
       "stage": 2
     },
     {
       "trigger": "stage_unlock",
       "suffix": "_stage3",
-      "step": 282,
-      "episode": 94,
+      "step": 168,
+      "episode": 56,
       "stage": 3
     },
     {
       "trigger": "stage_best",
       "suffix": "",
       "step": 512,
-      "episode": 135,
+      "episode": 127,
       "stage": 3
     },
     {
       "trigger": "stage_best",
       "suffix": "",
       "step": 1024,
-      "episode": 255,
+      "episode": 247,
       "stage": 3
     },
     {
       "trigger": "stage_best",
       "suffix": "",
-      "step": 1536,
-      "episode": 376,
+      "step": 4608,
+      "episode": 1021,
       "stage": 3
     },
     {
       "trigger": "stage_best",
       "suffix": "",
-      "step": 6656,
-      "episode": 1523,
+      "step": 5120,
+      "episode": 1127,
       "stage": 3
     },
     {
       "trigger": "stage_best",
       "suffix": "",
-      "step": 23552,
-      "episode": 5289,
-      "stage": 3
-    },
-    {
-      "trigger": "stage_best",
-      "suffix": "",
-      "step": 81920,
-      "episode": 18392,
-      "stage": 3
-    },
-    {
-      "trigger": "periodic",
-      "suffix": "_periodic",
-      "step": 100000,
-      "episode": 22447,
+      "step": 23040,
+      "episode": 5105,
       "stage": 3
     },
     {
       "trigger": "stage_unlock",
       "suffix": "_stage4",
-      "step": 196878,
-      "episode": 43991,
+      "step": 38622,
+      "episode": 8574,
       "stage": 4
     },
     {
       "trigger": "stage_best",
       "suffix": "",
-      "step": 197120,
-      "episode": 44038,
+      "step": 38912,
+      "episode": 8633,
       "stage": 4
     },
     {
       "trigger": "stage_best",
       "suffix": "",
-      "step": 199168,
-      "episode": 44429,
-      "stage": 4
-    },
-    {
-      "trigger": "periodic",
-      "suffix": "_periodic",
-      "step": 200000,
-      "episode": 44587,
+      "step": 39424,
+      "episode": 8730,
       "stage": 4
     },
     {
       "trigger": "stage_best",
       "suffix": "",
-      "step": 204288,
-      "episode": 45412,
+      "step": 42496,
+      "episode": 9308,
       "stage": 4
     },
     {
       "trigger": "stage_best",
       "suffix": "",
-      "step": 246784,
-      "episode": 53467,
-      "stage": 4
-    },
-    {
-      "trigger": "stage_best",
-      "suffix": "",
-      "step": 293376,
-      "episode": 62319,
+      "step": 94720,
+      "episode": 19211,
       "stage": 4
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
-      "step": 300000,
-      "episode": 63569,
-      "stage": 4
-    },
-    {
-      "trigger": "stage_best",
-      "suffix": "",
-      "step": 359424,
-      "episode": 74896,
-      "stage": 4
-    },
-    {
-      "trigger": "periodic",
-      "suffix": "_periodic",
-      "step": 400000,
-      "episode": 82659,
-      "stage": 4
-    },
-    {
-      "trigger": "periodic",
-      "suffix": "_periodic",
-      "step": 500000,
-      "episode": 101721,
-      "stage": 4
-    },
-    {
-      "trigger": "stage_best",
-      "suffix": "",
-      "step": 548352,
-      "episode": 110902,
-      "stage": 4
-    },
-    {
-      "trigger": "periodic",
-      "suffix": "_periodic",
-      "step": 600000,
-      "episode": 120709,
-      "stage": 4
-    },
-    {
-      "trigger": "stage_best",
-      "suffix": "",
-      "step": 687616,
-      "episode": 137329,
-      "stage": 4
-    },
-    {
-      "trigger": "periodic",
-      "suffix": "_periodic",
-      "step": 700000,
-      "episode": 139723,
-      "stage": 4
-    },
-    {
-      "trigger": "periodic",
-      "suffix": "_periodic",
-      "step": 800000,
-      "episode": 158835,
-      "stage": 4
-    },
-    {
-      "trigger": "periodic",
-      "suffix": "_periodic",
-      "step": 900000,
-      "episode": 177884,
-      "stage": 4
-    },
-    {
-      "trigger": "periodic",
-      "suffix": "_periodic",
-      "step": 1000000,
-      "episode": 196960,
-      "stage": 4
-    },
-    {
-      "trigger": "periodic",
-      "suffix": "_periodic",
-      "step": 1100000,
-      "episode": 216053,
-      "stage": 4
-    },
-    {
-      "trigger": "periodic",
-      "suffix": "_periodic",
-      "step": 1200000,
-      "episode": 235110,
+      "step": 100000,
+      "episode": 20215,
       "stage": 4
     },
     {
       "trigger": "stage_unlock",
       "suffix": "_stage5",
-      "step": 1296078,
-      "episode": 253414,
+      "step": 178728,
+      "episode": 35131,
       "stage": 5
     },
     {
       "trigger": "stage_best",
       "suffix": "",
-      "step": 1296384,
-      "episode": 253466,
+      "step": 179200,
+      "episode": 35210,
       "stage": 5
     },
     {
       "trigger": "stage_best",
       "suffix": "",
-      "step": 1296896,
-      "episode": 253556,
+      "step": 179712,
+      "episode": 35303,
       "stage": 5
     },
     {
       "trigger": "stage_best",
       "suffix": "",
-      "step": 1298432,
-      "episode": 253814,
-      "stage": 5
-    },
-    {
-      "trigger": "periodic",
-      "suffix": "_periodic",
-      "step": 1300000,
-      "episode": 254085,
+      "step": 183296,
+      "episode": 35931,
       "stage": 5
     },
     {
       "trigger": "stage_best",
       "suffix": "",
-      "step": 1311232,
-      "episode": 256072,
+      "step": 183808,
+      "episode": 36026,
       "stage": 5
     },
     {
       "trigger": "stage_best",
       "suffix": "",
-      "step": 1340416,
-      "episode": 261207,
-      "stage": 5
-    },
-    {
-      "trigger": "periodic",
-      "suffix": "_periodic",
-      "step": 1400000,
-      "episode": 271622,
-      "stage": 5
-    },
-    {
-      "trigger": "periodic",
-      "suffix": "_periodic",
-      "step": 1500000,
-      "episode": 289152,
-      "stage": 5
-    },
-    {
-      "trigger": "periodic",
-      "suffix": "_periodic",
-      "step": 1600000,
-      "episode": 306769,
-      "stage": 5
-    },
-    {
-      "trigger": "periodic",
-      "suffix": "_periodic",
-      "step": 1700000,
-      "episode": 324230,
-      "stage": 5
-    },
-    {
-      "trigger": "periodic",
-      "suffix": "_periodic",
-      "step": 1800000,
-      "episode": 341742,
-      "stage": 5
-    },
-    {
-      "trigger": "periodic",
-      "suffix": "_periodic",
-      "step": 1900000,
-      "episode": 359315,
+      "step": 186880,
+      "episode": 36552,
       "stage": 5
     },
     {
       "trigger": "stage_best",
       "suffix": "",
-      "step": 1907200,
-      "episode": 360603,
+      "step": 188416,
+      "episode": 36818,
       "stage": 5
     },
     {
       "trigger": "stage_best",
       "suffix": "",
-      "step": 1940480,
-      "episode": 366475,
+      "step": 197120,
+      "episode": 38354,
+      "stage": 5
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 200000,
+      "episode": 38855,
       "stage": 5
     },
     {
       "trigger": "stage_best",
       "suffix": "",
-      "step": 1994240,
-      "episode": 376028,
-      "stage": 5
-    },
-    {
-      "trigger": "periodic",
-      "suffix": "_periodic",
-      "step": 2000000,
-      "episode": 377060,
-      "stage": 5
-    },
-    {
-      "trigger": "periodic",
-      "suffix": "_periodic",
-      "step": 2100000,
-      "episode": 394590,
-      "stage": 5
-    },
-    {
-      "trigger": "periodic",
-      "suffix": "_periodic",
-      "step": 2200000,
-      "episode": 412141,
-      "stage": 5
-    },
-    {
-      "trigger": "periodic",
-      "suffix": "_periodic",
-      "step": 2300000,
-      "episode": 429654,
-      "stage": 5
-    },
-    {
-      "trigger": "periodic",
-      "suffix": "_periodic",
-      "step": 2400000,
-      "episode": 447184,
-      "stage": 5
-    },
-    {
-      "trigger": "periodic",
-      "suffix": "_periodic",
-      "step": 2500000,
-      "episode": 464725,
-      "stage": 5
-    },
-    {
-      "trigger": "periodic",
-      "suffix": "_periodic",
-      "step": 2600000,
-      "episode": 482241,
+      "step": 205312,
+      "episode": 39780,
       "stage": 5
     },
     {
       "trigger": "stage_best",
       "suffix": "",
-      "step": 2648064,
-      "episode": 490725,
+      "step": 211968,
+      "episode": 40963,
+      "stage": 5
+    },
+    {
+      "trigger": "stage_best",
+      "suffix": "",
+      "step": 288768,
+      "episode": 54428,
       "stage": 5
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
-      "step": 2700000,
-      "episode": 499812,
+      "step": 300000,
+      "episode": 56386,
+      "stage": 5
+    },
+    {
+      "trigger": "stage_best",
+      "suffix": "",
+      "step": 365568,
+      "episode": 67904,
+      "stage": 5
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 400000,
+      "episode": 73964,
       "stage": 5
     },
     {
       "trigger": "stage_unlock",
       "suffix": "_stage6",
-      "step": 2777865,
-      "episode": 513464,
+      "step": 499752,
+      "episode": 91503,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 500000,
+      "episode": 91544,
       "stage": 6
     },
     {
       "trigger": "stage_best",
       "suffix": "",
-      "step": 2778112,
-      "episode": 513502,
+      "step": 500224,
+      "episode": 91579,
       "stage": 6
     },
     {
       "trigger": "stage_best",
       "suffix": "",
-      "step": 2778624,
-      "episode": 513590,
+      "step": 500736,
+      "episode": 91666,
       "stage": 6
     },
     {
       "trigger": "stage_best",
       "suffix": "",
-      "step": 2779136,
-      "episode": 513677,
+      "step": 502784,
+      "episode": 92005,
       "stage": 6
     },
     {
       "trigger": "stage_best",
       "suffix": "",
-      "step": 2780160,
-      "episode": 513852,
+      "step": 504320,
+      "episode": 92261,
       "stage": 6
     },
     {
       "trigger": "stage_best",
       "suffix": "",
-      "step": 2786816,
-      "episode": 514968,
+      "step": 508416,
+      "episode": 92944,
+      "stage": 6
+    },
+    {
+      "trigger": "stage_best",
+      "suffix": "",
+      "step": 515072,
+      "episode": 94054,
+      "stage": 6
+    },
+    {
+      "trigger": "stage_best",
+      "suffix": "",
+      "step": 527360,
+      "episode": 96083,
+      "stage": 6
+    },
+    {
+      "trigger": "stage_best",
+      "suffix": "",
+      "step": 567296,
+      "episode": 102717,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 600000,
+      "episode": 108159,
+      "stage": 6
+    },
+    {
+      "trigger": "stage_best",
+      "suffix": "",
+      "step": 614400,
+      "episode": 110576,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 700000,
+      "episode": 124824,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 800000,
+      "episode": 141512,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 900000,
+      "episode": 158130,
+      "stage": 6
+    },
+    {
+      "trigger": "stage_best",
+      "suffix": "",
+      "step": 986624,
+      "episode": 172491,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 1000000,
+      "episode": 174751,
+      "stage": 6
+    },
+    {
+      "trigger": "stage_best",
+      "suffix": "",
+      "step": 1015296,
+      "episode": 177294,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 1100000,
+      "episode": 191422,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 1200000,
+      "episode": 208039,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 1300000,
+      "episode": 224745,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 1400000,
+      "episode": 241388,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 1500000,
+      "episode": 258020,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 1600000,
+      "episode": 274715,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 1700000,
+      "episode": 291348,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 1800000,
+      "episode": 307972,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 1900000,
+      "episode": 324707,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 2000000,
+      "episode": 341311,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 2100000,
+      "episode": 357967,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 2200000,
+      "episode": 374587,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 2300000,
+      "episode": 391159,
+      "stage": 6
+    },
+    {
+      "trigger": "stage_best",
+      "suffix": "",
+      "step": 2346496,
+      "episode": 398918,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 2400000,
+      "episode": 407883,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 2500000,
+      "episode": 424535,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 2600000,
+      "episode": 441190,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 2700000,
+      "episode": 457875,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 2800000,
-      "episode": 517137,
-      "stage": 6
-    },
-    {
-      "trigger": "stage_best",
-      "suffix": "",
-      "step": 2800128,
-      "episode": 517161,
-      "stage": 6
-    },
-    {
-      "trigger": "stage_best",
-      "suffix": "",
-      "step": 2854912,
-      "episode": 526319,
-      "stage": 6
-    },
-    {
-      "trigger": "stage_best",
-      "suffix": "",
-      "step": 2866176,
-      "episode": 528197,
+      "episode": 474514,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 2900000,
-      "episode": 533827,
+      "episode": 491189,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 3000000,
-      "episode": 550526,
+      "episode": 507907,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 3100000,
-      "episode": 567171,
-      "stage": 6
-    },
-    {
-      "trigger": "stage_best",
-      "suffix": "",
-      "step": 3125248,
-      "episode": 571390,
+      "episode": 524494,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 3200000,
-      "episode": 583844,
+      "episode": 541172,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 3300000,
-      "episode": 600538,
+      "episode": 557837,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 3400000,
-      "episode": 617236,
-      "stage": 6
-    },
-    {
-      "trigger": "stage_best",
-      "suffix": "",
-      "step": 3433984,
-      "episode": 622931,
+      "episode": 574431,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 3500000,
-      "episode": 634022,
+      "episode": 591012,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 3600000,
-      "episode": 650717,
+      "episode": 607640,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 3700000,
-      "episode": 667406,
+      "episode": 624364,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 3800000,
-      "episode": 684129,
+      "episode": 640969,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 3900000,
-      "episode": 700770,
+      "episode": 657702,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 4000000,
-      "episode": 717407,
+      "episode": 674320,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 4100000,
-      "episode": 734146,
+      "episode": 690927,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 4200000,
-      "episode": 750747,
+      "episode": 707514,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 4300000,
-      "episode": 767378,
+      "episode": 724124,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 4400000,
-      "episode": 784040,
+      "episode": 740784,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 4500000,
-      "episode": 800734,
+      "episode": 757472,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 4600000,
-      "episode": 817284,
+      "episode": 774147,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 4700000,
-      "episode": 833912,
+      "episode": 790753,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 4800000,
-      "episode": 850527,
+      "episode": 807451,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 4900000,
-      "episode": 867188,
+      "episode": 824153,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 5000000,
-      "episode": 883914,
+      "episode": 840824,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 5100000,
-      "episode": 900502,
-      "stage": 6
-    },
-    {
-      "trigger": "stage_best",
-      "suffix": "",
-      "step": 5105664,
-      "episode": 901452,
+      "episode": 857530,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 5200000,
-      "episode": 917153,
+      "episode": 874162,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 5300000,
-      "episode": 933879,
+      "episode": 890862,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 5400000,
-      "episode": 950514,
+      "episode": 907470,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 5500000,
-      "episode": 967197,
+      "episode": 924082,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 5600000,
-      "episode": 983960,
+      "episode": 940711,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 5700000,
-      "episode": 1000666,
+      "episode": 957309,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 5800000,
-      "episode": 1017360,
+      "episode": 973942,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 5900000,
-      "episode": 1033929,
+      "episode": 990632,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 6000000,
-      "episode": 1050529,
+      "episode": 1007306,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 6100000,
-      "episode": 1067207,
+      "episode": 1023868,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 6200000,
-      "episode": 1083834,
+      "episode": 1040550,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 6300000,
-      "episode": 1100525,
+      "episode": 1057192,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 6400000,
-      "episode": 1117107,
+      "episode": 1073947,
       "stage": 6
     },
     {
       "trigger": "periodic",
       "suffix": "_periodic",
       "step": 6500000,
-      "episode": 1133813,
+      "episode": 1090671,
       "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 6600000,
+      "episode": 1107359,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 6700000,
+      "episode": 1123989,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 6800000,
+      "episode": 1140652,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 6900000,
+      "episode": 1157302,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 7000000,
+      "episode": 1173808,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 7100000,
+      "episode": 1190414,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 7200000,
+      "episode": 1207113,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 7300000,
+      "episode": 1223751,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 7400000,
+      "episode": 1240428,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 7500000,
+      "episode": 1257127,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 7600000,
+      "episode": 1273770,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 7700000,
+      "episode": 1290477,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 7800000,
+      "episode": 1307081,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 7900000,
+      "episode": 1323781,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 8000000,
+      "episode": 1340514,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 8100000,
+      "episode": 1357209,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 8200000,
+      "episode": 1373777,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 8300000,
+      "episode": 1390462,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 8400000,
+      "episode": 1407112,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 8500000,
+      "episode": 1423800,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 8600000,
+      "episode": 1440490,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 8700000,
+      "episode": 1457244,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 8800000,
+      "episode": 1473896,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 8900000,
+      "episode": 1490612,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 9000000,
+      "episode": 1507346,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 9100000,
+      "episode": 1524078,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 9200000,
+      "episode": 1540690,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 9300000,
+      "episode": 1557398,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 9400000,
+      "episode": 1574002,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 9500000,
+      "episode": 1590717,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 9600000,
+      "episode": 1607350,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 9700000,
+      "episode": 1624066,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 9800000,
+      "episode": 1640815,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 9900000,
+      "episode": 1657540,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 10000000,
+      "episode": 1674223,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 10100000,
+      "episode": 1690899,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 10200000,
+      "episode": 1707644,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 10300000,
+      "episode": 1724342,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 10400000,
+      "episode": 1740929,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 10500000,
+      "episode": 1757515,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 10600000,
+      "episode": 1774250,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 10700000,
+      "episode": 1790899,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 10800000,
+      "episode": 1807579,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 10900000,
+      "episode": 1824269,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 11000000,
+      "episode": 1840939,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 11100000,
+      "episode": 1857483,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 11200000,
+      "episode": 1874167,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 11300000,
+      "episode": 1890925,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 11400000,
+      "episode": 1907507,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 11500000,
+      "episode": 1924219,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 11600000,
+      "episode": 1940973,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 11700000,
+      "episode": 1957663,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 11800000,
+      "episode": 1974301,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 11900000,
+      "episode": 1990989,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 12000000,
+      "episode": 2007693,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 12100000,
+      "episode": 2024382,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 12200000,
+      "episode": 2041036,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 12300000,
+      "episode": 2057710,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 12400000,
+      "episode": 2074444,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 12500000,
+      "episode": 2091042,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 12600000,
+      "episode": 2107634,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 12700000,
+      "episode": 2124347,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 12800000,
+      "episode": 2140949,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 12900000,
+      "episode": 2157615,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 13000000,
+      "episode": 2174299,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 13100000,
+      "episode": 2190998,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 13200000,
+      "episode": 2207647,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 13300000,
+      "episode": 2224292,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 13400000,
+      "episode": 2240910,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 13500000,
+      "episode": 2257550,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 13600000,
+      "episode": 2274208,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 13700000,
+      "episode": 2290872,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 13800000,
+      "episode": 2307438,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 13900000,
+      "episode": 2324159,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 14000000,
+      "episode": 2340856,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 14100000,
+      "episode": 2357556,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 14200000,
+      "episode": 2374117,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 14300000,
+      "episode": 2390759,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 14400000,
+      "episode": 2407391,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 14500000,
+      "episode": 2424093,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 14600000,
+      "episode": 2440737,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 14700000,
+      "episode": 2457474,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 14800000,
+      "episode": 2474083,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 14900000,
+      "episode": 2490693,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 15000000,
+      "episode": 2507357,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 15100000,
+      "episode": 2523981,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 15200000,
+      "episode": 2540623,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 15300000,
+      "episode": 2557236,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 15400000,
+      "episode": 2573895,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 15500000,
+      "episode": 2590561,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 15600000,
+      "episode": 2607275,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 15700000,
+      "episode": 2623980,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 15800000,
+      "episode": 2640741,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 15900000,
+      "episode": 2657361,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 16000000,
+      "episode": 2674082,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 16100000,
+      "episode": 2690829,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 16200000,
+      "episode": 2707450,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 16300000,
+      "episode": 2724155,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 16400000,
+      "episode": 2740889,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 16500000,
+      "episode": 2757557,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 16600000,
+      "episode": 2774185,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 16700000,
+      "episode": 2790826,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 16800000,
+      "episode": 2807504,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 16900000,
+      "episode": 2824211,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 17000000,
+      "episode": 2840893,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 17100000,
+      "episode": 2857614,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 17200000,
+      "episode": 2874300,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 17300000,
+      "episode": 2891001,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 17400000,
+      "episode": 2907688,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 17500000,
+      "episode": 2924328,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 17600000,
+      "episode": 2940943,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 17700000,
+      "episode": 2957625,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 17800000,
+      "episode": 2974306,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 17900000,
+      "episode": 2991020,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 18000000,
+      "episode": 3007725,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 18100000,
+      "episode": 3024388,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 18200000,
+      "episode": 3041116,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 18300000,
+      "episode": 3057805,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 18400000,
+      "episode": 3074493,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 18500000,
+      "episode": 3091212,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 18600000,
+      "episode": 3107824,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 18700000,
+      "episode": 3124428,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 18800000,
+      "episode": 3141111,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 18900000,
+      "episode": 3157613,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 19000000,
+      "episode": 3174282,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 19100000,
+      "episode": 3190903,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 19200000,
+      "episode": 3207469,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 19300000,
+      "episode": 3224171,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 19400000,
+      "episode": 3240822,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 19500000,
+      "episode": 3257548,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 19600000,
+      "episode": 3274295,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 19700000,
+      "episode": 3290950,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 19800000,
+      "episode": 3307611,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 19900000,
+      "episode": 3324213,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 20000000,
+      "episode": 3340831,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 20100000,
+      "episode": 3357592,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 20200000,
+      "episode": 3374235,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 20300000,
+      "episode": 3390835,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 20400000,
+      "episode": 3407488,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 20500000,
+      "episode": 3424110,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 20600000,
+      "episode": 3440831,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 20700000,
+      "episode": 3457480,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 20800000,
+      "episode": 3474071,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 20900000,
+      "episode": 3490669,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 21000000,
+      "episode": 3507378,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 21100000,
+      "episode": 3524004,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 21200000,
+      "episode": 3540716,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 21300000,
+      "episode": 3557454,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 21400000,
+      "episode": 3574195,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 21500000,
+      "episode": 3590806,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 21600000,
+      "episode": 3607531,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 21700000,
+      "episode": 3624092,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 21800000,
+      "episode": 3640807,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 21900000,
+      "episode": 3657466,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 22000000,
+      "episode": 3674134,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 22100000,
+      "episode": 3690805,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 22200000,
+      "episode": 3707436,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 22300000,
+      "episode": 3724104,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 22400000,
+      "episode": 3740667,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 22500000,
+      "episode": 3757286,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 22600000,
+      "episode": 3773971,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 22700000,
+      "episode": 3790573,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 22800000,
+      "episode": 3807198,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 22900000,
+      "episode": 3823818,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 23000000,
+      "episode": 3840454,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 23100000,
+      "episode": 3857105,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 23200000,
+      "episode": 3873829,
+      "stage": 6
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 23300000,
+      "episode": 3890430,
+      "stage": 6
+    },
+    {
+      "trigger": "stage_unlock",
+      "suffix": "_stage7",
+      "step": 23320242,
+      "episode": 3893792,
+      "stage": 7
+    },
+    {
+      "trigger": "stage_best",
+      "suffix": "",
+      "step": 23320576,
+      "episode": 3893842,
+      "stage": 7
+    },
+    {
+      "trigger": "stage_best",
+      "suffix": "",
+      "step": 23321088,
+      "episode": 3893922,
+      "stage": 7
+    },
+    {
+      "trigger": "stage_best",
+      "suffix": "",
+      "step": 23321600,
+      "episode": 3894000,
+      "stage": 7
+    },
+    {
+      "trigger": "stage_best",
+      "suffix": "",
+      "step": 23322112,
+      "episode": 3894077,
+      "stage": 7
+    },
+    {
+      "trigger": "stage_best",
+      "suffix": "",
+      "step": 23323648,
+      "episode": 3894315,
+      "stage": 7
+    },
+    {
+      "trigger": "stage_best",
+      "suffix": "",
+      "step": 23336448,
+      "episode": 3896319,
+      "stage": 7
+    },
+    {
+      "trigger": "stage_best",
+      "suffix": "",
+      "step": 23338496,
+      "episode": 3896646,
+      "stage": 7
+    },
+    {
+      "trigger": "stage_best",
+      "suffix": "",
+      "step": 23369216,
+      "episode": 3901398,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 23400000,
+      "episode": 3906218,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 23500000,
+      "episode": 3921799,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 23600000,
+      "episode": 3937417,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 23700000,
+      "episode": 3952937,
+      "stage": 7
+    },
+    {
+      "trigger": "stage_best",
+      "suffix": "",
+      "step": 23747072,
+      "episode": 3960249,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 23800000,
+      "episode": 3968498,
+      "stage": 7
+    },
+    {
+      "trigger": "stage_best",
+      "suffix": "",
+      "step": 23856640,
+      "episode": 3977391,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 23900000,
+      "episode": 3984083,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 24000000,
+      "episode": 3999589,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 24100000,
+      "episode": 4015188,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 24200000,
+      "episode": 4030800,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 24300000,
+      "episode": 4046357,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 24400000,
+      "episode": 4061906,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 24500000,
+      "episode": 4077537,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 24600000,
+      "episode": 4093074,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 24700000,
+      "episode": 4108617,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 24800000,
+      "episode": 4124227,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 24900000,
+      "episode": 4139749,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 25000000,
+      "episode": 4155280,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 25100000,
+      "episode": 4170851,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 25200000,
+      "episode": 4186353,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 25300000,
+      "episode": 4201891,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 25400000,
+      "episode": 4217490,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 25500000,
+      "episode": 4233047,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 25600000,
+      "episode": 4248534,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 25700000,
+      "episode": 4264133,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 25800000,
+      "episode": 4279688,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 25900000,
+      "episode": 4295229,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 26000000,
+      "episode": 4310780,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 26100000,
+      "episode": 4326388,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 26200000,
+      "episode": 4341916,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 26300000,
+      "episode": 4357465,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 26400000,
+      "episode": 4373027,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 26500000,
+      "episode": 4388594,
+      "stage": 7
+    },
+    {
+      "trigger": "stage_best",
+      "suffix": "",
+      "step": 26534912,
+      "episode": 4394017,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 26600000,
+      "episode": 4404181,
+      "stage": 7
+    },
+    {
+      "trigger": "stage_best",
+      "suffix": "",
+      "step": 26636288,
+      "episode": 4409867,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 26700000,
+      "episode": 4419798,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 26800000,
+      "episode": 4435403,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 26900000,
+      "episode": 4450957,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 27000000,
+      "episode": 4466572,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 27100000,
+      "episode": 4482104,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 27200000,
+      "episode": 4497687,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 27300000,
+      "episode": 4513177,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 27400000,
+      "episode": 4528712,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 27500000,
+      "episode": 4544279,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 27600000,
+      "episode": 4559901,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 27700000,
+      "episode": 4575502,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 27800000,
+      "episode": 4591006,
+      "stage": 7
+    },
+    {
+      "trigger": "periodic",
+      "suffix": "_periodic",
+      "step": 27900000,
+      "episode": 4606485,
+      "stage": 7
     }
   ]
 }

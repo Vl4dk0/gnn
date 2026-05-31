@@ -11,14 +11,14 @@
     "conv_type": "gcn",
     "heads": 8,
     "epochs": 5000,
-    "best_epoch": 340,
+    "best_epoch": 820,
     "learning_rate": 0.001,
     "graphs_per_epoch": 10
   },
   "metrics": {
-    "mse": 4.5456,
-    "mae": 1.5544,
-    "accuracy": 21.33
+    "mse": 4.7627,
+    "mae": 1.4632,
+    "accuracy": 24.31
   },
-  "created_at": "2026-04-16T14:34:18.482271"
+  "created_at": "2026-05-30T06:26:37.994703"
 }

@@ -1,0 +1,28 @@
+{
+  "model_type": "actor_critic",
+  "model_id": "gps_gin_8h_ppo",
+  "task": "cage",
+  "training": {
+    "model_type": "gps",
+    "input_dim": 8,
+    "hidden_dim": 64,
+    "num_layers": 4,
+    "dropout": 0.2,
+    "r": 3,
+    "shared": false,
+    "conv_type": "gin",
+    "heads": 8,
+    "steps": 99999999,
+    "learning_rate": 0.0003,
+    "update_interval": 2048,
+    "randomize": true,
+    "resumed": false,
+    "checkpoint_step": 2760704,
+    "partial": true
+  },
+  "metrics": {
+    "avg_reward": 26.62,
+    "fps": 29
+  },
+  "created_at": "2026-05-31T08:56:30.261241"
+}

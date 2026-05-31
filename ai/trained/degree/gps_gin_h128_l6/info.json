@@ -11,14 +11,14 @@
     "conv_type": "gin",
     "heads": 8,
     "epochs": 5000,
-    "best_epoch": 4760,
+    "best_epoch": 2000,
     "learning_rate": 0.001,
     "graphs_per_epoch": 10
   },
   "metrics": {
-    "mse": 0.0212,
-    "mae": 0.0212,
-    "accuracy": 97.99
+    "mse": 0.0262,
+    "mae": 0.0244,
+    "accuracy": 97.33
   },
-  "created_at": "2026-04-16T14:45:59.497075"
+  "created_at": "2026-05-30T06:42:09.761587"
 }

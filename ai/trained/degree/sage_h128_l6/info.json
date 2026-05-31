@@ -9,14 +9,14 @@
     "num_layers": 6,
     "dropout": 0.2,
     "epochs": 5000,
-    "best_epoch": 2540,
+    "best_epoch": 1840,
     "learning_rate": 0.001,
     "graphs_per_epoch": 10
   },
   "metrics": {
-    "mse": 0.3238,
-    "mae": 0.0396,
-    "accuracy": 99.23
+    "mse": 0.0076,
+    "mae": 0.0068,
+    "accuracy": 99.12
   },
-  "created_at": "2026-04-16T14:18:18.494970"
+  "created_at": "2026-05-30T06:04:39.833700"
 }
