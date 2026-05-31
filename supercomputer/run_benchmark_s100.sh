@@ -28,7 +28,7 @@
 # commit, push, then git pull locally.
 #
 # Timing: the seeds=5 full run is ~17-19 min (956 trials). Trial count scales
-# linearly with seeds, so seeds=100 is ~20x => ~6h wall at 254 workers. --time is
+# linearly with seeds, so seeds=100 is ~20x => ~9h wall at 128 workers. --time is
 # set to the 48h maximum purely as headroom so the job is never killed early.
 
 set -uo pipefail
@@ -44,7 +44,7 @@ uv run python -u -m results.runner \
     --cage-budget 60 \
     --cage-max-steps 200000 \
     --task-timeout 120 \
-    --workers 254 \
+    --workers 128 \
     --out-root results/runs
 
 echo "==> benchmark done"
