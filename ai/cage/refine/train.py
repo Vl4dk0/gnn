@@ -195,6 +195,8 @@ def train(
     val_fraction: float = 0.1,
     patience: int = 8,
     lift_fraction: float = 0.7,
+    backbone: str = "gine",
+    r: int = 3,
 ) -> MoveOracle:
     """Train a MoveOracle and return it.
 
@@ -206,7 +208,25 @@ def train(
     torch.manual_seed(seed)
     random.seed(seed)
 
-    print(f"Generating {samples} training samples (lift_fraction={lift_fraction})...")
+    # Resolve default save directory based on backbone so loopy never
+    # clobbers the gine model.
+    if save_dir is None:
+        trained_root = Path(__file__).resolve().parents[2] / "trained"
+        if backbone == "loopy":
+            save_dir = (
+                trained_root / f"move_oracle_loopy_r{r}" / f"move_oracle_loopy_r{r}"
+            )
+        else:
+            save_dir = trained_root / "move_oracle" / "move_oracle"
+
+    loopy_r: int | None = r if backbone == "loopy" else None
+
+    print(
+        f"Generating {samples} training samples "
+        f"(lift_fraction={lift_fraction}, backbone={backbone}"
+        + (f", r={r}" if backbone == "loopy" else "")
+        + ")..."
+    )
     t0 = time.time()
     dataset: list[Data] = generate_dataset(
         num_samples=samples,
@@ -215,6 +235,7 @@ def train(
         seed=seed,
         workers=workers,
         lift_fraction=lift_fraction,
+        r=loopy_r,
     )
     print(f"Generated {len(dataset)} samples in {time.time() - t0:.1f}s")
 
@@ -240,6 +261,8 @@ def train(
         node_feat_dim=node_feat_dim,
         hidden_dim=hidden_dim,
         num_layers=num_layers,
+        backbone=backbone,
+        r=r,
     )
 
     optimizer: torch.optim.Optimizer = torch.optim.Adam(model.parameters(), lr=lr)
@@ -354,14 +377,6 @@ def train(
         _ = model.load_state_dict(best_state)
     model.eval()
 
-    if save_dir is None:
-        save_dir = (
-            Path(__file__).resolve().parents[2]
-            / "trained"
-            / "move_oracle"
-            / "move_oracle"
-        )
-
     # Final val metrics with best model
     final_val = _compute_val_metrics(model, val_data, criterion)
     print(
@@ -435,6 +450,19 @@ def main() -> None:
         default=0.7,
         help="Fraction of training samples to source from voltage lift near-misses.",
     )
+    _ = parser.add_argument(
+        "--backbone",
+        type=str,
+        default="gine",
+        choices=["gine", "loopy"],
+        help="GNN backbone: 'gine' (default) or 'loopy' (Loopy_GNN, cycle-aware).",
+    )
+    _ = parser.add_argument(
+        "--r",
+        type=int,
+        default=3,
+        help="r-neighborhood radius for Loopy backbone (ignored for gine).",
+    )
     args = parser.parse_args()
 
     cycle_lengths = [int(x.strip()) for x in args.cycle_lengths.split(",")]
@@ -453,6 +481,8 @@ def main() -> None:
         val_fraction=args.val_fraction,
         patience=args.patience,
         lift_fraction=args.lift_fraction,
+        backbone=args.backbone,
+        r=args.r,
     )
 
 

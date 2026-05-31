@@ -36,6 +36,7 @@ from ai.cage.refine.swaps import apply_2_switch, enumerate_2_switches
 from ai.cage.voltage.base_graphs import BaseGraph, dumbbell
 from ai.cage.voltage.groups import FiniteGroup, cyclic_group, dihedral_group
 from ai.cage.voltage.lift import build_lift
+from ai.utils.r_neighborhood import apply_r_neighborhood
 from ai.utils.structural_features import add_structural_features
 from backend.utils.graph_utils import compute_girth
 
@@ -113,8 +114,22 @@ def graph_to_pyg(
     G: nx.Graph[int],
     cycle_lengths: list[int],
     rwpe_dim: int,
+    r: int | None = None,
 ) -> Data:
-    """Convert a NetworkX graph to a PyG Data with structural features."""
+    """Convert a NetworkX graph to a PyG Data with structural features.
+
+    Parameters
+    ----------
+    G:
+        Input NetworkX graph.
+    cycle_lengths:
+        Cycle lengths for structural features.
+    rwpe_dim:
+        RWPE dimension for structural features.
+    r:
+        If not None, attach Loopy r-neighborhood tensors (loopyN{L} /
+        loopyA{L}) required by the loopy backbone.
+    """
     nodes = sorted(G.nodes())
     node_idx = {v: i for i, v in enumerate(nodes)}
     n = len(nodes)
@@ -132,11 +147,14 @@ def graph_to_pyg(
         edge_index=edge_index,
         num_nodes=n,
     )
-    return add_structural_features(
+    data = add_structural_features(
         data,
         cycle_lengths=cycle_lengths,
         rwpe_dim=rwpe_dim,
     )
+    if r is not None:
+        data = apply_r_neighborhood(data, r=r)
+    return data
 
 
 def _data_to_spec(
@@ -172,6 +190,7 @@ def _make_sample_from_graph(
     rng: random.Random,
     cycle_lengths: list[int],
     rwpe_dim: int,
+    r: int | None = None,
 ) -> dict[str, Any] | None:
     """Given a graph G (already selected), produce one labeled spec dict."""
     swaps = list(enumerate_2_switches(G, sample_size=20))
@@ -188,7 +207,7 @@ def _make_sample_from_graph(
     delta = new_cost - base_cost
     nodes = sorted(G.nodes())
     node_idx = {v: i for i, v in enumerate(nodes)}
-    data = graph_to_pyg(G, cycle_lengths, rwpe_dim)
+    data = graph_to_pyg(G, cycle_lengths, rwpe_dim, r=r)
     swap_idx = [
         node_idx[swap.u],
         node_idx[swap.v],
@@ -206,6 +225,7 @@ def _generate_one_sample(
     cycle_lengths: list[int],
     rwpe_dim: int,
     lift_fraction: float,
+    r: int | None = None,
     max_inner_attempts: int = 20,
 ) -> dict[str, Any] | None:
     """Worker: produce one labeled spec dict, or None on failure.
@@ -235,7 +255,9 @@ def _generate_one_sample(
             except nx.NetworkXError:
                 continue
 
-        spec = _make_sample_from_graph(graph, g_target, rng, cycle_lengths, rwpe_dim)
+        spec = _make_sample_from_graph(
+            graph, g_target, rng, cycle_lengths, rwpe_dim, r=r
+        )
         if spec is not None:
             return spec
 
@@ -252,6 +274,7 @@ def generate_dataset(
     seed: int = 42,
     workers: int | None = None,
     lift_fraction: float = 0.7,
+    r: int | None = None,
 ) -> list[Data]:
     """Generate a supervised dataset of (graph, swap, Δcost) tuples.
 
@@ -275,6 +298,10 @@ def generate_dataset(
     lift_fraction:
         Fraction of samples to source from voltage lift near-misses (the
         rest come from random k-regular graphs for diversity).  Default 0.7.
+    r:
+        If not None, attach Loopy r-neighborhood tensors (loopyN{L} /
+        loopyA{L}) to each sample.  Required when training with
+        backbone="loopy".
 
     Returns
     -------
@@ -307,6 +334,7 @@ def generate_dataset(
                 cycle_lengths,
                 rwpe_dim,
                 lift_fraction,
+                r=r,
             )
             if sample is not None:
                 dataset.append(_spec_to_data(sample))
@@ -331,6 +359,7 @@ def generate_dataset(
             cycle_lengths,
             rwpe_dim,
             lift_fraction,
+            r,
         )
         in_flight.add(fut)
         attempts_submitted += 1
