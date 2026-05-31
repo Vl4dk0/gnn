@@ -39,8 +39,10 @@ import networkx as nx
 import torch
 
 from ai.cage.registry.forge import (
+    DEFAULT_FORGE_PRODUCER,
     DEFAULT_MAX_CANDIDATES,
     DEFAULT_MAX_TOTAL_STEPS,
+    FORGE_PRODUCERS,
     ForgeGenerator,
 )
 from ai.cage.utils import hog_record_order
@@ -91,6 +93,7 @@ def _candidate(
 def _worker(
     k: int,
     g: int,
+    producer: str,
     use_refine: bool,
     max_candidates: int,
     max_total_steps: int,
@@ -112,6 +115,7 @@ def _worker(
             gen = ForgeGenerator(
                 k,
                 g,
+                producer=producer,
                 use_refine=use_refine,
                 use_excision=True,
                 max_candidates=max_candidates,
@@ -257,17 +261,18 @@ def chase(args: argparse.Namespace) -> None:
     g = cast(int, args.g)
     variant = cast(str, args.variant)
     use_refine = variant != "no_refine"
+    producer = cast(str, args.producer)
     workers = cast(int, args.workers)
     time_budget = cast(float, args.time_budget)
     girth_floor = cast(int, args.girth_floor)
 
     stamp = time.strftime("%Y-%m-%d_%H-%M-%S")
     out_root = Path(cast(str, args.out))
-    out_dir = out_root / f"{stamp}_k{k}_g{g}_{variant}"
+    out_dir = out_root / f"{stamp}_k{k}_g{g}_{variant}_{producer}"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     print(
-        f"[chase] k={k} g={g} variant={variant} workers={workers} "
+        f"[chase] k={k} g={g} variant={variant} producer={producer} workers={workers} "
         + f"budget={time_budget:.0f}s -> {out_dir}",
         flush=True,
     )
@@ -280,6 +285,7 @@ def chase(args: argparse.Namespace) -> None:
             args=(
                 k,
                 g,
+                producer,
                 use_refine,
                 cast(int, args.max_candidates),
                 cast(int, args.max_total_steps),
@@ -447,6 +453,12 @@ def main() -> None:
         choices=["full", "no_refine"],
         default="full",
         help="full forge pipeline, or no_refine to disable the refine stage",
+    )
+    _ = cp.add_argument(
+        "--producer",
+        choices=list(FORGE_PRODUCERS),
+        default=DEFAULT_FORGE_PRODUCER,
+        help="voltage producer: voltage_rl (default), voltage_girth, voltage_tabu, voltage_algebraic",
     )
     _ = cp.add_argument(
         "--workers",
