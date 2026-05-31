@@ -5,8 +5,8 @@
 #SBATCH --partition=CPU
 #SBATCH --account=perun2501173
 #SBATCH --qos=perun2501173
-#SBATCH --cpus-per-task=32
-#SBATCH --mem=64G
+#SBATCH --cpus-per-task=256
+#SBATCH --mem=512G
 #SBATCH --time=08:00:00
 
 # In-process, multicore benchmark of every trained model / construction approach:
@@ -37,7 +37,7 @@ uv run python -u -m results.runner \
     --cage-budget 60 \
     --cage-max-steps 200000 \
     --task-timeout 120 \
-    --workers 30 \
+    --workers 254 \
     --out-root results/runs
 
 echo "==> benchmark done"

@@ -5,8 +5,8 @@
 #SBATCH --partition=CPU
 #SBATCH --account=perun2501173
 #SBATCH --qos=perun2501173
-#SBATCH --cpus-per-task=32
-#SBATCH --mem=64G
+#SBATCH --cpus-per-task=256
+#SBATCH --mem=512G
 #SBATCH --time=48:00:00
 
 # Overnight, high-seed-count variant of run_benchmark.sh: the full in-process,
@@ -28,7 +28,7 @@
 # commit, push, then git pull locally.
 #
 # Timing: the seeds=5 full run is ~17-19 min (956 trials). Trial count scales
-# linearly with seeds, so seeds=100 is ~20x => ~6h wall at 30 workers. --time is
+# linearly with seeds, so seeds=100 is ~20x => ~6h wall at 254 workers. --time is
 # set to the 48h maximum purely as headroom so the job is never killed early.
 
 set -uo pipefail
@@ -44,7 +44,7 @@ uv run python -u -m results.runner \
     --cage-budget 60 \
     --cage-max-steps 200000 \
     --task-timeout 120 \
-    --workers 30 \
+    --workers 254 \
     --out-root results/runs
 
 echo "==> benchmark done"
