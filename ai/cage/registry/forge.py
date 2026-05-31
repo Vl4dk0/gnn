@@ -237,6 +237,7 @@ class ForgeGenerator:
     _max_total_steps: int
     _refine_score_fn: ScoreFn | None
     _repair_policy: RepairPolicy | None
+    _excision_backtracks: int
 
     # Producer state.
     _producers: list[VoltageRLGenerator | VoltageSearchGenerator]
@@ -274,6 +275,7 @@ class ForgeGenerator:
         refine_margin: int = REFINE_MARGIN,
         max_candidates: int = DEFAULT_MAX_CANDIDATES,
         max_total_steps: int = DEFAULT_MAX_TOTAL_STEPS,
+        excision_backtracks: int = 300,
     ) -> None:
         if producer not in FORGE_PRODUCERS:
             raise ValueError(
@@ -297,6 +299,7 @@ class ForgeGenerator:
         self._refine_margin = refine_margin
         self._max_candidates = max_candidates
         self._max_total_steps = max_total_steps
+        self._excision_backtracks = excision_backtracks
         # Same classical-fallback loaders as forge_graph: absent models -> None.
         self._refine_score_fn = load_refine_score_fn(verbose=False)
         self._repair_policy = load_repair_policy()
@@ -581,7 +584,13 @@ class ForgeGenerator:
             if not self._excise_queue:
                 return False
             graph = self._excise_queue.pop(0)
-            self._excision = _ExcisionWorker(graph, self.k, self.g, self._repair_policy)
+            self._excision = _ExcisionWorker(
+                graph,
+                self.k,
+                self.g,
+                self._repair_policy,
+                max_backtracks=self._excision_backtracks,
+            )
 
         worker = self._excision
         action = worker.step()

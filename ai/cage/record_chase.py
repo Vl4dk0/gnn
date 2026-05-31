@@ -94,6 +94,8 @@ def _worker(
     use_refine: bool,
     max_candidates: int,
     max_total_steps: int,
+    refine_max_iter: int,
+    excision_backtracks: int,
     snapshot_interval: int,
     girth_floor: int,
     result_q: "Queue[QueueItem]",
@@ -110,11 +112,12 @@ def _worker(
             gen = ForgeGenerator(
                 k,
                 g,
-                model_id="girth_predictor",
                 use_refine=use_refine,
                 use_excision=True,
                 max_candidates=max_candidates,
                 max_total_steps=max_total_steps,
+                refine_max_iter=refine_max_iter,
+                excision_backtracks=excision_backtracks,
             )
             seen: set[str] = set()
             step = 0
@@ -280,6 +283,8 @@ def chase(args: argparse.Namespace) -> None:
                 use_refine,
                 cast(int, args.max_candidates),
                 cast(int, args.max_total_steps),
+                cast(int, args.refine_max_iter),
+                cast(int, args.excision_backtracks),
                 cast(int, args.snapshot_interval),
                 girth_floor,
                 result_q,
@@ -478,6 +483,18 @@ def main() -> None:
         type=int,
         default=4,
         help="ignore valid graphs with girth below this (default: 4)",
+    )
+    _ = cp.add_argument(
+        "--refine-max-iter",
+        type=int,
+        default=300,
+        help="forge refine_max_iter per near-miss",
+    )
+    _ = cp.add_argument(
+        "--excision-backtracks",
+        type=int,
+        default=300,
+        help="forge excision per-root backtrack budget",
     )
     _ = cp.add_argument(
         "--log-interval",

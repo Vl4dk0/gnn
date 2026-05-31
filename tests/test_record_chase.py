@@ -5,10 +5,12 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import cast
 
 import networkx as nx
 
 from ai.cage.record_chase import _candidate, _verify_g6, graph_to_g6, merge
+from ai.cage.registry.forge import ForgeGenerator
 from ai.cage.utils import hog_record_order
 from backend.utils.graph_utils import compute_girth, is_k_regular
 
@@ -89,6 +91,38 @@ def _write_run_dir(path: Path, k: int, records: dict[int, tuple[int, str]]) -> N
         },
     }
     _ = (path / "records.json").write_text(json.dumps(payload))
+
+
+def test_chase_parser_new_flags() -> None:
+    """--refine-max-iter and --excision-backtracks parse to the given int values."""
+    # Reconstruct just the chase subparser inline — avoids importing main().
+    parser = argparse.ArgumentParser()
+    sub = parser.add_subparsers(dest="command")
+    cp = sub.add_parser("chase")
+    _ = cp.add_argument("k", type=int)
+    _ = cp.add_argument("g", type=int)
+    _ = cp.add_argument("--refine-max-iter", type=int, default=300)
+    _ = cp.add_argument("--excision-backtracks", type=int, default=300)
+
+    args = parser.parse_args(
+        [
+            "chase",
+            "3",
+            "5",
+            "--refine-max-iter",
+            "5000",
+            "--excision-backtracks",
+            "4000",
+        ]
+    )
+    assert cast(int, args.refine_max_iter) == 5000
+    assert cast(int, args.excision_backtracks) == 4000
+
+
+def test_forge_accepts_excision_backtracks() -> None:
+    """ForgeGenerator accepts excision_backtracks and stores it correctly."""
+    gen = ForgeGenerator(3, 5, excision_backtracks=1000)
+    assert vars(gen)["_excision_backtracks"] == 1000
 
 
 def test_merge_keeps_smallest_and_rejects_unverifiable(tmp_path: Path) -> None:

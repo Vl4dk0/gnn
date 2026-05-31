@@ -39,11 +39,24 @@ cd ~/gnn
 WORKERS=48
 BUDGET=85500  # 23h45m, leaves ~75min under the 25h wall to write summaries
 
+# Caps raised hard for a record search: the producer keeps feeding (1000 lifts),
+# runs never hit a step cap (governed by the time budget), and refine/excision
+# work much harder per candidate. The group-order cap in the voltage env was
+# removed entirely (see ai/cage/voltage/rl/env.py).
+MAX_CANDIDATES=1000
+MAX_TOTAL_STEPS=100000000
+REFINE_MAX_ITER=10000
+EXCISION_BACKTRACKS=5000
+
 chase() {  # args: k g variant
     uv run python -u -m ai.cage.record_chase chase "$1" "$2" \
         --variant "$3" \
         --workers "$WORKERS" \
         --time-budget "$BUDGET" \
+        --max-candidates "$MAX_CANDIDATES" \
+        --max-total-steps "$MAX_TOTAL_STEPS" \
+        --refine-max-iter "$REFINE_MAX_ITER" \
+        --excision-backtracks "$EXCISION_BACKTRACKS" \
         --out results/records \
         > "benchmark_runs/rc_$1_$2_$3_${SLURM_JOB_ID}.log" 2>&1 &
 }

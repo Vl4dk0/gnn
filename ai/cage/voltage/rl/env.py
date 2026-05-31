@@ -141,7 +141,9 @@ class VoltageAssignmentEnv:
             min_order = max(5, mb // n_base)
             max_order = max(min_order + 5, (2 * mb) // n_base)
 
-        max_order = min(max_order, 60)  # cap for tractability
+        # No artificial group-order cap: the per-branch max_order above is
+        # already >= min_order, and for a record search the lift size should be
+        # bounded only by the Moore-bound-derived range, not a fixed ceiling.
         base = random.choice(bases)
 
         g_order = random.randint(min_order, max_order)
