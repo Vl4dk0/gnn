@@ -37,7 +37,7 @@ uv run python -u -m results.runner \
     --cage-budget 60 \
     --cage-max-steps 200000 \
     --task-timeout 120 \
-    --workers 128 \
+    --workers 216 \
     --out-root results/runs
 
 echo "==> benchmark done"
