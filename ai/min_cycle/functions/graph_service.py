@@ -15,6 +15,27 @@ from ai.utils.r_neighborhood import apply_r_neighborhood
 _model_cache: dict[str, BaseGNN] = {}
 
 
+def _build_node_features(num_nodes: int, feature_mode: str) -> torch.Tensor:
+    """Build the node-feature tensor for *feature_mode*.
+
+    "const1" -> a constant 1-dim feature; "feat4" -> the 4-dim vector
+    (normalized node index + two random coords + one random scalar). These
+    mirror the input_dim 1 vs 4 schemes used during training.
+    """
+    if feature_mode == "const1":
+        return torch.ones(num_nodes, 1)
+    if feature_mode == "feat4":
+        node_idx_feature: torch.Tensor = torch.arange(
+            num_nodes, dtype=torch.float
+        ).unsqueeze(1) / max(num_nodes - 1, 1)
+        _ = torch.manual_seed(42)  # pyright: ignore[reportUnknownMemberType]
+        random_feature: torch.Tensor = torch.randn(num_nodes, 2)
+        _ = torch.manual_seed(42)  # pyright: ignore[reportUnknownMemberType]
+        clustering_feature: torch.Tensor = torch.rand(num_nodes, 1)
+        return torch.cat([node_idx_feature, random_feature, clustering_feature], dim=1)
+    raise ValueError(f"Unknown feature_mode '{feature_mode}'")
+
+
 def get_min_cycle(G: nx.Graph[int], vertex: int) -> int:
     """
     Get the minimal cycle containing a vertex in the graph.
@@ -102,7 +123,9 @@ def load_mincycle_gnn(model_id: str | None = None) -> BaseGNN | None:
 
 
 def predict_all_nodes(
-    G: nx.Graph[int], model_id: str | None = None
+    G: nx.Graph[int],
+    model_id: str | None = None,
+    feature_mode: str = "feat4",
 ) -> list[dict[str, int | float]]:
     """
     Predict the smallest cycle for all vertices in the graph using a trained GNN.
@@ -110,6 +133,11 @@ def predict_all_nodes(
     Args:
         G: NetworkX Graph object
         model_id: Optional model identifier. Uses best model if not provided.
+        feature_mode: Input node-feature scheme. "feat4" (default) uses the
+            4-dim vector (normalized node index + two random coords + one random
+            scalar) matching training; "const1" uses a constant 1-dim feature.
+            Must match the loaded model's ``input_dim`` or a ValueError is
+            raised.
 
     Returns:
         List of dictionaries with format:
@@ -154,24 +182,19 @@ def predict_all_nodes(
     else:
         edge_index_tensor = torch.tensor(edge_index, dtype=torch.long).t().contiguous()
 
-    # Node features: match training setup with rich features
-    # Feature 1: Normalized node index (0 to 1)
-    node_idx_feature: torch.Tensor = torch.arange(
-        num_nodes, dtype=torch.float
-    ).unsqueeze(1) / max(num_nodes - 1, 1)
+    # Node features depend on feature_mode (matches the training feature
+    # schemes in ai/min_cycle/train.py: input_dim 1 vs 4).
+    x: torch.Tensor = _build_node_features(num_nodes, feature_mode)
 
-    # Feature 2: Random embedding (deterministic with seed for consistency)
-    _ = torch.manual_seed(42)  # pyright: ignore[reportUnknownMemberType]
-    random_feature: torch.Tensor = torch.randn(num_nodes, 2)
-
-    # Feature 3: Clustering coefficient placeholder
-    _ = torch.manual_seed(42)  # pyright: ignore[reportUnknownMemberType]
-    clustering_feature: torch.Tensor = torch.rand(num_nodes, 1)
-
-    # Combine all features (must match training: 4 features)
-    x: torch.Tensor = torch.cat(
-        [node_idx_feature, random_feature, clustering_feature], dim=1
-    )
+    # Guard: the loaded model was trained for a specific input_dim. Feeding a
+    # mismatched feature width would either error deep in the conv or silently
+    # misbehave, so fail fast with a clear message the caller can catch.
+    expected_dim: int = int(getattr(model, "input_dim", x.size(1)))
+    if x.size(1) != expected_dim:
+        raise ValueError(
+            f"feature_mode '{feature_mode}' produces {x.size(1)}-dim features but"
+            + f" model '{model_id}' expects input_dim={expected_dim}"
+        )
 
     # Create data object
     data: Data = Data(x=x, edge_index=edge_index_tensor)

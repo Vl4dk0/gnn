@@ -30,11 +30,20 @@ from ai.cage.registry.bruteforce import BruteforceGenerator
 from ai.cage.registry.direct_rl import RLGenerator
 from ai.cage.registry.forge import (
     DEFAULT_FORGE_PRODUCER,
+    DEFAULT_MAX_CANDIDATES,
+    DEFAULT_REFINE_DEFECT_TAU,
+    DEFAULT_REFINE_GATE,
     FORGE_PRODUCERS,
+    REFINE_MARGIN,
     ForgeGenerator,
 )
 from ai.cage.registry.random_walk import RandomWalkGenerator
-from ai.cage.registry.voltage import VoltageSearchGenerator
+from ai.cage.registry.voltage import (
+    BEAM_PROBE_INTERVAL,
+    DEFAULT_BEAM_WIDTH,
+    DEFAULT_TABU_TENURE,
+    VoltageSearchGenerator,
+)
 from ai.cage.registry.voltage_rl import VoltageRLGenerator
 from ai.registry import list_trained_models
 from backend.utils.graph_utils import compute_girth, is_k_regular, moore_bound
@@ -114,7 +123,12 @@ if _TABU_PREDICTOR_OK:
     _SPECS.append(("voltage", "TabuPredictor", "tabu_predictor"))
 
 if _VOLTAGE_AC_ID is not None:
-    _SPECS.append(("voltage_rl", "", _VOLTAGE_AC_ID))
+    # voltage_rl decoding mode: the policy can pick actions stochastically
+    # (sample from the action distribution, the historical default) or
+    # deterministically (argmax).  Both run the same weights; the payload flag
+    # ``vrl_deterministic`` selects the decode.
+    _SPECS.append(("voltage_rl", "Stochastic", _VOLTAGE_AC_ID))
+    _SPECS.append(("voltage_rl", "Deterministic", _VOLTAGE_AC_ID))
 
 # forge: the full voltage -> refine -> excision cascade. Unlike the other
 # approaches it shrinks the result toward the cage via the excision loop, so
@@ -135,6 +149,125 @@ for _producer in FORGE_PRODUCERS:
 #   no_excision — voltage + refine, no shrink (first valid graph returned unshrunk)
 _SPECS.append(("forge", "no_refine", None))
 _SPECS.append(("forge", "no_excision", None))
+
+# A3 — forge ablations across the other (non-default) producers.  The default
+# producer's ablations live above as the bare "no_refine"/"no_excision" rows; to
+# avoid duplicating them we ablate only the three NON-default producers here.
+# Composite variant name "<producer>+<ablation>" (e.g. "voltage_tabu+no_refine")
+# is parsed back into (producer, use_refine, use_excision) in execute().
+FORGE_ABLATION_PRODUCERS = tuple(
+    p for p in FORGE_PRODUCERS if p != DEFAULT_FORGE_PRODUCER
+)
+for _producer in FORGE_ABLATION_PRODUCERS:
+    _SPECS.append(("forge", f"{_producer}+no_refine", None))
+    _SPECS.append(("forge", f"{_producer}+no_excision", None))
+
+# C — forge hyperparameter sweep on the default producer (full pipeline).  Swept
+# as two small one-dimensional families (not a cross-product): max_candidates
+# controls how many lifts the producer pushes downstream; refine_margin controls
+# how far below girth g a near-miss may sit and still be queued for refine.  The
+# swept value is threaded into ForgeGenerator via the payload.
+FORGE_MAX_CANDIDATES_SWEEP = (10, 20, 40)
+FORGE_REFINE_MARGIN_SWEEP = (1, 2, 3)
+for _mc in FORGE_MAX_CANDIDATES_SWEEP:
+    _SPECS.append(("forge", f"max_candidates={_mc}", None))
+for _rm in FORGE_REFINE_MARGIN_SWEEP:
+    _SPECS.append(("forge", f"refine_margin={_rm}", None))
+
+# C — forge refine-routing gate sweep on the default producer (full pipeline).
+# The "defect_density" gate routes a near-miss to refine by the fraction of
+# edges lying on a short cycle (size-relative) rather than by girth window, so a
+# lift whose girth is low only because of one short cycle is still refined.
+# Sweep the defect threshold tau; the value rides in via the payload.
+FORGE_DEFECT_TAU_SWEEP = (0.1, 0.2, 0.3)
+for _tau in FORGE_DEFECT_TAU_SWEEP:
+    _SPECS.append(("forge", f"defect_gate_tau={_tau}", None))
+
+# C — voltage hyperparameter sweep on the algebraic (no-GNN) tabu search, so no
+# model dependency is needed.  Three small one-dimensional families: beam width
+# (only meaningful when a girth predictor is loaded, but kept here so the sweep
+# is uniform), beam-probe interval, and tabu tenure.  Each swept value rides in
+# via the payload and is threaded into VoltageSearchGenerator in execute().
+VOLTAGE_BEAM_WIDTH_SWEEP = (10, 20, 40)
+VOLTAGE_BEAM_PROBE_INTERVAL_SWEEP = (5, 10, 20)
+VOLTAGE_TABU_TENURE_SWEEP = (5, 10, 20)
+for _bw in VOLTAGE_BEAM_WIDTH_SWEEP:
+    _SPECS.append(("voltage", f"beam_width={_bw}", None))
+for _bpi in VOLTAGE_BEAM_PROBE_INTERVAL_SWEEP:
+    _SPECS.append(("voltage", f"beam_probe_interval={_bpi}", None))
+for _tt in VOLTAGE_TABU_TENURE_SWEEP:
+    _SPECS.append(("voltage", f"tabu_tenure={_tt}", None))
+
+# ---------------------------------------------------------------------------
+# Variant -> tunable payload
+#
+# Every tunable a variant introduces is threaded through task.payload so the
+# same generator code serves every variant.  Producer-named and ablation
+# variants for forge, decode mode for voltage_rl, and the hyperparameter sweeps
+# all decode here from the (approach, variant) pair into explicit payload keys.
+# ---------------------------------------------------------------------------
+
+
+def _variant_params(approach: str, variant: str) -> dict[str, object]:
+    """Decode a spec's variant string into explicit tunable payload entries.
+
+    Keys (all optional; absent => the generator's own default applies):
+      forge_producer       str   — which voltage producer to drive (forge)
+      forge_use_refine     bool  — enable the refine stage (forge)
+      forge_use_excision   bool  — enable the excision stage (forge)
+      forge_max_candidates int   — producer push cap (forge sweep)
+      forge_refine_margin  int   — near-miss girth window (forge sweep)
+      forge_refine_gate    str   — refine-routing gate mode (forge sweep)
+      forge_refine_defect_tau float — defect-density gate threshold (forge sweep)
+      vrl_deterministic    bool  — argmax vs sampled decode (voltage_rl)
+      beam_width           int   — beam-probe width (voltage sweep)
+      beam_probe_interval  int   — steps between beam probes (voltage sweep)
+      tabu_tenure          int   — tabu move tenure (voltage sweep)
+    """
+    params: dict[str, object] = {}
+
+    if approach == "forge":
+        # Producer + stage flags.  A bare ablation variant ("no_refine" /
+        # "no_excision") applies to the default producer; a composite
+        # "<producer>+<ablation>" applies to that producer.  A producer-named
+        # variant runs the full pipeline.  Anything else (the sweep variants)
+        # keeps the default producer with both stages on.
+        producer = DEFAULT_FORGE_PRODUCER
+        ablation = ""
+        if variant in FORGE_PRODUCERS:
+            producer = variant
+        elif variant in ("no_refine", "no_excision"):
+            ablation = variant
+        elif "+" in variant:
+            prod_part, _, abl_part = variant.partition("+")
+            if prod_part in FORGE_PRODUCERS:
+                producer = prod_part
+                ablation = abl_part
+        params["forge_producer"] = producer
+        params["forge_use_refine"] = ablation != "no_refine"
+        params["forge_use_excision"] = ablation != "no_excision"
+
+        if variant.startswith("max_candidates="):
+            params["forge_max_candidates"] = int(variant.split("=", 1)[1])
+        elif variant.startswith("refine_margin="):
+            params["forge_refine_margin"] = int(variant.split("=", 1)[1])
+        elif variant.startswith("defect_gate_tau="):
+            params["forge_refine_gate"] = "defect_density"
+            params["forge_refine_defect_tau"] = float(variant.split("=", 1)[1])
+
+    elif approach == "voltage_rl":
+        params["vrl_deterministic"] = variant == "Deterministic"
+
+    elif approach == "voltage":
+        if variant.startswith("beam_width="):
+            params["beam_width"] = int(variant.split("=", 1)[1])
+        elif variant.startswith("beam_probe_interval="):
+            params["beam_probe_interval"] = int(variant.split("=", 1)[1])
+        elif variant.startswith("tabu_tenure="):
+            params["tabu_tenure"] = int(variant.split("=", 1)[1])
+
+    return params
+
 
 # ---------------------------------------------------------------------------
 # make_tasks
@@ -163,22 +296,18 @@ def make_tasks(config: RunConfig) -> list[Task]:
                     label = f"({k},{g}) {approach}[{variant}] s{seed}"
                 else:
                     label = f"({k},{g}) {approach} s{seed}"
-                tasks.append(
-                    Task(
-                        benchmark="cage",
-                        label=label,
-                        payload={
-                            "k": k,
-                            "g": g,
-                            "approach": approach,
-                            "variant": variant,
-                            "model_id": model_id if model_id is not None else "",
-                            "seed": seed,
-                            "time_budget_s": config.cage_time_budget_s,
-                            "max_steps": config.cage_max_steps,
-                        },
-                    )
-                )
+                payload: dict[str, object] = {
+                    "k": k,
+                    "g": g,
+                    "approach": approach,
+                    "variant": variant,
+                    "model_id": model_id if model_id is not None else "",
+                    "seed": seed,
+                    "time_budget_s": config.cage_time_budget_s,
+                    "max_steps": config.cage_max_steps,
+                }
+                payload.update(_variant_params(approach, variant))
+                tasks.append(Task(benchmark="cage", label=label, payload=payload))
     return tasks
 
 
@@ -227,19 +356,56 @@ def execute(task: Task) -> list[TrialResult]:
     elif approach == "rl":
         gen = RLGenerator(k, g, model_id=model_id)
     elif approach == "voltage":
-        gen = VoltageSearchGenerator(k, g, model_id=model_id)
+        # Hyperparameter-sweep variants thread beam_width / beam_probe_interval /
+        # tabu_tenure through the payload; absent keys fall back to the
+        # generator's own defaults so the plain Algebraic/predictor rows are
+        # unaffected.
+        beam_width = cast(int, task.payload.get("beam_width", DEFAULT_BEAM_WIDTH))
+        beam_probe_interval = cast(
+            int, task.payload.get("beam_probe_interval", BEAM_PROBE_INTERVAL)
+        )
+        tabu_tenure = cast(int, task.payload.get("tabu_tenure", DEFAULT_TABU_TENURE))
+        gen = VoltageSearchGenerator(
+            k,
+            g,
+            model_id=model_id,
+            beam_width=beam_width,
+            beam_probe_interval=beam_probe_interval,
+            tabu_tenure=tabu_tenure,
+        )
     elif approach == "voltage_rl":
-        gen = VoltageRLGenerator(k, g, model_id=model_id)
+        deterministic = cast(bool, task.payload.get("vrl_deterministic", False))
+        gen = VoltageRLGenerator(k, g, model_id=model_id, deterministic=deterministic)
     elif approach == "forge":
-        # A producer-named variant selects that producer (full pipeline); the
-        # ablation variants (no_refine/no_excision) use the default producer.
-        producer = variant if variant in FORGE_PRODUCERS else DEFAULT_FORGE_PRODUCER
+        # Producer + stage flags + sweep values all ride in via the payload
+        # (decoded from the variant by _variant_params); absent keys fall back to
+        # ForgeGenerator's own defaults.
+        producer = cast(str, task.payload.get("forge_producer", DEFAULT_FORGE_PRODUCER))
+        use_refine = cast(bool, task.payload.get("forge_use_refine", True))
+        use_excision = cast(bool, task.payload.get("forge_use_excision", True))
+        max_candidates = cast(
+            int, task.payload.get("forge_max_candidates", DEFAULT_MAX_CANDIDATES)
+        )
+        refine_margin = cast(
+            int, task.payload.get("forge_refine_margin", REFINE_MARGIN)
+        )
+        refine_gate = cast(
+            str, task.payload.get("forge_refine_gate", DEFAULT_REFINE_GATE)
+        )
+        refine_defect_tau = cast(
+            float,
+            task.payload.get("forge_refine_defect_tau", DEFAULT_REFINE_DEFECT_TAU),
+        )
         gen = ForgeGenerator(
             k,
             g,
             producer=producer,
-            use_refine=variant != "no_refine",
-            use_excision=variant != "no_excision",
+            use_refine=use_refine,
+            use_excision=use_excision,
+            max_candidates=max_candidates,
+            refine_margin=refine_margin,
+            refine_gate=refine_gate,
+            refine_defect_tau=refine_defect_tau,
         )
     else:
         raise ValueError(f"Unknown approach: {approach!r}")

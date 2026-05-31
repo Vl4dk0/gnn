@@ -39,6 +39,7 @@ class VoltageRLGenerator:
     last_event: CageStepEvent | None
     harvest: bool
     harvested: list[tuple[nx.Graph[int], int]]
+    deterministic: bool
 
     def __init__(
         self,
@@ -47,6 +48,7 @@ class VoltageRLGenerator:
         model_id: str | None = None,
         *,
         harvest: bool = False,
+        deterministic: bool = False,
     ):
         self.k = k
         self.g = g
@@ -61,6 +63,7 @@ class VoltageRLGenerator:
 
         self.harvest = harvest
         self.harvested = []
+        self.deterministic = deterministic
 
         # Start with an empty graph; will be replaced by lift on success
         self.graph = nx.Graph()
@@ -160,7 +163,9 @@ class VoltageRLGenerator:
 
         with torch.no_grad():
             action, _, _ = self.model.get_action(
-                self.obs, action_dim=self.env.get_action_dim(), deterministic=False
+                self.obs,
+                action_dim=self.env.get_action_dim(),
+                deterministic=self.deterministic,
             )
 
         next_obs, reward, done, info = self.env.step(action)

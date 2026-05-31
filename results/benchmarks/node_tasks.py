@@ -34,12 +34,18 @@ _PREDICT_FNS = {
     "min_cycle": predict_min_cycle,
 }
 
+# Feature-ablation modes and the input feature width each one produces. These
+# must match the feature schemes built in the task graph_service modules
+# (const1 -> constant 1-dim feature, feat4 -> 4-dim vector).
+_FEATURE_MODES: dict[str, int] = {"const1": 1, "feat4": 4}
+
 
 def _make_tasks(task_name: str, config: RunConfig) -> list[Task]:
-    """Emit one Task per trained model for *task_name*.
+    """Emit one Task per (trained model x feature_mode) for *task_name*.
 
     Honours config.approaches: when set, only models whose architecture
-    (model_type) is listed are benchmarked.
+    (model_type) is listed are benchmarked. Each model is evaluated under every
+    feature_mode in _FEATURE_MODES so the report can compare them.
     """
     tasks: list[Task] = []
     for m in list_trained_models(task_name):
@@ -49,17 +55,19 @@ def _make_tasks(task_name: str, config: RunConfig) -> list[Task]:
         ):
             continue
         mid: str = m["model_id"]
-        tasks.append(
-            Task(
-                benchmark=task_name,
-                label=f"{task_name}:{mid}",
-                payload={
-                    "task": task_name,
-                    "model_id": mid,
-                    "quick": config.quick,
-                },
+        for feature_mode in _FEATURE_MODES:
+            tasks.append(
+                Task(
+                    benchmark=task_name,
+                    label=f"{task_name}:{mid}[{feature_mode}]",
+                    payload={
+                        "task": task_name,
+                        "model_id": mid,
+                        "quick": config.quick,
+                        "feature_mode": feature_mode,
+                    },
+                )
             )
-        )
     return tasks
 
 
@@ -73,13 +81,54 @@ def _execute(task: Task) -> list[TrialResult]:
     task_name: str = cast(str, task.payload["task"])
     model_id: str = cast(str, task.payload["model_id"])
     quick: bool = cast(bool, task.payload["quick"])
+    feature_mode: str = cast(str, task.payload.get("feature_mode", "feat4"))
 
-    # Look up model_type from the registry
+    # Look up model_type and trained input_dim from the registry
     model_type: str = "unknown"
+    model_input_dim: int | None = None
     for m in list_trained_models(task_name):
         if m["model_id"] == model_id:
             model_type = m.get("model_type", "unknown") or "unknown"
+            training = m.get("training")
+            if training is not None:
+                model_input_dim = training.get("input_dim")
             break
+
+    params, size_mb, hparams = model_meta(task_name, model_id)
+
+    # A model trained for a specific input_dim cannot consume a feature_mode of
+    # a different width. Detect the mismatch up-front and emit a single skipped
+    # (failure) TrialResult instead of letting it error on every graph.
+    feature_dim = _FEATURE_MODES.get(feature_mode)
+    if (
+        model_input_dim is not None
+        and feature_dim is not None
+        and model_input_dim != feature_dim
+    ):
+        return [
+            TrialResult(
+                benchmark=task_name,
+                approach=model_type,
+                variant=feature_mode,
+                label=f"{task_name}:{model_id}[{feature_mode}]",
+                instance="battery",
+                target={},
+                success=False,
+                elapsed_s=0.0,
+                steps=None,
+                n_nodes=None,
+                n_edges=None,
+                metrics={"feature_dim": float(feature_dim)},
+                model_id=model_id,
+                model_params=params,
+                model_size_mb=size_mb,
+                model_hparams=hparams,
+                error=(
+                    f"skipped: feature_mode '{feature_mode}' is {feature_dim}-dim"
+                    + f" but model input_dim={model_input_dim}"
+                ),
+            )
+        ]
 
     predict_fn = _PREDICT_FNS[task_name]
     graphs: list[tuple[str, nx.Graph[int]]] = node_battery(quick)
@@ -92,7 +141,7 @@ def _execute(task: Task) -> list[TrialResult]:
     t0 = time.perf_counter()
     for _name, G in graphs:
         try:
-            results = predict_fn(G, model_id)
+            results = predict_fn(G, model_id, feature_mode)
         except Exception as exc:
             n_failed += 1
             if first_error is None:
@@ -120,8 +169,6 @@ def _execute(task: Task) -> list[TrialResult]:
         obo = sum(1 for d in diffs if round(d) == 1)
         off_by_one = obo / n_total
 
-    params, size_mb, hparams = model_meta(task_name, model_id)
-
     # A model that produced no predictions (errored on every graph, e.g. a
     # weights/architecture mismatch) is a FAILURE, not a 0%-accuracy success.
     success = n_total > 0
@@ -130,8 +177,8 @@ def _execute(task: Task) -> list[TrialResult]:
         TrialResult(
             benchmark=task_name,
             approach=model_type,
-            variant="",
-            label=f"{task_name}:{model_id}",
+            variant=feature_mode,
+            label=f"{task_name}:{model_id}[{feature_mode}]",
             instance="battery",
             target={},
             success=success,

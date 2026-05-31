@@ -42,6 +42,12 @@ from backend.utils.graph_utils import is_k_regular, moore_bound
 # reasonable default; expose as a constructor parameter for benchmarking.
 BEAM_PROBE_INTERVAL = 5
 
+# Default beam width for the ML-guided beam-search probe.
+DEFAULT_BEAM_WIDTH = 20
+
+# Default tabu tenure: how many steps a reverted (edge, value) move stays tabu.
+DEFAULT_TABU_TENURE = 10
+
 
 class VoltageSearchGenerator:
     """Cage generator using voltage graph lift search.
@@ -83,6 +89,8 @@ class VoltageSearchGenerator:
     _feat_rwpe_dim: int
     _kind: str
     _beam_probe_interval: int
+    _beam_width: int
+    _tabu_tenure: int
 
     def __init__(
         self,
@@ -92,6 +100,8 @@ class VoltageSearchGenerator:
         *,
         harvest: bool = False,
         beam_probe_interval: int = BEAM_PROBE_INTERVAL,
+        beam_width: int = DEFAULT_BEAM_WIDTH,
+        tabu_tenure: int = DEFAULT_TABU_TENURE,
     ) -> None:
         self.k = k
         self.g = g
@@ -111,6 +121,8 @@ class VoltageSearchGenerator:
         self._feat_rwpe_dim = 0
         self._kind = "girth"
         self._beam_probe_interval = beam_probe_interval
+        self._beam_width = beam_width
+        self._tabu_tenure = tabu_tenure
         if model_id is not None:
             model, feat_cl, feat_rwpe, kind = load_girth_predictor(model_id)
             self._model = model
@@ -227,7 +239,7 @@ class VoltageSearchGenerator:
         if best_edge >= 0 and best_move_cost <= current_cost:
             old_val = self._voltages[best_edge]
             self._voltages[best_edge] = best_val
-            self._tabu[(best_edge, old_val)] = self.step_count + 10
+            self._tabu[(best_edge, old_val)] = self.step_count + self._tabu_tenure
         else:
             # Stuck — random restart with next config
             self._random_restart()
@@ -242,7 +254,7 @@ class VoltageSearchGenerator:
                 self.k,
                 self.g,
                 model=self._model,
-                beam_width=20,
+                beam_width=self._beam_width,
                 verbose=False,
                 feat_cycle_lengths=self._feat_cycle_lengths,
                 feat_rwpe_dim=self._feat_rwpe_dim,

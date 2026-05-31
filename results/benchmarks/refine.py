@@ -5,6 +5,17 @@ from the ``refine_instances`` battery.  Two variants are compared:
 
 * ``no_gnn``: exact Δcost evaluation for every candidate swap.
 * ``gnn``: MoveOracle ranks candidates; only the top-ranked one is evaluated.
+
+Two cheap confound-isolation variants share the no-GNN refiner but tweak its
+kwargs to separate "what the GNN buys" from "what merely limiting per-step
+compute buys":
+
+* ``no_3switch``: the algebraic baseline with ``escalate_to_3switch=False``,
+  measuring how much the 3-switch escalation contributes on these instances.
+* ``sampled_unguided``: a no-GNN refiner with ``sample_size=50`` and no
+  score_fn, spending a comparable per-step budget to the GNN variant but
+  picking candidates without learned guidance — isolating the value of the
+  GNN's *ranking* from the value of merely sampling fewer candidates per step.
 """
 
 from __future__ import annotations
@@ -27,6 +38,13 @@ _ORACLE_LOOPY_DIR = Path("ai/trained/move_oracle_loopy_r3/move_oracle_loopy_r3")
 # Map the GNN variant name to the move-oracle directory it loads.
 _ORACLE_DIRS = {"gnn": _ORACLE_DIR, "loopy": _ORACLE_LOOPY_DIR}
 
+# Per-step candidate sample cap for the ``sampled_unguided`` variant.  The
+# refine_instances are tiny (|E| from 21 to 56, full 2-switch enumeration sees
+# |E|*(|E|-1)/2 edge-pairs ~ 210 to 1540), so 50 is meaningfully smaller than
+# the full pair count even on the smallest instance yet still large enough to
+# exercise sampling — a comparable per-step budget to what the GNN variant pays.
+_SAMPLED_SIZE = 50
+
 
 def make_tasks(config: RunConfig) -> list[Task]:
     """Emit one Task per (instance × variant × seed) combination.
@@ -35,7 +53,7 @@ def make_tasks(config: RunConfig) -> list[Task]:
     trained (its weights are on disk); otherwise the comparison is just the
     algebraic baseline vs the gine oracle.
     """
-    variants = ["no_gnn", "gnn"]
+    variants = ["no_gnn", "no_3switch", "sampled_unguided", "gnn"]
     if (_ORACLE_LOOPY_DIR / "weights.pt").exists():
         variants.append("loopy")
 
@@ -106,6 +124,12 @@ def execute(task: Task) -> list[TrialResult]:
         model_params = params
         model_size_mb = size_mb
         model_hparams = hparams
+    elif variant == "no_3switch":
+        # Algebraic baseline with the 3-switch escalation disabled.
+        refiner = TabuRefiner(g_target=g, escalate_to_3switch=False)
+    elif variant == "sampled_unguided":
+        # No GNN guidance, but a small fixed per-step candidate budget.
+        refiner = TabuRefiner(g_target=g, sample_size=_SAMPLED_SIZE)
     else:
         refiner = TabuRefiner(g_target=g)
 

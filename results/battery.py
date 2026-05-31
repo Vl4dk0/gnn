@@ -171,40 +171,47 @@ def refine_instances(
 def excision_instances(
     quick: bool,
 ) -> list[tuple[str, int, int, nx.Graph[int]]]:
-    """Return (name, k, g, source_graph) using known cubic cages.
+    """Return (name, k, g, source_graph) for the tree-excision benchmark.
 
-    The source graphs are actual cages: petersen (3,5), heawood (3,6),
-    mcgee (3,7), tutte-coxeter (3,8).  In quick mode only the two smallest
-    are included.
+    Each source graph is k-regular with girth g and is large enough that a
+    depth-(g-1)//2 BFS-tree excision leaves a non-trivial boundary that the
+    classical repair can rebuild into a smaller (k,g)-graph.  Earlier the
+    battery used graphs at or near the Moore bound (e.g. petersen (3,5),
+    heawood (3,6)); depth-(g-1)//2 excision there removes nearly the whole
+    graph and leaves nothing repairable, so every instance reported 0%.
+
+    All instances below are (3,5)-graphs above the Moore bound (10):
+
+      - dodecahedral: the (3,5) cage, n=20.  Depth-2 excision leaves exactly
+        the Moore bound (10 vertices) and repair succeeds from every root.
+      - rr_k3_n24_g5_s64 / rr_k3_n30_g5_s35: seeded random cubic graphs with
+        girth 5; both verified k-regular, girth 5, and repairable from many
+        roots.
+
+    In quick mode only the two smaller instances are included.
     """
     instances: list[tuple[str, int, int, nx.Graph[int]]] = [
         (
-            "petersen",
+            "dodecahedral",
             3,
             5,
-            nx.convert_node_labels_to_integers(nx.petersen_graph()),
+            nx.convert_node_labels_to_integers(nx.dodecahedral_graph()),
         ),
         (
-            "heawood",
+            "rr_k3_n24_g5_s64",
             3,
-            6,
-            nx.convert_node_labels_to_integers(nx.heawood_graph()),
+            5,
+            nx.convert_node_labels_to_integers(nx.random_regular_graph(3, 24, seed=64)),
         ),
     ]
     if not quick:
         instances += [
             (
-                "mcgee",
+                "rr_k3_n30_g5_s35",
                 3,
-                7,
-                nx.convert_node_labels_to_integers(nx.LCF_graph(24, [12, 7, -7], 8)),
-            ),
-            (
-                "tutte_coxeter",
-                3,
-                8,
+                5,
                 nx.convert_node_labels_to_integers(
-                    nx.LCF_graph(30, [-13, -9, 7, -7, 9, 13], 5)
+                    nx.random_regular_graph(3, 30, seed=35)
                 ),
             ),
         ]
