@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from typing import cast
 
+from ai.cage.registry.forge import FORGE_PRODUCERS
 from results.benchmarks.cage import make_tasks
 from results.registry import RunConfig, Task
 
@@ -45,8 +46,10 @@ class TestCageScoping:
                 targets=[(3, 6)],
             )
         )
-        # forge has 3 spec entries (full, no_refine, no_excision) x 1 target x 2 seeds
-        assert len(tasks) == 6
+        # forge has one spec per producer plus no_refine/no_excision; that many
+        # specs x 1 target x 2 seeds.
+        expected = (len(FORGE_PRODUCERS) + 2) * 2
+        assert len(tasks) == expected
         assert _approaches(tasks) == {"forge"}
         assert _targets(tasks) == {(3, 6)}
 

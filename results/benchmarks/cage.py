@@ -28,7 +28,11 @@ import torch
 from ai.cage.registry.astar import AStarGenerator
 from ai.cage.registry.bruteforce import BruteforceGenerator
 from ai.cage.registry.direct_rl import RLGenerator
-from ai.cage.registry.forge import DEFAULT_FORGE_PRODUCER, ForgeGenerator
+from ai.cage.registry.forge import (
+    DEFAULT_FORGE_PRODUCER,
+    FORGE_PRODUCERS,
+    ForgeGenerator,
+)
 from ai.cage.registry.random_walk import RandomWalkGenerator
 from ai.cage.registry.voltage import VoltageSearchGenerator
 from ai.cage.registry.voltage_rl import VoltageRLGenerator
@@ -114,13 +118,21 @@ if _VOLTAGE_AC_ID is not None:
 
 # forge: the full voltage -> refine -> excision cascade. Unlike the other
 # approaches it shrinks the result toward the cage via the excision loop, so
-# its graph size (and Moore ratio) is the interesting signal. Uses the RL
-# voltage producer (fastest in benchmarks).
-_SPECS.append(("forge", "", None))
+# its graph size (and Moore ratio) is the interesting signal.
+#
+# Producer comparison: forge's voltage (production) stage can be driven by any
+# of four producers. One full-pipeline variant per producer pits them against
+# each other (the variant IS the producer name; refine + excision both on):
+#   voltage_rl         — voltage RL policy (the default)
+#   voltage_girth      — voltage tabu search w/ girth predictor
+#   voltage_tabu       — voltage tabu search w/ tabu-cost predictor
+#   voltage_algebraic  — plain algebraic voltage tabu search (no GNN)
+for _producer in FORGE_PRODUCERS:
+    _SPECS.append(("forge", _producer, None))
 
-# forge ablation variants: isolate the contribution of each stage.
-#   forge_no_refine  — voltage + excision (near-misses dropped; only direct hits shrunk)
-#   forge_no_excision — voltage + refine, no shrink (first valid graph returned unshrunk)
+# forge ablation variants on the default producer: isolate each stage.
+#   no_refine   — voltage + excision (near-misses dropped; only direct hits shrunk)
+#   no_excision — voltage + refine, no shrink (first valid graph returned unshrunk)
 _SPECS.append(("forge", "no_refine", None))
 _SPECS.append(("forge", "no_excision", None))
 
@@ -219,10 +231,13 @@ def execute(task: Task) -> list[TrialResult]:
     elif approach == "voltage_rl":
         gen = VoltageRLGenerator(k, g, model_id=model_id)
     elif approach == "forge":
+        # A producer-named variant selects that producer (full pipeline); the
+        # ablation variants (no_refine/no_excision) use the default producer.
+        producer = variant if variant in FORGE_PRODUCERS else DEFAULT_FORGE_PRODUCER
         gen = ForgeGenerator(
             k,
             g,
-            producer=DEFAULT_FORGE_PRODUCER,
+            producer=producer,
             use_refine=variant != "no_refine",
             use_excision=variant != "no_excision",
         )
