@@ -9,9 +9,9 @@ candidates WHILE refine and excision work on them.
 
 Stages
 ------
-1. **Producer (voltage)** — explores multiple base graphs x groups.  Each step
-   advances one harvest-mode ``VoltageSearchGenerator`` (cycled round-robin
-   across configs) and drains every k-regular, connected lift it found,
+1. **Producer (voltage)** — streams voltage assignments via the RL policy.  Each
+   step advances one harvest-mode ``VoltageRLGenerator`` (cycled round-robin
+   across a fixed pool) and drains every k-regular, connected lift it found,
    classifying each:
 
      * girth >= g                              -> excision queue
@@ -70,11 +70,7 @@ from ai.cage.excision.repair_search import (
 from ai.cage.refine.move_oracle import ScoreFn, load_refine_score_fn
 from ai.cage.refine.tabu import TabuRefineGenerator
 from ai.cage.registry.types import CageStepEvent
-from ai.cage.registry.voltage import VoltageSearchGenerator
-from ai.cage.voltage.supervised.search import (
-    _candidate_bases,  # pyright: ignore[reportPrivateUsage]
-    _candidate_groups_for_target,  # pyright: ignore[reportPrivateUsage]
-)
+from ai.cage.registry.voltage_rl import VoltageRLGenerator
 from backend.utils.graph_utils import compute_girth, is_k_regular, moore_bound
 
 _Stage = Literal["voltage", "refine", "excision"]
@@ -237,7 +233,7 @@ class ForgeGenerator:
     _repair_policy: RepairPolicy | None
 
     # Producer state.
-    _producers: list[VoltageSearchGenerator]
+    _producers: list[VoltageRLGenerator]
     _producer_idx: int
     _producer_done: bool
     _pushed: int
@@ -294,9 +290,9 @@ class ForgeGenerator:
         self._refine_score_fn = load_refine_score_fn(verbose=False)
         self._repair_policy = load_repair_policy()
 
-        # Build one harvest-mode voltage producer per (base, group) config, up to
-        # a small live pool, so the producer explores MULTIPLE bases x groups.
-        self._producers = self._build_producers(k, g, model_id)
+        # Build a fixed pool of harvest-mode RL voltage producers, cycled
+        # round-robin so multiple concurrent policy rollouts explore in parallel.
+        self._producers = self._build_producers(k, g)
         self._producer_idx = 0
         self._producer_done = len(self._producers) == 0
         self._pushed = 0
@@ -323,29 +319,17 @@ class ForgeGenerator:
         for i in range(mb):
             _ = self.graph.add_node(i)
 
-    def _build_producers(
-        self, k: int, g: int, model_id: str | None
-    ) -> list[VoltageSearchGenerator]:
-        """One harvest-mode voltage search per (base, group) config (capped pool).
+    def _build_producers(self, k: int, g: int) -> list[VoltageRLGenerator]:
+        """Fixed pool of harvest-mode RL voltage generators.
 
-        ``VoltageSearchGenerator`` internally rotates configs only on stuck
-        restarts and is effectively driven from a single base at a time, so to
-        guarantee multi-base producing we instantiate several searches (each
-        seeded by a distinct config order) and cycle them round-robin.  Each is
-        in harvest mode so it streams every k-regular connected lift it finds.
+        Each ``VoltageRLGenerator`` runs independent policy rollouts and
+        streams every k-regular connected lift it finds via ``.harvested``.
+        The RL generator's stochastic action sampling gives each producer
+        natural diversity without needing distinct base/group seeds.
         """
-        producers: list[VoltageSearchGenerator] = []
-        # We cannot directly inject a (base, group) into VoltageSearchGenerator,
-        # but its own config list is built deterministically and rotated; the
-        # number of distinct configs available bounds how many producers help.
-        n_configs = 0
-        for _name, base in _candidate_bases(k):
-            n_configs += len(_candidate_groups_for_target(k, g, base))
-        n_producers = max(1, min(_MAX_PRODUCER_CONFIGS, n_configs))
-        for _ in range(n_producers):
-            producers.append(
-                VoltageSearchGenerator(k, g, model_id=model_id, harvest=True)
-            )
+        producers: list[VoltageRLGenerator] = []
+        for _ in range(_MAX_PRODUCER_CONFIGS):
+            producers.append(VoltageRLGenerator(k, g, harvest=True))
         return producers
 
     def elapsed_time(self) -> float:
@@ -611,6 +595,12 @@ class ForgeGenerator:
         }
 
     def _finish(self, success: bool, reason: str, action: str) -> None:
+        # Ensure the public ``graph`` reflects the excision result, not the last
+        # producer graph.  The producer keeps overwriting ``self.graph`` during
+        # deferred-termination steps; restore the result here so callers always
+        # see the correct (k,g)-graph on completion.
+        if success and self._result is not None:
+            self.graph = self._result
         self.success = success
         self.is_complete = True
         self.last_event = {

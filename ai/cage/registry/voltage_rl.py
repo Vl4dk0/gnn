@@ -11,7 +11,7 @@ from ai.cage.voltage.lift import build_lift, verify_lift
 from ai.cage.voltage.rl.env import VoltageAssignmentEnv
 from ai.cage.voltage.rl.model import VoltageActorCritic
 from ai.registry import get_trained_dir
-from ai.utils.device import configure_torch_device
+from ai.utils.device import get_preferred_device
 from backend.utils.graph_utils import is_k_regular, moore_bound
 
 
@@ -37,23 +37,30 @@ class VoltageRLGenerator:
     success: bool
     start_time: float
     last_event: CageStepEvent | None
+    harvest: bool
+    harvested: list[tuple[nx.Graph[int], int]]
 
     def __init__(
         self,
         k: int,
         g: int,
         model_id: str | None = None,
+        *,
+        harvest: bool = False,
     ):
         self.k = k
         self.g = g
         self.mb = moore_bound(k, g)
-        self.device = torch.device(configure_torch_device())
+        self.device = torch.device(get_preferred_device())
 
         self.env = VoltageAssignmentEnv(k=k, g_target=g, randomize=False)
         self.obs = self.env.reset()
 
         self.model = self._load_model(model_id)
         _ = self.model.eval()
+
+        self.harvest = harvest
+        self.harvested = []
 
         # Start with an empty graph; will be replaced by lift on success
         self.graph = nx.Graph()
@@ -90,7 +97,7 @@ class VoltageRLGenerator:
             print("No voltage RL models found. Using random weights.")
             return VoltageActorCritic(
                 input_dim=self.env.get_input_dim(), edge_feat_dim=2
-            )
+            ).to(self.device)
 
         # Pick by model_id if specified, otherwise first available
         selected_path: Path | None = None
@@ -130,6 +137,7 @@ class VoltageRLGenerator:
 
         weights = torch.load(selected_path, map_location=self.device)  # pyright: ignore[reportAny]
         _ = model.load_state_dict(weights)  # pyright: ignore[reportAny]
+        _ = model.to(self.device)
         print(f"Loaded voltage RL model: {selected_id}")
         return model
 
@@ -174,6 +182,23 @@ class VoltageRLGenerator:
         if done:
             self.episode_count += 1
             girth = int(info.get("girth", 0))
+
+            if self.harvest:
+                # Harvest mode: stream every k-regular connected lift downstream.
+                # The generator never self-completes; it keeps producing candidates.
+                if bool(info.get("is_k_regular", False)) and bool(
+                    info.get("is_connected", False)
+                ):
+                    lifted = build_lift(
+                        self.env.base, self.env.group, self.env.voltages
+                    )
+                    self.harvested.append((lifted, girth))
+                    self.graph = lifted
+                self.obs = self.env.reset()
+                self.last_event["done_reason"] = (
+                    f"harvested girth={girth} (episode {self.episode_count})"
+                )
+                return
 
             if bool(info.get("success", False)) and girth >= self.g:
                 # Build the full lifted graph
