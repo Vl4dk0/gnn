@@ -37,7 +37,7 @@ export const StatusPanel = ({ status, error, successMessage, stoppedByUser }: St
   return (
     <div className="text-sm text-textMuted">
       <div className="mb-2">
-        <strong>Target:</strong> ({status.k},{status.g})-cage
+        <strong>Target:</strong> ({status.k},{status.g})-graph
       </div>
       <div className="mb-2">
         <strong>Mode:</strong> {status.mode === "stepped" ? "RL step inspection" : "Fast search"}
