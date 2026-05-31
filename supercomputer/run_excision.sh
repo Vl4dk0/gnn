@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=excision-repair
+#SBATCH --job-name=excision
 #SBATCH --output=training_runs/%x_%j.out
 #SBATCH --error=training_runs/%x_%j.err
 #SBATCH --partition=GPU
@@ -20,7 +20,7 @@ cd ~/gnn
 # next rung: g=7 legality (very strict) with match-size 6 (many simultaneous
 # deficiencies). Smoke shows ~30-35% early and climbing — hard but learnable,
 # the informative regime. (lifts can't reach g=7, so synthetic on the McGee +
-# Tutte-Coxeter cages.) Saves to ai/trained/excision_repair/.
+# Tutte-Coxeter cages.) Saves to ai/trained/excision/.
 
 uv run python -u -m ai.cage.excision.train \
   --episodes 300000 --g-target 7 --depth 1 \

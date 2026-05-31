@@ -7,9 +7,9 @@ For each source (k,g)-cage graph the benchmark:
      - rl:        GNN RepairActorCritic rollout (deterministic).
   3. Verifies the result is k-regular with girth >= g.
 
-The trained RL policy at ai/trained/excision_repair/excision_repair_policy was
-trained for only ~2 episodes and is essentially random — near-random results are
-expected.  The benchmark is designed to be re-run after proper training.
+The trained RL policy at ai/trained/excision/excision is a full 300k-episode run
+(g_target=7, match_size=6).  Re-run this benchmark to measure it; earlier results
+predate the trained policy being loadable.
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ from ..registry import Benchmark, RunConfig, Task, register
 # Paths
 # ---------------------------------------------------------------------------
 
-_POLICY_DIR = Path("ai/trained/excision_repair/excision_repair_policy")
+_POLICY_DIR = Path("ai/trained/excision/excision")
 
 # ---------------------------------------------------------------------------
 # RL helpers
@@ -175,7 +175,7 @@ def make_tasks(config: RunConfig) -> list[Task]:
                         "name": name,
                         "k": k,
                         "g": g,
-                        "approach": "excision_repair",
+                        "approach": "excision",
                         "variant": variant,
                         "quick": config.quick,
                         "seed": 0,
@@ -246,7 +246,7 @@ def execute(task: Task) -> list[TrialResult]:
         try:
             policy, cycle_lengths, rwpe_dim = load_repair_policy(_POLICY_DIR)
             params, size_mb, hparams = model_meta_from_dir(_POLICY_DIR)
-            model_id = "excision_repair_policy"
+            model_id = "excision"
             model_params = params
             model_size_mb = size_mb
             model_hparams = hparams
@@ -284,7 +284,7 @@ def execute(task: Task) -> list[TrialResult]:
     return [
         TrialResult(
             benchmark="excision",
-            approach="excision_repair",
+            approach="excision",
             variant=variant,
             label=task.label,
             instance=name,

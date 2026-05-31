@@ -1,7 +1,7 @@
 {
   "model_type": "repair_actor_critic",
-  "model_id": "excision_repair_policy",
-  "task": "excision_repair",
+  "model_id": "excision",
+  "task": "excision",
   "training": {
     "input_dim": 19,
     "hidden_dim": 128,

@@ -14,9 +14,7 @@ from ai.registry import get_trained_dir
 @dataclass
 class TrialResult:
     benchmark: str  # "degree"|"min_cycle"|"cage"|"refine"|"excision"
-    approach: (
-        str  # e.g. "voltage","rl","randomwalk","gcn","tabu_refine","excision_repair"
-    )
+    approach: str  # e.g. "voltage","rl","randomwalk","gcn","tabu_refine","excision"
     variant: str  # ""|"no_gnn"|"gnn"|"classical"|"rl" or a model architecture name
     label: str  # human-readable unique label, e.g. "voltage[gnn]"
     instance: str  # graph/target/instance id, e.g. "k3_g5_seed0" or "petersen"

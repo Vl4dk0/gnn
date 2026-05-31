@@ -16,7 +16,7 @@ Starting graph bank (the four smallest cubic cages, girths 5..8):
   Only graphs with girth >= g_target are kept: a source with girth < g_target
   can never be repaired back to a valid (k, g_target)-graph.
 
-Saves to: ai/trained/excision_repair/excision_repair_policy/
+Saves to: ai/trained/excision/excision/
     weights.pt   — best (or final) policy weights
     info.json    — architecture + feature config for later reload
 """
@@ -326,9 +326,7 @@ def train_repair_ppo(
     best_state: dict[str, torch.Tensor] | None = None
     start_time = time.time()
     last_checkpoint_time = start_time
-    save_dir = os.path.join(
-        "ai", "trained", "excision_repair", "excision_repair_policy"
-    )
+    save_dir = os.path.join("ai", "trained", "excision", "excision")
 
     def _save_checkpoint() -> None:
         """Persist the best policy seen so far (weights + info) to disk.
@@ -342,8 +340,8 @@ def train_repair_ppo(
         torch.save(best_state, os.path.join(save_dir, "weights.pt"))
         info: dict[str, Any] = {
             "model_type": "repair_actor_critic",
-            "model_id": "excision_repair_policy",
-            "task": "excision_repair",
+            "model_id": "excision",
+            "task": "excision",
             "training": {
                 "input_dim": input_dim,
                 "hidden_dim": hidden_dim,

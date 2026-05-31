@@ -32,10 +32,7 @@ from backend.utils.graph_utils import compute_girth, is_k_regular, moore_bound
 
 # Default location of the trained excision-repair policy on disk.
 DEFAULT_POLICY_DIR = (
-    Path(__file__).resolve().parents[2]
-    / "trained"
-    / "excision_repair"
-    / "excision_repair_policy"
+    Path(__file__).resolve().parents[2] / "trained" / "excision" / "excision"
 )
 
 
