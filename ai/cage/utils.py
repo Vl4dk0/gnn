@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import random
+import re
 import urllib.request
 from collections.abc import Callable, Mapping
 from http.client import HTTPResponse
@@ -429,3 +430,29 @@ def get_cages(k: int, g: int) -> list[nx.Graph[int]]:
     with open(local, "rb") as f:
         lines = [line.strip() for line in f if line.strip()]
     return cast("list[nx.Graph[int]]", [nx.from_graph6_bytes(line) for line in lines])
+
+
+def hog_record_order(k: int, g: int) -> int | None:
+    """Best-known order n(k,g) from the HoG survey, resolved offline.
+
+    Parses the node count encoded in the survey filename (``k8_g5_n80.g6`` ->
+    80). For old-format entries (``cagesk3g05.g6``) that do not encode the
+    order, falls back to counting nodes of a locally cached graph. Returns
+    ``None`` when the pair is unknown or no offline source gives the order;
+    never downloads (safe to call on a network-isolated compute node).
+    """
+    filename = _HOG_TABLE.get((k, g))
+    if filename is None:
+        return None
+    match = re.search(r"_n(\d+)\.g6$", filename)
+    if match is not None:
+        return int(match.group(1))
+    local = _DATA_DIR / filename
+    if local.exists():
+        with open(local, "rb") as f:
+            for line in f:
+                stripped = line.strip()
+                if stripped:
+                    graph = cast("nx.Graph[int]", nx.from_graph6_bytes(stripped))
+                    return graph.number_of_nodes()
+    return None

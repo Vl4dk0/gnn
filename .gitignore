@@ -59,6 +59,7 @@ timestamps/
 
 # Benchmark run outputs
 /results/runs
+/results/records
 
 # Benchmark SLURM job logs (keep the dir via .gitkeep, ignore the logs)
 /benchmark_runs/*.out
