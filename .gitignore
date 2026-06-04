@@ -63,3 +63,15 @@ timestamps/
 # Benchmark SLURM job logs (keep the dir via .gitkeep, ignore the logs)
 /benchmark_runs/*.out
 /benchmark_runs/*.err
+
+# Removed from public repo, kept local only (2026-06-04 history cleanup)
+/training_runs/
+/pdfs/
+/.claude/
+/.agents/
+/CLAUDE.md
+/AGENTS.md
+/docs/
+/benchmark_runs/
+/thesis/
+!/thesis/main.pdf
