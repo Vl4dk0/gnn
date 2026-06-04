@@ -42,9 +42,9 @@ The compiled thesis lives under [`thesis/`](thesis/) as `main.pdf`.
 
 Requirements:
 
-- [Python](https://www.python.org/) 3.14+
+- [`Python`](https://www.python.org/) 3.14+
 - [`uv`](https://docs.astral.sh/uv/)
-- [Node.js](https://nodejs.org/) and [npm](https://www.npmjs.com/)
+- [`Node.js`](https://nodejs.org/) and [`npm`](https://www.npmjs.com/)
 
 Install dependencies:
 
