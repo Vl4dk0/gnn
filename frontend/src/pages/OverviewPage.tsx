@@ -17,7 +17,7 @@ const STORY_ITEMS = [
     href: "/min-cycle-task",
     index: 2,
     title: "Min-cycle subproblem",
-    description: "Predicting the shortest cycle per node — the girth constraint, a global signal."
+    description: "Predicting the shortest cycle per node: the girth constraint, a global signal."
   },
   {
     href: "/cage/astar",
@@ -35,7 +35,7 @@ const STORY_ITEMS = [
     href: "/cage/voltage",
     index: 5,
     title: "Voltage lifts",
-    description: "Stamp a tiny base graph over a group; regularity comes for free."
+    description: "Stamp a tiny base graph over a group, and regularity comes for free."
   },
   {
     href: "/excision",
@@ -54,7 +54,7 @@ export const OverviewPage = () => {
         </h1>
         <p className="text-base leading-[1.7] text-textMuted">
           This thesis investigates what graph neural networks can and cannot learn about the two
-          constraints that define a <code>(k,g)-graph</code> — k-regularity and girth — and then
+          constraints that define a <code>(k,g)-graph</code> (k-regularity and girth), and then
           applies those findings to cage construction through methods of increasing algebraic
           structure.
         </p>
@@ -92,8 +92,8 @@ export const OverviewPage = () => {
         </p>
         <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
           A <code>(k,g)-graph</code> is k-regular with girth at least <code>g</code>. A{" "}
-          <code>cage</code> is the smallest possible (k,g)-graph — fewest vertices. The{" "}
-          <code>Moore bound</code> gives a hard lower limit on the cage order; closing the gap
+          <code>cage</code> is the smallest possible (k,g)-graph (fewest vertices). The{" "}
+          <code>Moore bound</code> gives a hard lower limit on the cage order. Closing the gap
           between the Moore bound and the best known constructions is an open problem in algebraic
           graph theory.
         </p>
@@ -112,14 +112,14 @@ export const OverviewPage = () => {
         <p className="text-base leading-[1.7] text-textMuted">
           A (k,g)-graph must satisfy two constraints simultaneously: every vertex has degree{" "}
           <code>k</code>, and no cycle is shorter than <code>g</code>. The thesis tests what GNNs
-          can learn about each constraint separately — degree (local, directly readable from the
-          neighbourhood) and girth (global, requiring path information across the graph) — before
+          can learn about each constraint separately: degree (local, directly readable from the
+          neighbourhood) and girth (global, requiring path information across the graph), before
           moving to full cage construction.
         </p>
         <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
           Construction methods are explored in order of increasing algebraic structure: direct
-          reinforcement learning builds a graph edge by edge; voltage lifts enforce regularity
-          algebraically so only girth needs to be optimised; excision shrinks a known valid graph
+          reinforcement learning builds a graph edge by edge, voltage lifts enforce regularity
+          algebraically so only girth needs to be optimised, and excision shrinks a known valid graph
           toward the cage order by surgically removing a subtree and re-stitching the boundary.
         </p>
       </DocsCard>

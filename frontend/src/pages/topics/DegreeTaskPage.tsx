@@ -1,6 +1,7 @@
 import { DocsCard, DocsHero } from "../../components/docs/DocsCard";
 import { DocsLayout } from "../../components/docs/DocsLayout";
 import { DocsNextButton } from "../../components/docs/DocsNextButton";
+import { EditorLinks } from "../../components/docs/EditorLinks";
 import { useHighlight } from "../../hooks/useHighlight";
 
 export const DegreeTaskPage = () => {
@@ -14,8 +15,8 @@ export const DegreeTaskPage = () => {
         </h1>
         <p className="text-base leading-[1.7] text-textMuted">
           The first sanity check: can a GNN tell a vertex's degree? If it cannot recover this purely
-          local signal, it is disqualified for (k,g)-graph construction — k-regularity is literally
-          one half of the definition.
+          local signal, it is disqualified for (k,g)-graph construction (k-regularity is literally
+          one half of the definition).
         </p>
       </DocsHero>
 
@@ -37,25 +38,24 @@ export const DegreeTaskPage = () => {
       <DocsCard>
         <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">Training step</h2>
         <pre className="mt-2.5 overflow-x-auto rounded-lg border-2 border-line2 bg-bg1 p-1.5">
-          <code className="language-python">{`# ai/degree/train.py — one training step
-degrees = torch.tensor([G.degree(i) for i in range(num_nodes)], dtype=torch.float)
-data = Data(x=x, edge_index=edge_index, y=degrees)   # label = true degree
-out = model(data).squeeze()
-loss = F.mse_loss(out, data.y)                        # regress per-node degree
-loss.backward()
-optimizer.step()`}</code>
+          <code className="language-python">{`# ai/degree/train.py: one training step
+def train_step(model: BaseGNN, optimizer: torch.optim.Optimizer, data: Data) -> float:
+    optimizer.zero_grad()
+    out: torch.Tensor = model(data).squeeze()       # one scalar per node
+    loss: torch.Tensor = F.mse_loss(out, data.y)    # data.y holds the true degrees
+    loss.backward()
+    optimizer.step()
+    return loss.item()`}</code>
         </pre>
       </DocsCard>
 
       <DocsCard>
         <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">Try it</h2>
         <p className="text-base leading-[1.7] text-textMuted">
-          Draw a graph in the editor; the trained GNN predicts each node's degree live. Compare the
+          Draw a graph in the editor, and the trained GNN predicts each node's degree live. Compare the
           predictions to the actual degrees to see how well the model recovers a local signal.
         </p>
-        <a href="/degree" className="ui-button-solid ui-surface-link mt-3">
-          Open the degree editor
-        </a>
+        <EditorLinks links={[{ href: "/degree", label: "Open the degree editor", description: "Draw a graph and watch the model predict each node's degree live." }]} />
       </DocsCard>
 
       <div className="mt-10 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-5">
