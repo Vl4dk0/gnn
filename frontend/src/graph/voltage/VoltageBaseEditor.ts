@@ -776,6 +776,66 @@ export class VoltageBaseEditor {
     this.emitChange();
   }
 
+  public loadEdgeList(edgeListText: string): void {
+    this.graph.clear();
+    this.arcs = [];
+    this.selectedNode = null;
+    this.selectedArcId = null;
+    this.arcStart = null;
+
+    if (!edgeListText.trim()) {
+      this.emitChange();
+      return;
+    }
+
+    const lines = edgeListText.trim().split("\n");
+    const nodeIdSet = new Set<number>();
+    const undirectedEdges: Array<{ from: number; to: number }> = [];
+
+    for (const line of lines) {
+      const parts = line.trim().split(/\s+/);
+      if (parts.length === 1) {
+        const id = Number.parseInt(parts[0], 10);
+        if (!Number.isNaN(id)) {
+          nodeIdSet.add(id);
+        }
+      } else if (parts.length >= 2) {
+        const a = Number.parseInt(parts[0], 10);
+        const b = Number.parseInt(parts[1], 10);
+        if (!Number.isNaN(a) && !Number.isNaN(b)) {
+          nodeIdSet.add(a);
+          nodeIdSet.add(b);
+          undirectedEdges.push({ from: Math.min(a, b), to: Math.max(a, b) });
+        }
+      }
+    }
+
+    const sortedIds = Array.from(nodeIdSet).sort((a, b) => a - b);
+    const centerX = this.canvas.width / 2;
+    const centerY = this.canvas.height / 2;
+    const radius = Math.min(centerX, centerY) * 0.5 + 60;
+
+    sortedIds.forEach((id, index) => {
+      const angle = (index / Math.max(1, sortedIds.length)) * Math.PI * 2;
+      const node = new GraphNode(id, centerX + Math.cos(angle) * radius, centerY + Math.sin(angle) * radius);
+      this.graph.nodes.push(node);
+    });
+    this.graph.nextNodeId = sortedIds.length ? Math.max(...sortedIds) + 1 : 0;
+
+    this.nextArcId = 0;
+    this.arcs = undirectedEdges.map((edge) => {
+      const arc: BaseArc = { id: this.nextArcId, from: edge.from, to: edge.to, voltage: 0 };
+      this.nextArcId += 1;
+      return arc;
+    });
+
+    this.rebuildAdjacency();
+    if (this.graph.nodes.length > 0) {
+      this.preSettlePhysics(200);
+    }
+    this.emitChange();
+  }
+
   public clear(): void {
     this.graph.clear();
     this.arcs = [];
