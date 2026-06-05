@@ -12,11 +12,12 @@ import {
 import { readStored, writeStored } from "../utils/storage";
 import { InteractiveGraphEditor } from "../graph/InteractiveGraphEditor";
 import { mooreBound, resolveMooreBoundLimit } from "../utils/mooreBound";
+import { CAGE_METHODS, getMethod } from "../pages/apps/cageMethods";
+import type { CageMethodId, ModelInfo } from "../types/api";
 
 const DEFAULT_SETTINGS: CageSettings = {
-  generatorType: "forge",
+  methodId: "astar",
   executionMode: "async",
-  modelId: null,
   pollingInterval: 500,
   stepsPerTick: 1,
   autoStepInterval: 250,
@@ -48,23 +49,46 @@ const formatElapsed = (seconds: number): string => {
   return `${mins}m ${secs}s`;
 };
 
-const normalizeSettings = (settings: CageSettings): CageSettings => {
-  const merged = { ...DEFAULT_SETTINGS, ...settings };
+/**
+ * Migrate a persisted settings object from the old shape (generatorType +
+ * modelId) or validate an already-migrated one.  Returns a fully valid
+ * CageSettings with the new methodId field.
+ */
+const normalizeSettings = (raw: Record<string, unknown>): CageSettings => {
+  // Handle old persisted shape that had generatorType instead of methodId.
+  let methodId = raw["methodId"] as CageSettings["methodId"] | undefined;
+  if (!methodId) {
+    const oldGen = raw["generatorType"] as string | undefined;
+    if (oldGen === "voltage" || oldGen === "forge") {
+      methodId = "voltage_algebraic";
+    } else if (
+      oldGen === "astar" ||
+      oldGen === "randomwalk" ||
+      oldGen === "bruteforce" ||
+      oldGen === "rl" ||
+      oldGen === "voltage_rl"
+    ) {
+      methodId = oldGen;
+    } else {
+      methodId = DEFAULT_SETTINGS.methodId;
+    }
+  }
+
+  // Guard against corrupted or legacy stored ids so resolveGenerationArgs /
+  // getMethod can never throw at generation time.
+  if (!CAGE_METHODS.some((m) => m.id === methodId)) {
+    methodId = DEFAULT_SETTINGS.methodId;
+  }
+
+  const merged = { ...DEFAULT_SETTINGS, ...raw, methodId };
 
   return {
-    ...merged,
-    // Preserve the user's executionMode for all generator types.
-    executionMode: merged.executionMode,
-    // Only voltage and forge keep a model_id (auto-resolved girth predictor).
-    // RL sends null so the backend picks the best actor-critic model.
-    // All other generators never use a model_id.
-    modelId:
-      merged.generatorType === "voltage" || merged.generatorType === "forge"
-        ? merged.modelId
-        : null,
+    methodId: merged.methodId,
+    executionMode: merged.executionMode === "stepped" ? "stepped" : "async",
     pollingInterval: Math.max(50, Math.min(2000, merged.pollingInterval)),
     stepsPerTick: Math.max(1, Math.min(100, Math.round(merged.stepsPerTick))),
-    autoStepInterval: Math.max(50, Math.min(2000, merged.autoStepInterval))
+    autoStepInterval: Math.max(50, Math.min(2000, merged.autoStepInterval)),
+    enablePhysics: Boolean(merged.enablePhysics)
   };
 };
 
@@ -75,10 +99,13 @@ export const useCageGeneration = () => {
   const [degreeK, setDegreeK] = useState(3);
   const [girthG, setGirthG] = useState(5);
   const [settings, setSettings] = useState<CageSettings>(() =>
-    normalizeSettings(readStored<CageSettings>(STORAGE_KEY, DEFAULT_SETTINGS))
+    normalizeSettings(readStored<Record<string, unknown>>(STORAGE_KEY, {}))
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [voltageGirthDefault, setVoltageGirthDefault] = useState<string | null>(null);
+
+  // Voltage predictor models loaded once on mount. Used to resolve model_id
+  // at generation time (never stored in settings).
+  const [voltageModels, setVoltageModels] = useState<ModelInfo[]>([]);
 
   const [status, setStatus] = useState<CageStatusResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -112,36 +139,29 @@ export const useCageGeneration = () => {
     latestSessionIdRef.current = sessionId;
   }, [sessionId]);
 
+  // Load voltage predictor models once on mount.
   useEffect(() => {
-    // Fetch the best voltage girth predictor so it can be auto-selected when
-    // the voltage generator is active. No model dropdown is shown to the user;
-    // the resolved default is sent transparently on every voltage generation.
-    const loadVoltageGirthModels = async () => {
+    const loadVoltageModels = async () => {
       try {
         const data = await fetchCageVoltageGirthModels();
-        setVoltageGirthDefault(data.default ?? null);
+        setVoltageModels(data.models);
       } catch {
-        setVoltageGirthDefault(null);
+        setVoltageModels([]);
       }
     };
 
-    void loadVoltageGirthModels();
+    void loadVoltageModels();
   }, []);
 
-  // Auto-select the unified girth predictor whenever the voltage or forge
-  // generator is active and modelId is unset (null). Since there is no
-  // user-facing model dropdown, modelId for these generators is always either
-  // null (initial / post-generator-switch) or the resolved default id (after
-  // this effect runs).
-  useEffect(() => {
-    if (
-      (settings.generatorType === "voltage" || settings.generatorType === "forge") &&
-      settings.modelId === null &&
-      voltageGirthDefault !== null
-    ) {
-      setSettings((current) => ({ ...current, modelId: voltageGirthDefault }));
-    }
-  }, [settings.generatorType, settings.modelId, voltageGirthDefault]);
+  // Derive which method IDs are currently disabled (predictor models not available).
+  const disabledMethods = useMemo(() => {
+    const disabled = new Set<CageMethodId>();
+    const hasGirth = voltageModels.some((m) => m.kind === "girth");
+    const hasTabu = voltageModels.some((m) => m.kind === "tabu_cost");
+    if (!hasGirth) disabled.add("voltage_girth");
+    if (!hasTabu) disabled.add("voltage_tabu");
+    return disabled;
+  }, [voltageModels]);
 
   useEffect(() => {
     if (!editorRef.current) return;
@@ -165,6 +185,22 @@ export const useCageGeneration = () => {
       }
     },
     [settings.enablePhysics]
+  );
+
+  /**
+   * Resolve the selected method to a { generator, model_id } pair for the API.
+   * Voltage sub-methods pick the right model by kind; everything else is null.
+   */
+  const resolveGenerationArgs = useCallback(
+    (methodId: CageSettings["methodId"]): { generator: string; model_id: string | null } => {
+      const method = getMethod(methodId);
+      if (method.voltageKind) {
+        const match = voltageModels.find((m) => m.kind === method.voltageKind);
+        return { generator: method.generator, model_id: match?.model_id ?? null };
+      }
+      return { generator: method.generator, model_id: null };
+    },
+    [voltageModels]
   );
 
   const applyStatus = useCallback((currentStatus: CageStatusResponse) => {
@@ -273,18 +309,16 @@ export const useCageGeneration = () => {
     setPhase("starting");
 
     const mode: CageExecutionMode = isSteppedMode ? "stepped" : "async";
+    const { generator, model_id } = resolveGenerationArgs(settings.methodId);
 
     try {
-      // Voltage uses the auto-resolved girth predictor stored in modelId.
-      // RL sends null so the backend picks the best actor-critic model.
-      // All other generators don't use a model (normalizeSettings ensures null).
-      const apiModelId = settings.modelId;
       const result = await startCageGeneration(
         degreeK,
         girthG,
-        settings.generatorType,
+        // GeneratorType assertion is safe: method registry only contains valid generator values.
+        generator as Parameters<typeof startCageGeneration>[2],
         mode,
-        apiModelId
+        model_id
       );
       setSessionId(result.session_id);
 
@@ -307,8 +341,8 @@ export const useCageGeneration = () => {
     isSteppedMode,
     mooreBoundLimit,
     pollStatus,
-    settings.generatorType,
-    settings.modelId
+    resolveGenerationArgs,
+    settings.methodId
   ]);
 
   const stepOnce = useCallback(async () => {
@@ -430,23 +464,12 @@ export const useCageGeneration = () => {
 
   const saveSettings = useCallback(
     (nextSettings: CageSettings) => {
-      const safe = normalizeSettings(nextSettings);
-      // If the user is saving the voltage or forge generator with modelId still
-      // unresolved (null = auto-select pending) and the default has loaded,
-      // resolve it before persisting. Without this, a fast save followed by
-      // a reload would re-enter the legacy-migration path and flip the
-      // user from ML-guided to pure tabu/random.
-      const resolved: CageSettings =
-        (safe.generatorType === "voltage" || safe.generatorType === "forge") &&
-        safe.modelId === null &&
-        voltageGirthDefault !== null
-          ? { ...safe, modelId: voltageGirthDefault }
-          : safe;
-      setSettings(resolved);
-      writeStored(STORAGE_KEY, resolved);
+      const safe = normalizeSettings(nextSettings as unknown as Record<string, unknown>);
+      setSettings(safe);
+      writeStored(STORAGE_KEY, safe);
       setSettingsOpen(false);
     },
-    [voltageGirthDefault]
+    []
   );
 
   return {
@@ -455,9 +478,11 @@ export const useCageGeneration = () => {
     girthG,
     setGirthG,
     settings,
+    setSettings,
     settingsOpen,
     setSettingsOpen,
     saveSettings,
+    disabledMethods,
     status,
     error,
     successMessage,

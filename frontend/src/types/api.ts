@@ -25,6 +25,7 @@ export interface ModelTrainingInfo {
 export interface ModelInfo {
   model_id: string;
   model_type: string;
+  kind?: string;
   metrics?: ModelMetrics;
   created_at?: string;
   training?: ModelTrainingInfo;
@@ -70,6 +71,17 @@ export type GeneratorType =
   | "forge";
 export type CageExecutionMode = "async" | "stepped";
 
+export type CageMethodId =
+  | "astar"
+  | "randomwalk"
+  | "bruteforce"
+  | "rl"
+  | "voltage_algebraic"
+  | "voltage_tabu"
+  | "voltage_girth"
+  | "voltage_rl"
+  | "forge";
+
 export interface CageStepEvent {
   step: number;
   action: string;
@@ -82,9 +94,8 @@ export interface CageStepEvent {
 }
 
 export interface CageSettings {
-  generatorType: GeneratorType;
+  methodId: CageMethodId;
   executionMode: CageExecutionMode;
-  modelId: string | null;
   pollingInterval: number;
   stepsPerTick: number;
   autoStepInterval: number;

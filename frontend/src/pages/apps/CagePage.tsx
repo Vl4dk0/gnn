@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { GraphCanvas } from "../../components/graph/GraphCanvas";
 import { GraphToolbar } from "../../components/graph/GraphToolbar";
@@ -14,18 +15,33 @@ import { StatusPanel } from "../../components/ui/StatusPanel";
 import { useCageGeneration } from "../../hooks/useCageGeneration";
 import { InteractiveGraphEditor } from "../../graph/InteractiveGraphEditor";
 import { importGraphFromFile } from "../../services/cage";
-import type { CageSettings } from "../../types/api";
+import type { CageMethodId, CageSettings } from "../../types/api";
+import {
+  FROM_PARAM_TO_GROUP,
+  GROUP_DEFAULTS,
+  GROUP_LABELS,
+  methodsForGroup
+} from "./cageMethods";
+import type { CageMethodGroup } from "./cageMethods";
+
+const ALL_GROUPS: CageMethodGroup[] = ["classical", "rl", "voltage"];
 
 export const CagePage = () => {
+  const [searchParams] = useSearchParams();
+  const fromParam = searchParams.get("from") ?? "";
+  const contextGroup: CageMethodGroup | null = FROM_PARAM_TO_GROUP[fromParam] ?? null;
+
   const {
     degreeK,
     setDegreeK,
     girthG,
     setGirthG,
     settings,
+    setSettings,
     settingsOpen,
     setSettingsOpen,
     saveSettings,
+    disabledMethods,
     status,
     error,
     successMessage,
@@ -49,6 +65,19 @@ export const CagePage = () => {
     downloadGraph,
     canDownload
   } = useCageGeneration();
+
+  // When a ?from context is present, initialize the method to that group's
+  // default on mount (overrides whatever was persisted in localStorage).
+  const contextInitializedRef = useRef(false);
+  useEffect(() => {
+    if (contextGroup && !contextInitializedRef.current) {
+      contextInitializedRef.current = true;
+      const defaultMethod = GROUP_DEFAULTS[contextGroup];
+      setSettings((current) => ({ ...current, methodId: defaultMethod }));
+    }
+    // Only run once per mount; contextGroup is stable for the page lifetime.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [draftSettings, setDraftSettings] = useState<CageSettings>(settings);
   const [panelOpen, setPanelOpen] = useState(false);
@@ -102,11 +131,40 @@ export const CagePage = () => {
           ? "Start Inspection"
           : "Generate Cage";
 
+  // Back button destination depends on ?from.
+  const backHref =
+    contextGroup === "rl"
+      ? "/cage/rl"
+      : contextGroup === "voltage"
+        ? "/cage/voltage"
+        : "/cage/astar";
+
+  // Method dropdown: show only the context group when ?from is set, else all groups.
+  const renderMethodOptions = () => {
+    if (contextGroup) {
+      return methodsForGroup(contextGroup).map((m) => (
+        <option key={m.id} value={m.id} disabled={disabledMethods.has(m.id)}>
+          {m.label}
+        </option>
+      ));
+    }
+
+    return ALL_GROUPS.map((group) => (
+      <optgroup key={group} label={GROUP_LABELS[group]}>
+        {methodsForGroup(group).map((m) => (
+          <option key={m.id} value={m.id} disabled={disabledMethods.has(m.id)}>
+            {m.label}
+          </option>
+        ))}
+      </optgroup>
+    ));
+  };
+
   return (
     <div className="relative h-dvh overflow-hidden bg-transparent">
       <GraphCanvas onReady={onEditorReadyWithImport} canvasClassName="rounded-none">
         <BackButton
-          href="/cage/astar"
+          href={backHref}
           label="Back to Docs"
           iconOnly
           className="absolute left-5 top-5 z-20"
@@ -266,7 +324,7 @@ export const CagePage = () => {
                   onClick={() => stepOnce()}
                   disabled={!canStep || isStepping}
                 >
-                  {isStepping ? "Stepping..." : "Step"}
+                  Step
                 </PrimaryButton>
                 <SecondaryButton
                   fullWidth={false}
@@ -296,32 +354,19 @@ export const CagePage = () => {
         title="Generation Settings"
       >
         <SelectField
-          id="generatorType"
-          label="Generator Algorithm"
-          value={draftSettings.generatorType}
+          id="methodId"
+          label="Algorithm"
+          value={draftSettings.methodId}
           onChange={(event) => {
-            const newType = event.target.value as CageSettings["generatorType"];
-            // Always clear modelId on generator change. rl, voltage, and
-            // voltage_rl use different model registries (cage/actor_critic,
-            // voltage_girth/voltage_girth_predictor, cage/voltage_actor_critic
-            // respectively) so a stale id from one would 400 against another.
-            // The hook re-populates the voltage field via auto-select.
             setDraftSettings((current) => ({
               ...current,
-              generatorType: newType,
-              executionMode: current.executionMode,
-              modelId: null
+              methodId: event.target.value as CageMethodId
             }));
           }}
         >
-          <option value="randomwalk">Random Walk (Fast, Probabilistic)</option>
-          <option value="bruteforce">Bruteforce (Systematic, Backtracking)</option>
-          <option value="astar">A* Search (Best-First, Optimal)</option>
-          <option value="rl">RL Agent (GNN-Guided)</option>
-          <option value="voltage">Voltage Graph Lift (Algebraic)</option>
-          <option value="voltage_rl">Voltage RL (Learned Assignments)</option>
-          <option value="forge">Forge (Lift → Refine → Excision)</option>
+          {renderMethodOptions()}
         </SelectField>
+        <p className="mt-1 text-xs text-textDim">Which construction algorithm to run.</p>
 
         <SelectField
           id="executionMode"
@@ -337,6 +382,9 @@ export const CagePage = () => {
           <option value="async">Fast Search</option>
           <option value="stepped">Step Inspection</option>
         </SelectField>
+        <p className="mt-1 text-xs text-textDim">
+          Fast search runs to the end. Step inspection lets you watch each move.
+        </p>
 
         {!(draftSettings.executionMode === "stepped") && (
           <SettingGroup>
@@ -357,9 +405,7 @@ export const CagePage = () => {
                 }));
               }}
             />
-            <div className="mt-2 text-[0.85em] text-textDim">
-              How often frontend checks for updates (50ms - 2000ms)
-            </div>
+            <p className="mt-1 text-xs text-textDim">How often the view refreshes during a fast search.</p>
           </SettingGroup>
         )}
 
@@ -383,9 +429,7 @@ export const CagePage = () => {
                   }));
                 }}
               />
-              <div className="mt-2 text-[0.85em] text-textDim">
-                Manual step and auto step batch size.
-              </div>
+              <p className="mt-1 text-xs text-textDim">How many moves each manual or auto step performs.</p>
             </SettingGroup>
 
             <SettingGroup>
@@ -406,9 +450,7 @@ export const CagePage = () => {
                   }));
                 }}
               />
-              <div className="mt-2 text-[0.85em] text-textDim">
-                Delay between sequential auto-step requests.
-              </div>
+              <p className="mt-1 text-xs text-textDim">Delay between automatic steps.</p>
             </SettingGroup>
           </>
         )}
@@ -427,6 +469,7 @@ export const CagePage = () => {
             />
             Enable Spring Physics
           </label>
+          <p className="mt-1 text-xs text-textDim">Spring layout that spreads the graph out.</p>
         </SettingGroup>
 
         <div className="mt-8 flex items-center justify-start gap-5">
