@@ -116,6 +116,11 @@ class _ExportRequest(TypedDict, total=False):
     g: int
 
 
+class _ImportRequest(TypedDict):
+    content: str
+    format: str
+
+
 # Create blueprint with /api/cage prefix
 cage_bp = Blueprint("cage", __name__, url_prefix="/api/cage")
 
@@ -740,6 +745,71 @@ def export_graph() -> Response | tuple[Response, int]:
             filename = "graph.txt"
 
     return jsonify({"filename": filename, "content": content, "format": fmt})
+
+
+@cage_bp.route("/import", methods=["POST"])
+def import_graph() -> Response | tuple[Response, int]:
+    """Import a graph from graph6 or adjacency matrix and return its edge list."""
+    data: _ImportRequest | None = cast(_ImportRequest | None, request.get_json())
+
+    if not data or "content" not in data or "format" not in data:
+        return jsonify({"error": "Missing content or format"}), 400
+
+    fmt: str = data["format"]
+    if fmt not in {"g6", "adjacency"}:
+        return jsonify(
+            {"error": f"Invalid format '{fmt}'. Must be 'g6' or 'adjacency'"}
+        ), 400
+
+    content: str = data["content"]
+    if not content.strip():
+        return jsonify({"error": "content is empty"}), 400
+
+    graph: nx.Graph[int]
+
+    if fmt == "g6":
+        try:
+            graph = nx.from_graph6_bytes(content.strip().encode("ascii"))
+        except Exception as exc:
+            return jsonify({"error": f"Failed to decode g6 content: {exc}"}), 400
+    else:
+        # adjacency: n-by-n matrix of space-separated "1"/"0" rows
+        try:
+            rows_raw = content.strip().splitlines()
+            matrix: list[list[str]] = [row.split() for row in rows_raw]
+            n = len(matrix)
+            for i, row in enumerate(matrix):
+                if len(row) != n:
+                    return jsonify(
+                        {
+                            "error": (
+                                f"Ragged adjacency matrix: row {i} has {len(row)}"
+                                f" entries, expected {n}"
+                            )
+                        }
+                    ), 400
+                for j, cell in enumerate(row):
+                    if cell not in {"0", "1"}:
+                        return jsonify(
+                            {
+                                "error": (
+                                    f"Invalid cell at ({i},{j}): '{cell}'."
+                                    " Only '0' and '1' are allowed."
+                                )
+                            }
+                        ), 400
+            graph = nx.Graph()
+            graph.add_nodes_from(range(n))
+            # input treated as undirected: edge present if either triangle marks it
+            for i in range(n):
+                for j in range(i + 1, n):
+                    if matrix[i][j] == "1" or matrix[j][i] == "1":
+                        _ = graph.add_edge(i, j)
+        except Exception as exc:
+            return jsonify({"error": f"Failed to parse adjacency matrix: {exc}"}), 400
+
+    # Both decoders already yield integer nodes 0..n-1, so no relabel is needed.
+    return jsonify({"edge_list": graph_to_edge_list(graph)})
 
 
 def cleanup_old_sessions() -> None:
