@@ -14,7 +14,6 @@ import {
   liftVertexCount,
   type BaseArc
 } from "../../graph/voltage/liftConstruction";
-import { importGraphFromFile } from "../../services/cage";
 
 interface Preset {
   id: string;
@@ -60,13 +59,11 @@ export const VoltageLiftPage = () => {
   const baseCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const editorRef = useRef<VoltageBaseEditor | null>(null);
   const previewRef = useRef<InteractiveGraphEditor | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [groupOrder, setGroupOrder] = useState(7);
   const [vertexCount, setVertexCount] = useState(0);
   const [stats, setStats] = useState<LiftStats | null>(null);
   const [hasBase, setHasBase] = useState(false);
-  const [importError, setImportError] = useState<string | null>(null);
 
   const groupOrderRef = useRef(groupOrder);
   useEffect(() => {
@@ -142,31 +139,6 @@ export const VoltageLiftPage = () => {
     setStats(null);
   };
 
-  const handleImportClick = () => {
-    setImportError(null);
-    fileInputRef.current?.click();
-  };
-
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!event.target.files) {
-      return;
-    }
-    event.target.value = "";
-    if (!file) {
-      return;
-    }
-    try {
-      const edgeListText = await importGraphFromFile(file);
-      editorRef.current?.loadEdgeList(edgeListText);
-      refreshCount();
-      setStats(null);
-      setImportError(null);
-    } catch (err) {
-      setImportError(err instanceof Error ? err.message : "Import failed");
-    }
-  };
-
   const voltageExtraControls = (
     <>
       <div className="flex gap-2 justify-center text-sm leading-relaxed">
@@ -223,14 +195,6 @@ export const VoltageLiftPage = () => {
         extraControls={voltageExtraControls}
       />
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".g6,.txt"
-        className="hidden"
-        onChange={handleFileChange}
-      />
-
       <section className="absolute left-5 top-1/2 z-20 w-[300px] -translate-y-1/2 rounded-2xl border border-line2 bg-bg1/92 p-4 shadow-card backdrop-blur-md max-md:left-3 max-md:w-[260px]">
         <div className="text-[11px] font-semibold uppercase tracking-[0.8px] text-textDim">
           Voltage Lift
@@ -260,22 +224,11 @@ export const VoltageLiftPage = () => {
           <SecondaryButton
             fullWidth={false}
             className="w-full rounded-lg px-5 py-2.5 text-sm tracking-[0.8px]"
-            onClick={handleImportClick}
-          >
-            Import graph
-          </SecondaryButton>
-          <SecondaryButton
-            fullWidth={false}
-            className="w-full rounded-lg px-5 py-2.5 text-sm tracking-[0.8px]"
             onClick={clearBase}
           >
             Clear
           </SecondaryButton>
         </div>
-
-        {importError && (
-          <div className="mt-2 text-[11px] text-textDim">{importError}</div>
-        )}
 
         <div className="mt-4 rounded-xl border border-line2 bg-bg2/75 p-3 text-sm text-textMuted">
           <div>

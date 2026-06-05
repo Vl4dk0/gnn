@@ -14,8 +14,6 @@ import { SettingGroup } from "../../components/ui/SettingGroup";
 import { SingleRangeSlider } from "../../components/ui/SingleRangeSlider";
 import { StatusPanel } from "../../components/ui/StatusPanel";
 import { useCageGeneration } from "../../hooks/useCageGeneration";
-import { InteractiveGraphEditor } from "../../graph/InteractiveGraphEditor";
-import { importGraphFromFile } from "../../services/cage";
 import type { CageMethodId, CageSettings } from "../../types/api";
 import {
   FROM_PARAM_TO_GROUP,
@@ -82,36 +80,11 @@ export const CagePage = () => {
 
   const [draftSettings, setDraftSettings] = useState<CageSettings>(settings);
   const [panelOpen, setPanelOpen] = useState(false);
-  const [importError, setImportError] = useState<string | null>(null);
   const [hasGraph, setHasGraph] = useState(false);
-
-  const editorRefForImport = useRef<InteractiveGraphEditor | null>(null);
-
-  const onEditorReadyWithImport = useCallback(
-    (editor: InteractiveGraphEditor | null) => {
-      editorRefForImport.current = editor;
-      onEditorReady(editor);
-    },
-    [onEditorReady]
-  );
 
   const handleGraphChange = useCallback((edgeList: string) => {
     setHasGraph(edgeList.trim().length > 0);
   }, []);
-
-  const handleImportFile = useCallback(
-    async (file: File) => {
-      setImportError(null);
-      try {
-        const edgeList = await importGraphFromFile(file);
-        editorRefForImport.current?.loadFromEdgeList(edgeList);
-        setHasGraph(true);
-      } catch (cause) {
-        setImportError(cause instanceof Error ? cause.message : "Failed to import graph");
-      }
-    },
-    []
-  );
 
   useEffect(() => {
     if (panelOpen) {
@@ -181,7 +154,7 @@ export const CagePage = () => {
 
   return (
     <div className="relative h-dvh overflow-hidden bg-transparent">
-      <GraphCanvas onReady={onEditorReadyWithImport} onGraphChange={handleGraphChange} canvasClassName="rounded-none">
+      <GraphCanvas onReady={onEditorReady} onGraphChange={handleGraphChange} canvasClassName="rounded-none">
         <BackButton
           href={backHref}
           label="Back to Docs"
@@ -242,7 +215,7 @@ export const CagePage = () => {
             </div>
             <StatusPanel
               status={status}
-              error={importError ?? error}
+              error={error}
               successMessage={successMessage}
               stoppedByUser={stoppedByUser}
             />
@@ -304,7 +277,7 @@ export const CagePage = () => {
                 </div>
                 <StatusPanel
                   status={status}
-                  error={importError ?? error}
+                  error={error}
                   successMessage={successMessage}
                   stoppedByUser={stoppedByUser}
                 />
@@ -327,7 +300,6 @@ export const CagePage = () => {
           onDownload={downloadGraph}
           downloadTitle="Download Graph"
           canDownload={canDownload}
-          onImportFile={handleImportFile}
         />
 
         <div className="pointer-events-none absolute inset-x-0 bottom-6 z-20 flex justify-center px-4 max-[900px]:bottom-4">

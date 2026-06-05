@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { EditorPlaceholder } from "../../components/graph/EditorPlaceholder";
 import { GraphCanvas } from "../../components/graph/GraphCanvas";
@@ -11,7 +11,6 @@ import { SecondaryButton } from "../../components/ui/SecondaryButton";
 import { SelectField } from "../../components/ui/SelectField";
 import { SettingGroup } from "../../components/ui/SettingGroup";
 import { usePredictionGraph } from "../../hooks/usePredictionGraph";
-import { importGraphFromFile } from "../../services/cage";
 import type { DegreeMinCycleSettings } from "../../types/api";
 import type { PredictionTask } from "../../services/models";
 
@@ -38,26 +37,10 @@ export const PredictionPage = ({ task }: PredictionPageProps) => {
 
   const [draftSettings, setDraftSettings] = useState<DegreeMinCycleSettings>(settings);
 
-  const [importError, setImportError] = useState<string | null>(null);
-
   // The placeholder shows only while the canvas is empty. graphInput is the
   // hook's single source of truth and is updated on every path: generate,
-  // manual drawing (via onEditorGraphChange), import, and clear.
+  // manual drawing (via onEditorGraphChange), and clear.
   const canvasEmpty = graphInput.trim().length === 0;
-
-  const handleImportFile = useCallback(
-    async (file: File) => {
-      setImportError(null);
-      try {
-        const edgeList = await importGraphFromFile(file);
-        onEditorGraphChange(edgeList);
-        onEditorAnalyzeRequest(edgeList);
-      } catch (cause) {
-        setImportError(cause instanceof Error ? cause.message : "Failed to import graph");
-      }
-    },
-    [onEditorGraphChange, onEditorAnalyzeRequest]
-  );
 
   useEffect(() => {
     if (settingsOpen) {
@@ -106,9 +89,9 @@ export const PredictionPage = ({ task }: PredictionPageProps) => {
         />
         <BackButton href={backHref} iconOnly className="absolute left-5 top-5 z-20" />
 
-        {(error ?? importError) && (
+        {error && (
           <div className="absolute left-1/2 top-5 z-20 w-[min(520px,calc(100%-8rem))] -translate-x-1/2 rounded-xl bg-[#a52] p-3 text-sm text-white shadow-card max-[760px]:top-[72px] max-[760px]:w-[calc(100%-2rem)]">
-            <strong>Error:</strong> {error ?? importError}
+            <strong>Error:</strong> {error}
           </div>
         )}
 
@@ -128,7 +111,6 @@ export const PredictionPage = ({ task }: PredictionPageProps) => {
           onClear={clearCanvas}
           settingsTitle="Graph Settings"
           clearTitle="Delete Graph"
-          onImportFile={handleImportFile}
         />
       </GraphCanvas>
 
