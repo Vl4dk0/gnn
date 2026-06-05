@@ -1,15 +1,7 @@
-import { useLocation } from "react-router-dom";
-
 import { useTheme } from "../../hooks/useTheme";
-
-const EDITOR_ROUTES = ["/degree", "/min_cycle", "/cage"];
 
 export const ThemeToggle = () => {
   const { theme, toggle } = useTheme();
-  const { pathname } = useLocation();
-
-  const isEditor = EDITOR_ROUTES.some((r) => pathname === r || pathname.startsWith(r + "/"));
-  if (isEditor) return null;
 
   const isDark = theme === "dark";
 
