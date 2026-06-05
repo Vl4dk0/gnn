@@ -14,9 +14,8 @@ export const DegreeTaskPage = () => {
           Degree subproblem
         </h1>
         <p className="text-base leading-[1.7] text-textMuted">
-          The first sanity check: can a GNN tell a vertex's degree? If it cannot recover this purely
-          local signal, it is disqualified for (k,g)-graph construction (k-regularity is literally
-          one half of the definition).
+          The first subproblem: can a GNN tell a vertex's degree? k-regularity is one half of the
+          definition. Hence this is important.
         </p>
       </DocsHero>
 
@@ -38,8 +37,7 @@ export const DegreeTaskPage = () => {
       <DocsCard>
         <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">Training step</h2>
         <pre className="mt-2.5 overflow-x-auto rounded-lg border-2 border-line2 bg-bg1 p-1.5">
-          <code className="language-python">{`# ai/degree/train.py: one training step
-def train_step(model: BaseGNN, optimizer: torch.optim.Optimizer, data: Data) -> float:
+          <code className="language-python">{`def train_step(model: BaseGNN, optimizer: torch.optim.Optimizer, data: Data) -> float:
     optimizer.zero_grad()
     out: torch.Tensor = model(data).squeeze()       # one scalar per node
     loss: torch.Tensor = F.mse_loss(out, data.y)    # data.y holds the true degrees
@@ -52,10 +50,19 @@ def train_step(model: BaseGNN, optimizer: torch.optim.Optimizer, data: Data) -> 
       <DocsCard>
         <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">Try it</h2>
         <p className="text-base leading-[1.7] text-textMuted">
-          Draw a graph in the editor, and the trained GNN predicts each node's degree live. Compare the
-          predictions to the actual degrees to see how well the model recovers a local signal.
+          Play with degree prediction models in this editor.
+          <br />
+          You can choose prediction models in settings (gear icon in the top right corner of the
+          editor)
         </p>
-        <EditorLinks links={[{ href: "/degree", label: "Open the degree editor", description: "Draw a graph and watch the model predict each node's degree live." }]} />
+        <EditorLinks
+          links={[
+            {
+              href: "/degree",
+              label: "Open"
+            }
+          ]}
+        />
       </DocsCard>
 
       <div className="mt-10 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-5">

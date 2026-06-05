@@ -27,8 +27,8 @@ export const CageAstarPage = () => {
           regularity progress (how many vertices already have the right degree), closeness to the
           Moore-bound target size, and girth. At each step, the algorithm expands the best-scoring
           partial graph by applying one of two actions: add a girth-safe edge between two
-          under-degree vertices, or grow the graph by adding a new vertex (bounded by roughly
-          twice the Moore bound).
+          under-degree vertices, or grow the graph by adding a new vertex (bounded by roughly twice
+          the Moore bound).
         </p>
         <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
           A pure supervised heuristic fails here because you cannot label partial states as
@@ -132,9 +132,8 @@ def _score_graph(self, graph: nx.Graph[int]) -> float:
           links={[
             {
               href: "/cage?from=astar",
-              label: "Open the cage editor",
-              description: "Run A* and the other classical searches on a live canvas.",
-            },
+              label: "Open"
+            }
           ]}
         />
       </DocsCard>

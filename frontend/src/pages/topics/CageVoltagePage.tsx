@@ -137,14 +137,12 @@ def compute_lift_girth(
           links={[
             {
               href: "/lift",
-              label: "Open the voltage-lift editor",
-              description: "Draw a base graph, assign voltages, and build the lift in one click.",
+              label: "Open lift editor"
             },
             {
               href: "/cage?from=voltage",
-              label: "Open the cage editor",
-              description: "Run the algebraic, predictor-guided, and RL voltage methods.",
-            },
+              label: "Open cage editor"
+            }
           ]}
         />
       </DocsCard>

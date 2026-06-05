@@ -113,9 +113,8 @@ def _can_add_edge(self, u: int, v: int) -> bool:
           links={[
             {
               href: "/cage?from=rl",
-              label: "Open the cage editor",
-              description: "Watch the RL agent build a (k,g)-graph edge by edge.",
-            },
+              label: "Open"
+            }
           ]}
         />
       </DocsCard>

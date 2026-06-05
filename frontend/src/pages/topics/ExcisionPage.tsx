@@ -112,9 +112,8 @@ def is_legal_edge(G: nx.Graph[int], u: int, v: int, g_target: int) -> bool:
           links={[
             {
               href: "/excise",
-              label: "Open the excision editor",
-              description: "Build a (k,g)-graph by hand and watch it shrink, step by step.",
-            },
+              label: "Open"
+            }
           ]}
         />
       </DocsCard>

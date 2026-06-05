@@ -14,27 +14,23 @@ export const MinCycleTaskPage = () => {
           Min-cycle subproblem
         </h1>
         <p className="text-base leading-[1.7] text-textMuted">
-          The second constraint of a (k,g)-graph is girth. Unlike degree, girth is a global
-          signal: it depends on paths that leave a vertex and loop back, not just the local
-          neighbourhood. This task probes the structural limit of GNN expressivity.
+          The second subproblem is girth. Unlike degree: it depends on paths that leave a vertex and
+          loop back, not just the local neighbourhood. This task tests the structural limit of GNN
+          expressivity.
         </p>
       </DocsHero>
 
       <DocsCard>
-        <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">Why girth is harder than degree</h2>
+        <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">
+          Why girth is harder than degree
+        </h2>
         <p className="text-base leading-[1.7] text-textMuted">
-          The per-node label here is the length of the shortest cycle through that vertex (0 if
-          the vertex lies on no cycle). Detecting whether any cycle exists (let alone its length)
-          requires tracking paths of unbounded length, which is beyond what the standard
-          1-Weisfeiler–Leman colour-refinement test can distinguish. Standard message-passing GNNs
-          are bounded by 1-WL, so this task sits exactly at the expressivity boundary: a model
-          that succeeds must be doing something beyond simple neighbourhood aggregation.
-        </p>
-        <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
-          This makes the task a meaningful probe: if a GNN architecture can learn min-cycle labels
-          reliably, it has enough structural sensitivity to be useful for girth-constrained
-          construction. Failure tells us the architecture would miss short cycles in a partial
-          graph and produce invalid (k,g)-graphs.
+          The per-node label here is the length of the shortest cycle through that vertex (0 if the
+          vertex lies on no cycle). <br />
+          Detecting whether any cycle exists (let alone its length) requires tracking paths of
+          unbounded length, which is beyond what the standard 1-Weisfeiler–Leman colour-refinement
+          test can distinguish. Standard message-passing GNNs are bounded by 1-WL, so this task sits
+          exactly at the expressivity boundary.
         </p>
       </DocsCard>
 
@@ -45,8 +41,7 @@ export const MinCycleTaskPage = () => {
           finding the shortest detour back.
         </p>
         <pre className="mt-2.5 overflow-x-auto rounded-lg border-2 border-line2 bg-bg1 p-1.5">
-          <code className="language-python">{`# ai/min_cycle/functions/graph_service.py: the exact per-node label
-def get_min_cycle(G: nx.Graph[int], vertex: int) -> int:
+          <code className="language-python">{`def get_min_cycle(G: nx.Graph[int], vertex: int) -> int:
     ans: int | None = None
     for neigh in G.neighbors(vertex):
         G.remove_edge(vertex, neigh)                # break the direct edge
@@ -63,11 +58,19 @@ def get_min_cycle(G: nx.Graph[int], vertex: int) -> int:
       <DocsCard>
         <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">Try it</h2>
         <p className="text-base leading-[1.7] text-textMuted">
-          Draw a graph in the editor, and the trained GNN predicts the minimum-cycle length for each
-          node live. Compare predictions against the exact labels to see how well the model tracks
-          this global structural signal.
+          Play with minimal-cycle prediction models in this editor.
+          <br />
+          You can choose prediction models in settings (gear icon in the top right corner of the
+          editor)
         </p>
-        <EditorLinks links={[{ href: "/min_cycle", label: "Open the min-cycle editor", description: "Draw a graph and see the predicted shortest cycle through each node." }]} />
+        <EditorLinks
+          links={[
+            {
+              href: "/min_cycle",
+              label: "Open"
+            }
+          ]}
+        />
       </DocsCard>
 
       <div className="mt-10 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-5">
