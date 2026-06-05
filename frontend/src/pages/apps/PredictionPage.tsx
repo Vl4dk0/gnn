@@ -21,6 +21,7 @@ interface PredictionPageProps {
 
 export const PredictionPage = ({ task }: PredictionPageProps) => {
   const {
+    graphInput,
     settings,
     settingsOpen,
     modelOptions,
@@ -38,28 +39,24 @@ export const PredictionPage = ({ task }: PredictionPageProps) => {
   const [draftSettings, setDraftSettings] = useState<DegreeMinCycleSettings>(settings);
 
   const [importError, setImportError] = useState<string | null>(null);
-  const [hasGraph, setHasGraph] = useState(false);
 
-  const handleGraphChange = useCallback(
-    (edgeList: string) => {
-      onEditorGraphChange(edgeList);
-      setHasGraph(edgeList.trim().length > 0);
-    },
-    [onEditorGraphChange]
-  );
+  // The placeholder shows only while the canvas is empty. graphInput is the
+  // hook's single source of truth and is updated on every path: generate,
+  // manual drawing (via onEditorGraphChange), import, and clear.
+  const canvasEmpty = graphInput.trim().length === 0;
 
   const handleImportFile = useCallback(
     async (file: File) => {
       setImportError(null);
       try {
         const edgeList = await importGraphFromFile(file);
-        handleGraphChange(edgeList);
+        onEditorGraphChange(edgeList);
         onEditorAnalyzeRequest(edgeList);
       } catch (cause) {
         setImportError(cause instanceof Error ? cause.message : "Failed to import graph");
       }
     },
-    [handleGraphChange, onEditorAnalyzeRequest]
+    [onEditorGraphChange, onEditorAnalyzeRequest]
   );
 
   useEffect(() => {
@@ -78,12 +75,12 @@ export const PredictionPage = ({ task }: PredictionPageProps) => {
     <div className="relative h-dvh overflow-hidden bg-transparent">
       <GraphCanvas
         onReady={onEditorReady}
-        onGraphChange={handleGraphChange}
+        onGraphChange={onEditorGraphChange}
         onAnalyzeRequest={onEditorAnalyzeRequest}
         canvasClassName="rounded-none"
       >
         <EditorPlaceholder
-          visible={!hasGraph}
+          visible={canvasEmpty}
           showControls
           intro={
             task === "degree" ? (

@@ -83,7 +83,7 @@ export const CagePage = () => {
   const [draftSettings, setDraftSettings] = useState<CageSettings>(settings);
   const [panelOpen, setPanelOpen] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
-  const [userGraph, setUserGraph] = useState(false);
+  const [hasGraph, setHasGraph] = useState(false);
 
   const editorRefForImport = useRef<InteractiveGraphEditor | null>(null);
 
@@ -96,7 +96,7 @@ export const CagePage = () => {
   );
 
   const handleGraphChange = useCallback((edgeList: string) => {
-    setUserGraph(edgeList.trim().length > 0);
+    setHasGraph(edgeList.trim().length > 0);
   }, []);
 
   const handleImportFile = useCallback(
@@ -105,7 +105,7 @@ export const CagePage = () => {
       try {
         const edgeList = await importGraphFromFile(file);
         editorRefForImport.current?.loadFromEdgeList(edgeList);
-        setUserGraph(true);
+        setHasGraph(true);
       } catch (cause) {
         setImportError(cause instanceof Error ? cause.message : "Failed to import graph");
       }
@@ -124,6 +124,16 @@ export const CagePage = () => {
     document.body.classList.remove("touch-graph-lock");
   }, [panelOpen]);
 
+  // Generation streams nodes onto the canvas via updateFromEdgeList, which does
+  // not fire onGraphChange, so watch the status snapshot to hide the placeholder
+  // once a graph is produced. Clearing the canvas fires onGraphChange with an
+  // empty list (setting hasGraph false), and the frozen status does not undo it.
+  useEffect(() => {
+    if ((status?.num_nodes ?? 0) > 0) {
+      setHasGraph(true);
+    }
+  }, [status]);
+
   const triggerSettings = () => {
     setDraftSettings(settings);
     setSettingsOpen(true);
@@ -138,7 +148,7 @@ export const CagePage = () => {
           ? "Start Inspection"
           : "Generate Cage";
 
-  const canvasEmpty = !userGraph && (status?.num_nodes ?? 0) === 0;
+  const canvasEmpty = !hasGraph;
 
   // Back button destination depends on ?from.
   const backHref =
