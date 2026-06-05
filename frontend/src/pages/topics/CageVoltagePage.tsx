@@ -1,6 +1,7 @@
 import { DocsCard, DocsHero } from "../../components/docs/DocsCard";
 import { DocsLayout } from "../../components/docs/DocsLayout";
 import { DocsNextButton } from "../../components/docs/DocsNextButton";
+import { EditorLinks } from "../../components/docs/EditorLinks";
 import { useHighlight } from "../../hooks/useHighlight";
 
 export const CageVoltagePage = () => {
@@ -15,7 +16,7 @@ export const CageVoltagePage = () => {
         <p className="text-base leading-[1.7] text-textMuted">
           Start with a tiny base graph, assign a group element (a voltage) to each edge, and
           stamp out a large graph over <code>V(base) × G</code>. If the base is k-regular, the
-          lift is automatically k-regular — so only girth needs to be optimised.
+          lift is automatically k-regular, so only girth needs to be optimised.
         </p>
       </DocsHero>
 
@@ -23,7 +24,7 @@ export const CageVoltagePage = () => {
         <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">The lift construction</h2>
         <p className="text-base leading-[1.7] text-textMuted">
           A finite group <code>Γ</code> (typically cyclic <code>Z_n</code>) and a voltage
-          assignment — one group element per oriented base edge — define the lift. Each base
+          assignment (one group element per oriented base edge) define the lift. Each base
           vertex <code>v</code> becomes <code>|Γ|</code> copies <code>(v, γ)</code>. An oriented
           base edge <code>u → w</code> with voltage <code>α</code> becomes the edge{" "}
           <code>(u, γ) – (w, γ·α)</code> for every <code>γ ∈ Γ</code>. The reverse arc carries{" "}
@@ -33,36 +34,119 @@ export const CageVoltagePage = () => {
         </p>
         <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
           Canonical example: a 2-vertex base with 3 parallel edges over <code>Z₇</code> lifts to
-          the 14-vertex Heawood graph — the optimal (3,6)-cage. Girth in the lift equals the
+          the 14-vertex Heawood graph, the optimal (3,6)-cage. Girth in the lift equals the
           length of the shortest closed walk in the base whose net voltage product is the group
           identity, checkable on the base without building the lift.
         </p>
         <pre className="mt-2.5 overflow-x-auto rounded-lg border-2 border-line2 bg-bg1 p-1.5">
-          <code className="language-python">{`# ai/cage/voltage/lift.py — build the lift
-# vertex (v, g) is encoded as v * |Γ| + g
-for arc in base.arcs:                 # each oriented base edge u→w
-    alpha = arc_voltage[arc.arc_id]   # reverse arc carries inv(alpha)
-    for g in group.elements():        # one copy per group element
-        G.add_edge(arc.src * n + g,
-                   arc.dst * n + group.mult(g, alpha))   # (u,g)–(w, g·α)`}</code>
+          <code className="language-python">{`# ai/cage/voltage/lift.py
+def build_lift(
+    base: BaseGraph,
+    group: FiniteGroup,
+    voltages: list[int],
+) -> nx.Graph[int]:
+    n_group = group.order
+    G: nx.Graph[int] = nx.Graph()
+    G.add_nodes_from(range(base.num_nodes * n_group))
+
+    # Map each arc to its voltage (reverse arc carries the inverse)
+    arc_voltage: dict[int, int] = {}
+    for edge_pos, fwd_id in enumerate(base.undirected_edge_ids):
+        v = voltages[edge_pos]
+        arc_voltage[fwd_id] = v
+        arc_voltage[base.arcs[fwd_id].reverse_id] = group.inv(v)
+
+    # For each arc u -> w with voltage alpha, add edge (u,g) -- (w, g*alpha)
+    # for every group element g.  Vertex (v, g) is encoded as v * n_group + g.
+    for arc in base.arcs:
+        alpha = arc_voltage[arc.arc_id]
+        for g in group.elements():
+            h = group.mult(g, alpha)
+            node_ug = arc.src * n_group + g
+            node_wh = arc.dst * n_group + h
+            if node_ug != node_wh:
+                G.add_edge(node_ug, node_wh)
+
+    return G`}</code>
+        </pre>
+        <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
+          Girth can be read off the tiny base graph without building the lift.
+        </p>
+        <pre className="mt-2.5 overflow-x-auto rounded-lg border-2 border-line2 bg-bg1 p-1.5">
+          <code className="language-python">{`# ai/cage/voltage/cycle_analysis.py
+def compute_lift_girth(
+    base: BaseGraph,
+    group: FiniteGroup,
+    voltages: list[int],
+    max_girth: int = 50,
+) -> int | float:
+    """Girth of the lift = shortest closed walk in the base with identity net voltage.
+
+    Enumerates closed walks up to max_girth and checks net voltage product.
+    Returns math.inf if no identity-voltage walk is found within that length.
+    """
+    arc_voltage: dict[int, int] = {}
+    for edge_pos, fwd_id in enumerate(base.undirected_edge_ids):
+        v = voltages[edge_pos]
+        arc_voltage[fwd_id] = v
+        arc_voltage[base.arcs[fwd_id].reverse_id] = group.inv(v)
+
+    adj: dict[int, list[tuple[int, int]]] = {v: [] for v in range(base.num_nodes)}
+    for arc in base.arcs:
+        adj[arc.src].append((arc.dst, arc.arc_id))
+
+    identity = group.identity()
+    best_girth: int | float = math.inf
+
+    for start in range(base.num_nodes):
+        # frontier: (current_node, net_voltage, walk_length, prev_arc_id)
+        frontier: list[tuple[int, int, int, int]] = [
+            (nb, arc_voltage[arc_id], 1, arc_id)
+            for nb, arc_id in adj[start]
+        ]
+        for _depth in range(1, max_girth + 1):
+            if not frontier:
+                break
+            next_frontier: list[tuple[int, int, int, int]] = []
+            for node, net_v, length, prev_arc in frontier:
+                if length >= best_girth:
+                    continue
+                if node == start and net_v == identity and length >= 3:
+                    best_girth = min(best_girth, length)
+                    continue
+                for next_node, arc_id in adj[node]:
+                    # _would_backtrack is a local helper (capturing base, group,
+                    # arc_voltage) that is True when arc_id reverses prev_arc.
+                    if not _would_backtrack(prev_arc, arc_id):
+                        new_v = group.mult(net_v, arc_voltage[arc_id])
+                        next_frontier.append((next_node, new_v, length + 1, arc_id))
+            frontier = next_frontier
+
+    return best_girth`}</code>
         </pre>
       </DocsCard>
 
       <DocsCard>
         <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">Try it</h2>
-        <p className="text-base leading-[1.7] text-textMuted">
+        <p className="mb-3 text-base leading-[1.7] text-textMuted">
           The voltage-lift editor lets you draw a base graph, assign voltages to edges, and
           generate the lift immediately. The cage editor also exposes the voltage algorithm
           alongside the other construction methods.
         </p>
-        <div className="mt-3 flex flex-wrap gap-3">
-          <a href="/cage" className="ui-button-outline ui-surface-link">
-            Open the cage editor
-          </a>
-          <a href="/lift" className="ui-button-solid ui-surface-link">
-            Open the voltage-lift editor
-          </a>
-        </div>
+        <EditorLinks
+          links={[
+            {
+              href: "/lift",
+              label: "Open the voltage-lift editor",
+              description: "Draw a base graph, assign voltages, and build the lift in one click.",
+            },
+            {
+              href: "/cage?from=voltage",
+              label: "Open the cage editor",
+              description: "Run the algebraic, predictor-guided, and RL voltage methods.",
+            },
+          ]}
+        />
       </DocsCard>
 
       <div className="mt-10 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-5">
