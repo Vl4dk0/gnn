@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
+import { EditorPlaceholder } from "../../components/graph/EditorPlaceholder";
 import { GraphCanvas } from "../../components/graph/GraphCanvas";
 import { BackButton } from "../../components/ui/BackButton";
 import { InputField } from "../../components/ui/InputField";
@@ -10,6 +11,7 @@ import { SingleRangeSlider } from "../../components/ui/SingleRangeSlider";
 import type { InteractiveGraphEditor } from "../../graph/InteractiveGraphEditor";
 import { inferK, planExcision } from "../../graph/excision/excisionPlanner";
 import type { ExcisionFrame } from "../../graph/excision/excisionPlanner";
+import { importGraphFromFile } from "../../services/cage";
 
 const PETERSEN_EDGE_LIST = [
   "0 1",
@@ -33,6 +35,7 @@ export const ExcisionPage = () => {
   const editorRef = useRef<InteractiveGraphEditor | null>(null);
   const originalRef = useRef<string>("");
   const autoTimerRef = useRef<number | null>(null);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
 
   const [girthG, setGirthG] = useState(5);
   const [inferredK, setInferredK] = useState(0);
@@ -42,6 +45,8 @@ export const ExcisionPage = () => {
   const [isAutoStepping, setIsAutoStepping] = useState(false);
   const [autoDelay, setAutoDelay] = useState(700);
   const [planMessage, setPlanMessage] = useState<string | null>(null);
+  const [hasGraph, setHasGraph] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
 
   const clearAutoTimer = () => {
     if (autoTimerRef.current !== null) {
@@ -70,6 +75,11 @@ export const ExcisionPage = () => {
     }
   };
 
+  const handleGraphChange = (edgeList: string) => {
+    setHasGraph(edgeList.trim().length > 0);
+    refreshK();
+  };
+
   const applyFrame = (frame: ExcisionFrame) => {
     const editor = editorRef.current;
     if (!editor) return;
@@ -82,6 +92,7 @@ export const ExcisionPage = () => {
     if (!editor) return;
     resetAnimation();
     editor.loadFromEdgeList(PETERSEN_EDGE_LIST);
+    setHasGraph(true);
     setGirthG(5);
     refreshK();
   };
@@ -97,6 +108,7 @@ export const ExcisionPage = () => {
     if (editor && originalRef.current) {
       editor.updateFromEdgeList(originalRef.current);
       editor.clearHighlights();
+      setHasGraph(originalRef.current.trim().length > 0);
     }
     refreshK();
   };
@@ -119,6 +131,7 @@ export const ExcisionPage = () => {
     setFrames(plan.frames);
     setFrameIndex(0);
     setIsAnimating(true);
+    setHasGraph(true);
     setPlanMessage(plan.message);
     applyFrame(plan.frames[0]);
   };
@@ -155,6 +168,24 @@ export const ExcisionPage = () => {
     setIsAutoStepping(false);
   };
 
+  const handleImportFile = async (file: File) => {
+    setImportError(null);
+    try {
+      const edgeList = await importGraphFromFile(file);
+      const editor = editorRef.current;
+      if (editor) {
+        editor.loadFromEdgeList(edgeList);
+        setHasGraph(edgeList.trim().length > 0);
+        refreshK();
+      }
+    } catch (cause) {
+      setImportError(cause instanceof Error ? cause.message : "Failed to import graph");
+    }
+    if (importInputRef.current) {
+      importInputRef.current.value = "";
+    }
+  };
+
   const atLastFrame = frames.length > 0 && frameIndex >= frames.length - 1;
   const currentCaption = frames.length > 0 ? frames[frameIndex].caption : null;
 
@@ -162,9 +193,15 @@ export const ExcisionPage = () => {
     <div className="relative h-dvh overflow-hidden bg-transparent">
       <GraphCanvas
         onReady={handleEditorReady}
-        onGraphChange={() => refreshK()}
+        onGraphChange={handleGraphChange}
         canvasClassName="rounded-none"
       >
+        <EditorPlaceholder
+          visible={!hasGraph}
+          intro="The excision editor. Build a (k,g)-graph by hand or import one, set the target girth g, then press Run to watch a tree get removed and the boundary stitched back into a smaller graph."
+          showControls
+        />
+
         <BackButton
           href="/excision"
           label="Back to Excision"
@@ -174,10 +211,6 @@ export const ExcisionPage = () => {
 
         <section className="absolute left-5 top-1/2 z-20 w-[344px] -translate-y-1/2 rounded-2xl border border-line2 bg-bg1/92 p-4 shadow-card backdrop-blur-md max-[900px]:left-5 max-[900px]:right-5 max-[900px]:top-[72px] max-[900px]:w-auto max-[900px]:translate-y-0">
           <div className="text-sm font-semibold leading-5 text-textMain">Excision Editor</div>
-          <p className="mt-1 text-xs leading-5 text-textMuted">
-            Build a (k,g)-graph (double-click for a node, right-click then click to add an edge),
-            set g, then run.
-          </p>
 
           <div className="mt-4 grid grid-cols-2 gap-3">
             <InputField
@@ -204,7 +237,31 @@ export const ExcisionPage = () => {
             >
               Load Petersen (3,5)
             </SecondaryButton>
+
+            <SecondaryButton
+              fullWidth={false}
+              className="rounded-md px-4 py-2 text-xs"
+              onClick={() => importInputRef.current?.click()}
+            >
+              Import graph
+            </SecondaryButton>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".g6,.txt"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) {
+                  void handleImportFile(file);
+                }
+              }}
+            />
           </div>
+
+          {importError && (
+            <p className="mt-2 text-xs text-textDim">{importError}</p>
+          )}
 
           <SettingGroup>
             <div className="mt-4">
