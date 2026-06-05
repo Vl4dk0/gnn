@@ -93,6 +93,12 @@ export class InteractiveGraphEditor {
   private lastFrameTime = 0;
   private analyzeTimeoutId: number | null = null;
 
+  // Optional highlight overlay. Empty by default => no visual change.
+  // Used by the excision editor to colour the root, BFS tree, deficient
+  // boundary, and freshly stitched edges during step-by-step animation.
+  private nodeHighlights = new Map<number, string>();
+  private edgeHighlights = new Map<string, string>();
+
   private disposed = false;
   private readonly unbinders: Array<() => void> = [];
 
@@ -868,11 +874,15 @@ export class InteractiveGraphEditor {
     this.ctx.translate(this.offsetX, this.offsetY);
     this.ctx.scale(this.scale, this.scale);
 
-    this.ctx.strokeStyle = theme.edge;
-    this.ctx.lineWidth = 2;
-
     const edges = this.graph.getEdges();
+    const hasEdgeHighlights = this.edgeHighlights.size > 0;
     edges.forEach((edge) => {
+      const highlight = hasEdgeHighlights
+        ? this.edgeHighlights.get(InteractiveGraphEditor.edgeKey(edge.from.id, edge.to.id))
+        : undefined;
+      this.ctx.strokeStyle = highlight ?? theme.edge;
+      this.ctx.lineWidth = highlight ? 3.5 : 2;
+
       if (edge.from === edge.to) {
         this.drawSelfLoop(edge.from);
       } else {
@@ -893,9 +903,11 @@ export class InteractiveGraphEditor {
       this.ctx.setLineDash([]);
     }
 
+    const hasNodeHighlights = this.nodeHighlights.size > 0;
     this.graph.nodes.forEach((node) => {
       const isSelected = node === this.selectedNode;
-      const fillColor = isSelected ? theme.nodeSelected : theme.node;
+      const highlight = hasNodeHighlights ? this.nodeHighlights.get(node.id) : undefined;
+      const fillColor = highlight ?? (isSelected ? theme.nodeSelected : theme.node);
 
       this.ctx.fillStyle = fillColor;
       this.ctx.beginPath();
@@ -997,6 +1009,28 @@ export class InteractiveGraphEditor {
 
   public clearPredictions(): void {
     this.graph.clearPredictions();
+  }
+
+  private static edgeKey(a: number, b: number): string {
+    return a < b ? `${a}-${b}` : `${b}-${a}`;
+  }
+
+  /**
+   * Set an optional colour overlay for nodes and edges. Pass empty maps
+   * (or call clearHighlights) to restore the default rendering. Node keys
+   * are node ids; edge keys are "min-max" id pairs (see edgeKey).
+   */
+  public setHighlights(
+    nodeColors: Map<number, string>,
+    edgeColors: Map<string, string> = new Map()
+  ): void {
+    this.nodeHighlights = nodeColors;
+    this.edgeHighlights = edgeColors;
+  }
+
+  public clearHighlights(): void {
+    this.nodeHighlights = new Map();
+    this.edgeHighlights = new Map();
   }
 
   public updatePredictions(predictions: GraphPrediction[]): void {

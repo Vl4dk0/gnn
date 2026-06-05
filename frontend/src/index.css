@@ -40,6 +40,8 @@
   --graph-nav-active-stroke: #333333;
   --graph-nav-active-text: #333333;
   --graph-nav-hover-text: #333333;
+  --font-display: "Fraunces", "Iowan Old Style", "Palatino Linotype", Palatino,
+    Georgia, "Times New Roman", serif;
 }
 
 /* Dark mode */
@@ -146,6 +148,60 @@
 
   ul {
     @apply list-inside list-disc pl-5;
+  }
+
+  /* Distinctive display serif for content headings (achromatic, kept tokens) */
+  .page h1,
+  .page h2 {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    letter-spacing: -0.012em;
+  }
+
+  .page h1 {
+    font-weight: 600;
+  }
+}
+
+/* Staggered content reveal on route change */
+@keyframes page-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page > * {
+  animation: page-rise 0.5s cubic-bezier(0.22, 0.85, 0.3, 1) both;
+}
+
+.page > *:nth-child(1) {
+  animation-delay: 0.02s;
+}
+.page > *:nth-child(2) {
+  animation-delay: 0.08s;
+}
+.page > *:nth-child(3) {
+  animation-delay: 0.14s;
+}
+.page > *:nth-child(4) {
+  animation-delay: 0.2s;
+}
+.page > *:nth-child(5) {
+  animation-delay: 0.26s;
+}
+.page > *:nth-child(n + 6) {
+  animation-delay: 0.32s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page > * {
+    animation: none;
   }
 }
 

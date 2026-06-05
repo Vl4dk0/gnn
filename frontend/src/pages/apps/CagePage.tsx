@@ -80,7 +80,7 @@ export const CagePage = () => {
     <div className="relative h-dvh overflow-hidden bg-transparent">
       <GraphCanvas onReady={onEditorReady} canvasClassName="rounded-none">
         <BackButton
-          href="/docs/module-cage"
+          href="/cage/astar"
           label="Back to Docs"
           iconOnly
           className="absolute left-5 top-5 z-20"

@@ -5,14 +5,12 @@ export interface DocsItem {
 }
 
 export const DOCS_SEQUENCE: DocsItem[] = [
-  { href: "/docs/gnns", title: "How GNNs work", short: "GNNs" },
-  { href: "/docs/architecture", title: "Architectures", short: "Arch" },
-  { href: "/docs/module-degree", title: "Degree prediction", short: "Degree" },
-  { href: "/docs/module-min-cycle", title: "Minimum-cycle prediction", short: "Cycle" },
-  { href: "/docs/module-assessment", title: "Assessment", short: "Assess" },
-  { href: "/docs/module-cage", title: "Cage generation", short: "Cage" },
-  { href: "/docs/voltage", title: "Voltage graph lifts", short: "Voltage" },
-  { href: "/docs/training", title: "Do It Yourself", short: "DIY" }
+  { href: "/degree-task", title: "Degree subproblem", short: "Degree" },
+  { href: "/min-cycle-task", title: "Min-cycle subproblem", short: "Cycle" },
+  { href: "/cage/astar", title: "A* + backtracking", short: "A*" },
+  { href: "/cage/rl", title: "Reinforcement learning", short: "RL" },
+  { href: "/cage/voltage", title: "Voltage lifts", short: "Voltage" },
+  { href: "/excision", title: "Excision", short: "Excision" }
 ];
 
 export const getNextDocsItem = (currentHref: string): DocsItem | null => {

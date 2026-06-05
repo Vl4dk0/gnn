@@ -8,46 +8,40 @@ const THESIS_SUPERVISOR = "Ján Pastorek";
 
 const STORY_ITEMS = [
   {
-    href: "/docs/gnns",
+    href: "/degree-task",
     index: 1,
-    title: "How GNNs work",
-    description: "Message passing, aggregation, and why structure matters."
+    title: "Degree subproblem",
+    description: "Can a GNN recover vertex degree? k-regularity is half the definition."
   },
   {
-    href: "/docs/architecture",
+    href: "/min-cycle-task",
     index: 2,
-    title: "Architectures",
-    description: "GCN, GraphSAGE, GIN, GPS, and Loopy in one place."
+    title: "Min-cycle subproblem",
+    description: "Predicting the shortest cycle per node — the girth constraint, a global signal."
   },
   {
-    href: "/docs/module-degree",
+    href: "/cage/astar",
     index: 3,
-    title: "Degree prediction",
-    description: "The first trust check: can the models recover a local signal?"
+    title: "A* + backtracking",
+    description: "Best-first search over partial graphs, and why labelling partial states is hard."
   },
   {
-    href: "/docs/module-min-cycle",
+    href: "/cage/rl",
     index: 4,
-    title: "Minimum-cycle prediction",
-    description: "The structural task: shortest-cycle labels per node."
+    title: "Reinforcement learning",
+    description: "Build a graph edge by edge with a learned, girth-masked policy."
   },
   {
-    href: "/docs/module-assessment",
+    href: "/cage/voltage",
     index: 5,
-    title: "Assessment",
-    description: "What the results say when both tasks are judged together."
+    title: "Voltage lifts",
+    description: "Stamp a tiny base graph over a group; regularity comes for free."
   },
   {
-    href: "/docs/module-cage",
+    href: "/excision",
     index: 6,
-    title: "Cage generation",
-    description: "Why generation is difficult and what has been tried so far."
-  },
-  {
-    href: "/docs/voltage",
-    index: 7,
-    title: "Voltage graph lifts",
-    description: "An algebraic shortcut: tiny blueprints + groups to generate large regular graphs."
+    title: "Excision",
+    description: "Shrink a valid (k,g)-graph toward the cage by removing a tree and re-stitching."
   }
 ];
 
@@ -56,12 +50,13 @@ export const OverviewPage = () => {
     <DocsLayout>
       <DocsHero>
         <h1 className="mb-2.5 text-[clamp(1.7rem,3.1vw,2.4rem)] font-bold leading-[1.22] text-textMain">
-          Graph neural networks for algebraic graph theory
+          Generating (k,g)-graphs with graph neural networks
         </h1>
         <p className="text-base leading-[1.7] text-textMuted">
-          In this thesis, I study whether graph neural networks can learn structural signals that
-          are useful for constructing new <code>(k,g)-graphs</code>. The long-term goal is
-          generation, but the thesis builds toward it through prediction tasks first.
+          This thesis investigates what graph neural networks can and cannot learn about the two
+          constraints that define a <code>(k,g)-graph</code> — k-regularity and girth — and then
+          applies those findings to cage construction through methods of increasing algebraic
+          structure.
         </p>
         <div className="mt-5 border-t border-line pt-4 text-sm leading-[1.7] text-textMuted">
           <div className="flex flex-wrap items-end justify-between gap-4">
@@ -85,45 +80,22 @@ export const OverviewPage = () => {
       </DocsHero>
 
       <DocsCard>
-        <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">What are GNNs?</h2>
-        <p className="text-base leading-[1.7] text-textMuted">
-          A regular Neural Network consumes fixed-size vectors. Those fail to capture the
-          'unorganised' structure of a graph.
-        </p>
-        <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
-          A Graph Neural Network uses <code>node-features</code> to give network some extra
-          information about graph's structure, this is mainly good for encoding helpful information,
-          or passing random node-features to help network distinguish between two similar nodes.
-        </p>
-        <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
-          Apart from that it uses <code>message passing</code> to help network understand each
-          node's neighborhood. That message passing makes the model sensitive to graph structure
-          rather than only to raw feature values.
-        </p>
-      </DocsCard>
-
-      <DocsCard>
         <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">Key definitions</h2>
         <p className="text-base leading-[1.7] text-textMuted">
-          The number of node's neighbors is called its <code>degree</code>. A graph is{" "}
-          <code>k</code>
-          -regular if every node has degree <code>k</code>.
+          The number of a node's neighbors is its <code>degree</code>. A graph is{" "}
+          <code>k-regular</code> if every node has degree exactly <code>k</code>.
         </p>
         <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
           The <code>girth</code> of a graph is the length of its shortest cycle. The{" "}
           <code>minimum-cycle</code> label of a node is the length of the shortest cycle passing
-          through that node.
+          through that node (0 if the node lies on no cycle).
         </p>
         <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
-          A <code>(k,g)-graph</code> is both <code>k</code>-regular and has girth <code>g</code>.
-          Notice that degree is a local constraint; girth is a more global one. Combining both
-          constraints makes generation hard, and constructing <code>(k,g)-graphs</code> remains an
-          open problem.
-        </p>
-        <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
-          A <code>cage graph</code> is smallest possible <code>(k,g)-graph</code> for given{" "}
-          <code>k</code> and <code>g</code>. Meaning it has the least number of nodes out of all
-          (k,g)-graphs.
+          A <code>(k,g)-graph</code> is k-regular with girth at least <code>g</code>. A{" "}
+          <code>cage</code> is the smallest possible (k,g)-graph — fewest vertices. The{" "}
+          <code>Moore bound</code> gives a hard lower limit on the cage order; closing the gap
+          between the Moore bound and the best known constructions is an open problem in algebraic
+          graph theory.
         </p>
       </DocsCard>
 
@@ -136,20 +108,19 @@ export const OverviewPage = () => {
       </DocsCard>
 
       <DocsCard>
-        <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">
-          Exploring this problem step by step
-        </h2>
+        <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">What this thesis does</h2>
         <p className="text-base leading-[1.7] text-textMuted">
-          In this thesis I first test if GNN's would learn to <code>predict</code> degree, because
-          degree is <code>local</code> and unambiguous.
-          <br />
-          Then I test minimum-cycle prediction, which requires a more structural,{" "}
-          <code>global</code>, signal.
+          A (k,g)-graph must satisfy two constraints simultaneously: every vertex has degree{" "}
+          <code>k</code>, and no cycle is shorter than <code>g</code>. The thesis tests what GNNs
+          can learn about each constraint separately — degree (local, directly readable from the
+          neighbourhood) and girth (global, requiring path information across the graph) — before
+          moving to full cage construction.
         </p>
         <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
-          I will be interested in what model-architecture will perform the best on average across
-          these two subtasks. That architecture will in my opinion work best for GNN-guided{" "}
-          <code>(k,g)-graph</code> generation.
+          Construction methods are explored in order of increasing algebraic structure: direct
+          reinforcement learning builds a graph edge by edge; voltage lifts enforce regularity
+          algebraically so only girth needs to be optimised; excision shrinks a known valid graph
+          toward the cage order by surgically removing a subtree and re-stitching the boundary.
         </p>
       </DocsCard>
 
@@ -166,7 +137,7 @@ export const OverviewPage = () => {
       </section>
 
       <div className="mt-6 flex items-center justify-end border-t border-line pt-5">
-        <DocsNextButton href="/docs/gnns" label="How GNNs work" />
+        <DocsNextButton href="/degree-task" label="Degree subproblem" />
       </div>
     </DocsLayout>
   );

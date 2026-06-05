@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import * as d3 from "d3";
 import { AnimatePresence, motion } from "framer-motion";
@@ -23,54 +23,55 @@ interface GraphLink extends d3.SimulationLinkDatum<GraphNode> {
 // Initial Data
 const INITIAL_NODES: GraphNode[] = [
   { id: "root", label: "Overview", path: "/", group: "root" },
-  { id: "gnns", label: "GNNs", path: "/docs/gnns", group: "doc" },
-  { id: "arch", label: "Architectures", path: "/docs/architecture", group: "doc" },
-  { id: "degree", label: "Degree", path: "/docs/module-degree", group: "doc" },
-  { id: "cycle", label: "Cycle", path: "/docs/module-min-cycle", group: "doc" },
-  { id: "assess", label: "Assessment", path: "/docs/module-assessment", group: "doc" },
-  { id: "cage", label: "Cage", path: "/docs/module-cage", group: "doc" },
-  { id: "voltage", label: "Voltage", path: "/docs/voltage", group: "doc" },
+  { id: "degree", label: "Degree", path: "/degree-task", group: "doc" },
+  { id: "cycle", label: "Cycle", path: "/min-cycle-task", group: "doc" },
+  { id: "astar", label: "A*", path: "/cage/astar", group: "doc" },
+  { id: "rl", label: "RL", path: "/cage/rl", group: "doc" },
+  { id: "voltage", label: "Voltage", path: "/cage/voltage", group: "doc" },
+  { id: "excision", label: "Excision", path: "/excision", group: "doc" },
   // Apps (Editors)
   { id: "app-degree", label: "Editor", path: "/degree", group: "app" },
   { id: "app-cycle", label: "Editor", path: "/min_cycle", group: "app" },
-  { id: "app-cage", label: "Editor", path: "/cage", group: "app" }
+  { id: "app-cage", label: "Editor", path: "/cage", group: "app" },
+  { id: "app-lift", label: "Lift", path: "/lift", group: "app" },
+  { id: "app-excise", label: "Editor", path: "/excise", group: "app" }
 ];
 
-// Map path to index number (0 for root, 1-7 for docs)
+// Map path to index number (0 for root, 1-6 for topic pages)
 const getPathNumber = (path: string): number | null => {
   if (path === "/") return 0;
-  if (path === "/docs/gnns") return 1;
-  if (path === "/docs/architecture") return 2;
-  if (path === "/docs/module-degree") return 3;
-  if (path === "/docs/module-min-cycle") return 4;
-  if (path === "/docs/module-assessment") return 5;
-  if (path === "/docs/module-cage") return 6;
-  if (path === "/docs/voltage") return 7;
+  if (path === "/degree-task") return 1;
+  if (path === "/min-cycle-task") return 2;
+  if (path === "/cage/astar") return 3;
+  if (path === "/cage/rl") return 4;
+  if (path === "/cage/voltage") return 5;
+  if (path === "/excision") return 6;
   return null;
 };
 
-// Star topology + sequential edges between consecutive docs
+// Star topology + sequential edges between consecutive topics
 const INITIAL_LINKS: GraphLink[] = [
-  // Root connects to all docs
-  { source: "root", target: "gnns" },
-  { source: "root", target: "arch" },
+  // Root connects to all topics
   { source: "root", target: "degree" },
   { source: "root", target: "cycle" },
-  { source: "root", target: "assess" },
-  { source: "root", target: "cage" },
+  { source: "root", target: "astar" },
+  { source: "root", target: "rl" },
   { source: "root", target: "voltage" },
-  // Sequential edges (docs flow in order)
-  { source: "gnns", target: "arch" },
-  { source: "arch", target: "degree" },
+  { source: "root", target: "excision" },
+  // Sequential edges (topics flow in order)
   { source: "degree", target: "cycle" },
-  { source: "cycle", target: "assess" },
-  { source: "assess", target: "cage" },
-  { source: "cage", target: "voltage" },
-  // Branches to apps
+  { source: "cycle", target: "astar" },
+  { source: "astar", target: "rl" },
+  { source: "rl", target: "voltage" },
+  { source: "voltage", target: "excision" },
+  // Branches to apps (editors)
   { source: "degree", target: "app-degree" },
   { source: "cycle", target: "app-cycle" },
-  { source: "cage", target: "app-cage" },
-  { source: "voltage", target: "app-cage" }
+  { source: "astar", target: "app-cage" },
+  { source: "rl", target: "app-cage" },
+  { source: "voltage", target: "app-cage" },
+  { source: "voltage", target: "app-lift" },
+  { source: "excision", target: "app-excise" }
 ];
 
 export const SiteGraphNav = () => {
@@ -152,8 +153,8 @@ export const SiteGraphNav = () => {
             if ((d.target as GraphNode).group === "app") return 55;
             // Sequential edges between consecutive docs: short, tight chain
             const seqPairs = [
-              ["gnns", "arch"], ["arch", "degree"], ["degree", "cycle"],
-              ["cycle", "assess"], ["assess", "cage"], ["cage", "voltage"]
+              ["degree", "cycle"], ["cycle", "astar"], ["astar", "rl"],
+              ["rl", "voltage"], ["voltage", "excision"]
             ];
             if (seqPairs.some(([a, b]) => (src === a && tgt === b) || (src === b && tgt === a))) {
               return 65;
@@ -172,13 +173,12 @@ export const SiteGraphNav = () => {
           .y((d: any) => {
             // Vertical guidance — evenly spaced chain
             if (d.group === "root") return 35;
-            if (d.id === "gnns") return 100;
-            if (d.id === "arch") return 165;
-            if (d.id === "degree") return 230;
-            if (d.id === "cycle") return 295;
-            if (d.id === "assess") return 360;
-            if (d.id === "cage") return 425;
-            if (d.id === "voltage") return 490;
+            if (d.id === "degree") return 110;
+            if (d.id === "cycle") return 185;
+            if (d.id === "astar") return 260;
+            if (d.id === "rl") return 335;
+            if (d.id === "voltage") return 410;
+            if (d.id === "excision") return 485;
 
             return height / 2;
           })
@@ -229,7 +229,7 @@ export const SiteGraphNav = () => {
       .attr("class", "node-number pointer-events-none select-none transition-all duration-300");
 
     // Labels (Beneath Node)
-    const labels = nodeGroup
+    nodeGroup
       .append("text")
       .text((d: any) => d.label)
       .attr("class", "node-label select-none transition-all duration-300")

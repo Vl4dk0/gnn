@@ -5,15 +5,16 @@ import { BackgroundGraphTexture } from "./components/layout/BackgroundGraphTextu
 import { SiteGraphNav } from "./components/layout/SiteGraphNav";
 import { ThemeToggle } from "./components/ui/ThemeToggle";
 import { OverviewPage } from "./pages/OverviewPage";
-import { DocsGnnsPage } from "./pages/docs/DocsGnnsPage";
-import { DocsArchitecturePage } from "./pages/docs/DocsArchitecturePage";
-import { DocsModuleDegreePage } from "./pages/docs/DocsModuleDegreePage";
-import { DocsModuleMinCyclePage } from "./pages/docs/DocsModuleMinCyclePage";
-import { DocsModuleAssessmentPage } from "./pages/docs/DocsModuleAssessmentPage";
-import { DocsModuleCagePage } from "./pages/docs/DocsModuleCagePage";
-import { DocsVoltagePage } from "./pages/docs/DocsVoltagePage";
+import { DegreeTaskPage } from "./pages/topics/DegreeTaskPage";
+import { MinCycleTaskPage } from "./pages/topics/MinCycleTaskPage";
+import { CageAstarPage } from "./pages/topics/CageAstarPage";
+import { CageRlPage } from "./pages/topics/CageRlPage";
+import { CageVoltagePage } from "./pages/topics/CageVoltagePage";
+import { ExcisionTopicPage } from "./pages/topics/ExcisionPage";
 import { PredictionPage } from "./pages/apps/PredictionPage";
 import { CagePage } from "./pages/apps/CagePage";
+import { VoltageLiftPage } from "./pages/apps/VoltageLiftPage";
+import { ExcisionPage } from "./pages/apps/ExcisionPage";
 
 // Layout for full-screen apps (canvas + nav overlay)
 const AppLayoutWrapper = ({ children }: { children: React.ReactNode }) => {
@@ -33,16 +34,15 @@ const AppRoutes = () => {
         <Routes location={location} key={location.pathname}>
           <Route path="/" element={<OverviewPage />} />
 
-          {/* Docs Routes */}
-          <Route path="/docs/gnns" element={<DocsGnnsPage />} />
-          <Route path="/docs/architecture" element={<DocsArchitecturePage />} />
-          <Route path="/docs/module-degree" element={<DocsModuleDegreePage />} />
-          <Route path="/docs/module-min-cycle" element={<DocsModuleMinCyclePage />} />
-          <Route path="/docs/module-assessment" element={<DocsModuleAssessmentPage />} />
-          <Route path="/docs/module-cage" element={<DocsModuleCagePage />} />
-          <Route path="/docs/voltage" element={<DocsVoltagePage />} />
+          {/* Topic / explainer pages */}
+          <Route path="/degree-task" element={<DegreeTaskPage />} />
+          <Route path="/min-cycle-task" element={<MinCycleTaskPage />} />
+          <Route path="/cage/astar" element={<CageAstarPage />} />
+          <Route path="/cage/rl" element={<CageRlPage />} />
+          <Route path="/cage/voltage" element={<CageVoltagePage />} />
+          <Route path="/excision" element={<ExcisionTopicPage />} />
 
-          {/* Apps Routes */}
+          {/* Editors */}
           <Route
             path="/degree"
             element={
@@ -67,8 +67,22 @@ const AppRoutes = () => {
               </AppLayoutWrapper>
             }
           />
-
-          {/* Fallback/404 handling could be added here */}
+          <Route
+            path="/lift"
+            element={
+              <AppLayoutWrapper>
+                <VoltageLiftPage />
+              </AppLayoutWrapper>
+            }
+          />
+          <Route
+            path="/excise"
+            element={
+              <AppLayoutWrapper>
+                <ExcisionPage />
+              </AppLayoutWrapper>
+            }
+          />
         </Routes>
       </AnimatePresence>
     </>
