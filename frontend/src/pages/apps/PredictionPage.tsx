@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { EditorPlaceholder } from "../../components/graph/EditorPlaceholder";
 import { GraphCanvas } from "../../components/graph/GraphCanvas";
 import { GraphToolbar } from "../../components/graph/GraphToolbar";
-import { PredictionLegend } from "../../components/graph/PredictionLegend";
 import { SettingsModal } from "../../components/graph/SettingsModal";
 import { BackButton } from "../../components/ui/BackButton";
 import { DualRangeSlider } from "../../components/ui/DualRangeSlider";
@@ -38,19 +38,28 @@ export const PredictionPage = ({ task }: PredictionPageProps) => {
   const [draftSettings, setDraftSettings] = useState<DegreeMinCycleSettings>(settings);
 
   const [importError, setImportError] = useState<string | null>(null);
+  const [hasGraph, setHasGraph] = useState(false);
+
+  const handleGraphChange = useCallback(
+    (edgeList: string) => {
+      onEditorGraphChange(edgeList);
+      setHasGraph(edgeList.trim().length > 0);
+    },
+    [onEditorGraphChange]
+  );
 
   const handleImportFile = useCallback(
     async (file: File) => {
       setImportError(null);
       try {
         const edgeList = await importGraphFromFile(file);
-        onEditorGraphChange(edgeList);
+        handleGraphChange(edgeList);
         onEditorAnalyzeRequest(edgeList);
       } catch (cause) {
         setImportError(cause instanceof Error ? cause.message : "Failed to import graph");
       }
     },
-    [onEditorGraphChange, onEditorAnalyzeRequest]
+    [handleGraphChange, onEditorAnalyzeRequest]
   );
 
   useEffect(() => {
@@ -69,11 +78,35 @@ export const PredictionPage = ({ task }: PredictionPageProps) => {
     <div className="relative h-dvh overflow-hidden bg-transparent">
       <GraphCanvas
         onReady={onEditorReady}
-        onGraphChange={onEditorGraphChange}
+        onGraphChange={handleGraphChange}
         onAnalyzeRequest={onEditorAnalyzeRequest}
         canvasClassName="rounded-none"
       >
-        <PredictionLegend />
+        <EditorPlaceholder
+          visible={!hasGraph}
+          showControls
+          intro={
+            task === "degree" ? (
+              <span>
+                The degree editor. Each node shows{" "}
+                <em className="not-italic text-textMuted">actual</em>
+                {" / "}
+                <em className="not-italic text-textMuted">predicted</em>, where actual is its true
+                degree (the number of neighbors) and predicted is the model&apos;s guess. When the
+                two match, the GNN was right. Draw a graph to begin.
+              </span>
+            ) : (
+              <span>
+                The min-cycle editor. Each node shows{" "}
+                <em className="not-italic text-textMuted">actual</em>
+                {" / "}
+                <em className="not-italic text-textMuted">predicted</em>, where actual is the length
+                of the shortest cycle through it and predicted is the model&apos;s guess. When the
+                two match, the GNN was right. Draw a graph to begin.
+              </span>
+            )
+          }
+        />
         <BackButton href={backHref} iconOnly className="absolute left-5 top-5 z-20" />
 
         {(error ?? importError) && (
@@ -135,6 +168,7 @@ export const PredictionPage = ({ task }: PredictionPageProps) => {
               }));
             }}
           />
+          <p className="mt-1 text-xs text-textDim">How many nodes the random graph will have.</p>
         </SettingGroup>
 
         <SettingGroup>
@@ -163,6 +197,9 @@ export const PredictionPage = ({ task }: PredictionPageProps) => {
               }));
             }}
           />
+          <p className="mt-1 text-xs text-textDim">
+            Chance that each possible edge is included.
+          </p>
         </SettingGroup>
 
         <SettingGroup>
@@ -179,6 +216,7 @@ export const PredictionPage = ({ task }: PredictionPageProps) => {
             />
             Allow Self-Loops
           </label>
+          <p className="mt-1 text-xs text-textDim">Permit an edge from a node back to itself.</p>
         </SettingGroup>
 
         <SettingGroup>
@@ -195,6 +233,9 @@ export const PredictionPage = ({ task }: PredictionPageProps) => {
             />
             Enable Spring Physics
           </label>
+          <p className="mt-1 text-xs text-textDim">
+            Spring layout that gently spreads the graph out.
+          </p>
         </SettingGroup>
 
         <SelectField
@@ -214,6 +255,7 @@ export const PredictionPage = ({ task }: PredictionPageProps) => {
             </option>
           ))}
         </SelectField>
+        <p className="mt-1 text-xs text-textDim">Which trained model makes the prediction.</p>
 
         <div className="mt-8 flex items-center justify-start gap-5">
           <PrimaryButton
