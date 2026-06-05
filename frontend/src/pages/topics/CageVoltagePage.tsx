@@ -129,19 +129,30 @@ def compute_lift_girth(
       <DocsCard>
         <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">Try it</h2>
         <p className="mb-3 text-base leading-[1.7] text-textMuted">
-          The voltage-lift editor lets you draw a base graph, assign voltages to edges, and
-          generate the lift immediately. The cage editor also exposes the voltage algorithm
-          alongside the other construction methods.
+          The voltage-lift editor lets you draw a base graph, assign voltages to its edges, and
+          generate the lift immediately.
         </p>
         <EditorLinks
           links={[
             {
               href: "/lift",
-              label: "Open lift editor"
-            },
+              label: "Open"
+            }
+          ]}
+        />
+      </DocsCard>
+
+      <DocsCard>
+        <h2 className="mb-2.5 text-[1.3rem] font-bold text-textMain">Try it</h2>
+        <p className="mb-3 text-base leading-[1.7] text-textMuted">
+          The cage editor runs the voltage methods (algebraic, predictor-guided, and RL) alongside
+          the other construction methods.
+        </p>
+        <EditorLinks
+          links={[
             {
               href: "/cage?from=voltage",
-              label: "Open cage editor"
+              label: "Open"
             }
           ]}
         />
