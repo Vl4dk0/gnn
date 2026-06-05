@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import type { CageExportFormat } from "../../types/api";
 import { IconButton } from "../ui/IconButton";
@@ -11,6 +11,8 @@ interface GraphToolbarProps {
   onDownload?: (format: CageExportFormat) => void;
   downloadTitle?: string;
   canDownload?: boolean;
+  onImportFile?: (file: File) => void;
+  importTitle?: string;
 }
 
 export const GraphToolbar = ({
@@ -20,9 +22,12 @@ export const GraphToolbar = ({
   clearTitle,
   onDownload,
   downloadTitle = "Download Graph",
-  canDownload = false
+  canDownload = false,
+  onImportFile,
+  importTitle = "Import Graph"
 }: GraphToolbarProps) => {
   const [menuOpen, setMenuOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   return (
     <>
@@ -41,10 +46,49 @@ export const GraphToolbar = ({
         </svg>
       </IconButton>
 
+      {onImportFile !== undefined && (
+        <>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".g6,.txt"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) {
+                onImportFile(file);
+              }
+              event.target.value = "";
+            }}
+          />
+          <IconButton
+            positionClassName="right-5 top-20"
+            onClick={() => fileInputRef.current?.click()}
+            title={importTitle}
+            aria-label={importTitle}
+          >
+            <svg
+              className="h-6 w-6"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M12 21V8m0 0l-4 4m4-4l4 4M4 17v1a3 3 0 003 3h10a3 3 0 003-3v-1"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </IconButton>
+        </>
+      )}
+
       {onDownload !== undefined && (
         <>
           <IconButton
-            positionClassName="right-5 top-20"
+            positionClassName={onImportFile !== undefined ? "right-5 top-[8.75rem]" : "right-5 top-20"}
             onClick={() => {
               if (canDownload) {
                 setMenuOpen((prev) => !prev);
@@ -72,7 +116,7 @@ export const GraphToolbar = ({
           </IconButton>
 
           {menuOpen && (
-            <div className="absolute right-5 top-[7.5rem] z-20 rounded-xl border border-line2 bg-bg1/95 p-1 text-sm shadow-card backdrop-blur-sm">
+            <div className={`absolute right-5 ${onImportFile !== undefined ? "top-[13.75rem]" : "top-[7.5rem]"} z-20 rounded-xl border border-line2 bg-bg1/95 p-1 text-sm shadow-card backdrop-blur-sm`}>
               <button
                 type="button"
                 className="block w-full rounded-lg px-4 py-2 text-left text-textMain hover:bg-bg2"

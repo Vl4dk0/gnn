@@ -57,6 +57,36 @@ export const stopCageGeneration = async (sessionId: string): Promise<void> => {
   });
 };
 
+export const importGraph = async (
+  content: string,
+  format: CageExportFormat
+): Promise<{ edge_list: string }> => {
+  const runtime = getRuntimeConfig();
+  return fetchJson<{ edge_list: string }>(`${runtime.cageUrl}/import`, {
+    method: "POST",
+    body: { content, format }
+  });
+};
+
+export const importGraphFromFile = async (file: File): Promise<string> => {
+  const name = file.name;
+  const dotIndex = name.lastIndexOf(".");
+  const suffix = dotIndex >= 0 ? name.slice(dotIndex).toLowerCase() : "";
+  let format: CageExportFormat;
+
+  if (suffix === ".g6") {
+    format = "g6";
+  } else if (suffix === ".txt") {
+    format = "adjacency";
+  } else {
+    throw new Error("Unsupported file type. Use a .g6 or .txt file.");
+  }
+
+  const content = await file.text();
+  const result = await importGraph(content, format);
+  return result.edge_list;
+};
+
 export const exportCageGraph = async (
   edgeList: string,
   format: CageExportFormat,
