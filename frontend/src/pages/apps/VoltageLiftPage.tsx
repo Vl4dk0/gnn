@@ -200,13 +200,6 @@ export const VoltageLiftPage = () => {
             iconOnly
             className="absolute left-5 top-5 z-20"
           />
-
-          <EditorPlaceholder
-            visible={!hasBase}
-            intro="The voltage-lift editor. Draw a small base graph, assign a voltage to each edge over the group Z_n, then press Generate lift to build the cover on the right."
-            showControls
-            extraControls={voltageExtraControls}
-          />
         </div>
 
         <div className="relative h-1/2 w-full md:h-full md:w-1/2">
@@ -222,6 +215,13 @@ export const VoltageLiftPage = () => {
           </GraphCanvas>
         </div>
       </div>
+
+      <EditorPlaceholder
+        visible={!hasBase}
+        intro="The voltage-lift editor. Draw a small base graph, assign a voltage to each edge over the group Z_n, then press Generate lift to build the cover on the right."
+        showControls
+        extraControls={voltageExtraControls}
+      />
 
       <input
         ref={fileInputRef}
