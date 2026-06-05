@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
+import { EditorPlaceholder } from "../../components/graph/EditorPlaceholder";
 import { GraphCanvas } from "../../components/graph/GraphCanvas";
 import { GraphToolbar } from "../../components/graph/GraphToolbar";
 import { SettingsModal } from "../../components/graph/SettingsModal";
@@ -82,6 +83,7 @@ export const CagePage = () => {
   const [draftSettings, setDraftSettings] = useState<CageSettings>(settings);
   const [panelOpen, setPanelOpen] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  const [userGraph, setUserGraph] = useState(false);
 
   const editorRefForImport = useRef<InteractiveGraphEditor | null>(null);
 
@@ -93,12 +95,17 @@ export const CagePage = () => {
     [onEditorReady]
   );
 
+  const handleGraphChange = useCallback((edgeList: string) => {
+    setUserGraph(edgeList.trim().length > 0);
+  }, []);
+
   const handleImportFile = useCallback(
     async (file: File) => {
       setImportError(null);
       try {
         const edgeList = await importGraphFromFile(file);
         editorRefForImport.current?.loadFromEdgeList(edgeList);
+        setUserGraph(true);
       } catch (cause) {
         setImportError(cause instanceof Error ? cause.message : "Failed to import graph");
       }
@@ -131,6 +138,8 @@ export const CagePage = () => {
           ? "Start Inspection"
           : "Generate Cage";
 
+  const canvasEmpty = !userGraph && (status?.num_nodes ?? 0) === 0;
+
   // Back button destination depends on ?from.
   const backHref =
     contextGroup === "rl"
@@ -162,7 +171,7 @@ export const CagePage = () => {
 
   return (
     <div className="relative h-dvh overflow-hidden bg-transparent">
-      <GraphCanvas onReady={onEditorReadyWithImport} canvasClassName="rounded-none">
+      <GraphCanvas onReady={onEditorReadyWithImport} onGraphChange={handleGraphChange} canvasClassName="rounded-none">
         <BackButton
           href={backHref}
           label="Back to Docs"
@@ -293,6 +302,12 @@ export const CagePage = () => {
             </section>
           </div>
         )}
+
+        <EditorPlaceholder
+          visible={canvasEmpty}
+          showControls={false}
+          intro="The cage generator. Set the degree k and girth g, pick a construction method, then press Generate to watch a (k,g)-graph get built. You can also import a graph to start from."
+        />
 
         <GraphToolbar
           onOpenSettings={triggerSettings}
