@@ -32,6 +32,13 @@ export const CageVoltagePage = () => {
           and every base edge fans out to exactly <code>|Γ|</code> lifted edges, the degree of
           every vertex in the lift equals the degree of its base vertex.
         </p>
+        <div className="mt-3 overflow-hidden rounded-lg border-2 border-line2 bg-white p-3">
+          <img
+            src="/static/voltage-base-and-lift.png"
+            alt="A small base graph and the larger graph it lifts to"
+            className="block w-full"
+          />
+        </div>
         <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
           Canonical example: a 2-vertex base with 3 parallel edges over <code>Z₇</code> lifts to
           the 14-vertex Heawood graph, the optimal (3,6)-cage. Girth in the lift equals the
@@ -72,6 +79,13 @@ def build_lift(
         <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
           Girth can be read off the tiny base graph without building the lift.
         </p>
+        <div className="mt-3 overflow-hidden rounded-lg border-2 border-line2 bg-white p-3">
+          <img
+            src="/static/voltage-girth.png"
+            alt="A closed walk in the base graph whose net voltage determines a cycle in the lift"
+            className="block w-full"
+          />
+        </div>
         <pre className="mt-2.5 overflow-x-auto rounded-lg border-2 border-line2 bg-bg1 p-1.5">
           <code className="language-python">{`# ai/cage/voltage/cycle_analysis.py
 def compute_lift_girth(

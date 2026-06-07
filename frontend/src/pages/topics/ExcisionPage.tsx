@@ -30,6 +30,13 @@ export const ExcisionTopicPage = () => {
           afterward can introduce a short cycle, so girth checking is concentrated entirely in
           the repair phase.
         </p>
+        <div className="mt-3 overflow-hidden rounded-lg border-2 border-line2 bg-white p-3">
+          <img
+            src="/static/excision-tree-removal.png"
+            alt="Removing the Moore-radius BFS tree and the deficient boundary it leaves"
+            className="block w-full"
+          />
+        </div>
         <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
           The repair connects each deficient boundary vertex (one that lost neighbours when the
           tree was removed) to other vertices at graph distance at least <code>g−1</code>, so
@@ -37,6 +44,13 @@ export const ExcisionTopicPage = () => {
           dead ends where no valid partner exists for a deficient vertex. The technique was
           introduced by Balaban, who cut a subtree from the (3,12)-cage to reach the (3,11)-cage.
         </p>
+        <div className="mt-3 overflow-hidden rounded-lg border-2 border-line2 bg-white p-3">
+          <img
+            src="/static/petersen-excision.png"
+            alt="Excision applied to the Petersen graph"
+            className="block w-full"
+          />
+        </div>
         <pre className="mt-2.5 overflow-x-auto rounded-lg border-2 border-line2 bg-bg1 p-1.5">
           <code className="language-python">{`# ai/cage/excision/excise.py
 def excise_tree(
