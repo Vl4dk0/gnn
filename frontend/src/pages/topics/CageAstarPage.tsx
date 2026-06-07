@@ -14,9 +14,9 @@ export const CageAstarPage = () => {
           A* + backtracking
         </h1>
         <p className="text-base leading-[1.7] text-textMuted">
-          Best-first search over partial (k,g)-graphs, with backtracking when no successor can
-          preserve the girth constraint. The key challenge is scoring partial states. Deciding
-          whether a partial graph can still be completed is itself the original hard problem.
+          Best-first search over partial (k,g)-graphs. The search keeps a frontier of partial
+          graphs, always expands the most promising one, and backtracks when no move can extend a
+          graph without breaking the girth constraint.
         </p>
       </DocsHero>
 
@@ -25,16 +25,11 @@ export const CageAstarPage = () => {
         <p className="text-base leading-[1.7] text-textMuted">
           The search maintains a min-heap of partial graphs ordered by a score that combines
           regularity progress (how many vertices already have the right degree), closeness to the
-          Moore-bound target size, and girth. At each step, the algorithm expands the best-scoring
-          partial graph by applying one of two actions: add a girth-safe edge between two
-          under-degree vertices, or grow the graph by adding a new vertex (bounded by roughly twice
-          the Moore bound).
-        </p>
-        <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
-          A pure supervised heuristic fails here because you cannot label partial states as
-          "completable" or "dead end" without solving the original problem first. Backtracking is
-          therefore unavoidable. The same backtracking and search logic reappears as the exact
-          fallback inside excision repair when the greedy re-stitching gets stuck.
+          Moore-bound target size, and a girth still compatible with g. Each step pops the
+          best-scoring partial graph and expands it with one of two actions: add a girth-safe edge
+          between two under-degree vertices, or grow the graph by adding a new vertex (bounded by
+          roughly twice the Moore bound). When a branch cannot be extended, the heap falls back to
+          the next-best partial graph.
         </p>
       </DocsCard>
 
