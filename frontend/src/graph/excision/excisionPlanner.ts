@@ -16,11 +16,12 @@
 // frames so the editor can animate root -> BFS growth -> removal -> stitching.
 
 // Functional highlight colours. The site is achromatic, but these encode
-// algorithm state, so they are intentionally distinct yet muted enough to read
-// on both light and dark canvas backgrounds.
+// algorithm state, so they are intentionally vivid and distinct from each other
+// and from the grey node fill, on both light and dark canvas backgrounds.
+// Root red, BFS tree blue, newest BFS level purple, deficient amber, stitch green.
 const COLOR_ROOT = "#d24b4b";
-const COLOR_TREE = "#7a7a7a";
-const COLOR_TREE_DEEP = "#9a9a9a";
+const COLOR_TREE = "#2f6fed";
+const COLOR_TREE_DEEP = "#b14ddb";
 const COLOR_DEFICIENT = "#cc8a00";
 const COLOR_NEW_EDGE = "#2f9e6b";
 const COLOR_STITCH_ENDPOINT = "#2f9e6b";
