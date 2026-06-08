@@ -78,7 +78,8 @@ def step(
     return self._get_obs(), reward, done, {}`}</code>
         </pre>
         <p className="mt-2.5 text-base leading-[1.7] text-textMuted">
-          This is where the girth constraint actually lives.
+          The two legality checks behind the mask. An added edge must not create a cycle shorter
+          than g, and a removed edge must keep the graph connected and at or above the Moore floor.
         </p>
         <pre className="mt-2.5 overflow-x-auto rounded-lg border-2 border-line2 bg-bg1 p-1.5">
           <code className="language-python">{`# ai/cage/rl/env.py
@@ -95,7 +96,19 @@ def _can_add_edge(self, u: int, v: int) -> bool:
         path_len = int(nx.shortest_path_length(self.graph, u, v))
         return (path_len + 1) >= self.g
     except nx.NetworkXNoPath:
-        return True   # u and v are disconnected, no cycle can be closed`}</code>
+        return True   # u and v are disconnected, no cycle can be closed
+
+
+def _can_remove_edge(self, u: int, v: int) -> bool:
+    if not self.graph.has_edge(u, v):
+        return False
+    self.graph.remove_edge(u, v)
+    try:
+        split = self._active_component_count() > 1
+        below_floor = len(self._active_nodes()) < self.mb
+    finally:
+        self.graph.add_edge(u, v)             # restore, this was only a probe
+    return not split and not below_floor      # stay connected and at or above the Moore floor`}</code>
         </pre>
       </DocsCard>
 
