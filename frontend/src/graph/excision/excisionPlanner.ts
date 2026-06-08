@@ -234,6 +234,14 @@ const computeGirth = (adjacency: Adjacency): number => {
   return best;
 };
 
+/**
+ * Infer the girth of a graph from its edge list: the length of its shortest
+ * cycle, or Infinity if the graph is acyclic.
+ */
+export const inferGirth = (edgeList: string): number => {
+  return computeGirth(parseEdgeList(edgeList));
+};
+
 const isKRegular = (adjacency: Adjacency, k: number): boolean => {
   for (const neighbors of adjacency.values()) {
     if (neighbors.size !== k) {

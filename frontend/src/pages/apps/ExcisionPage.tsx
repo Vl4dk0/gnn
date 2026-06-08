@@ -5,13 +5,12 @@ import { GraphCanvas } from "../../components/graph/GraphCanvas";
 import { SettingsModal } from "../../components/graph/SettingsModal";
 import { BackButton } from "../../components/ui/BackButton";
 import { IconButton } from "../../components/ui/IconButton";
-import { InputField } from "../../components/ui/InputField";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
 import { SecondaryButton } from "../../components/ui/SecondaryButton";
 import { SettingGroup } from "../../components/ui/SettingGroup";
 import { SingleRangeSlider } from "../../components/ui/SingleRangeSlider";
 import type { InteractiveGraphEditor } from "../../graph/InteractiveGraphEditor";
-import { inferK, planExcision } from "../../graph/excision/excisionPlanner";
+import { inferGirth, inferK, planExcision } from "../../graph/excision/excisionPlanner";
 import type { ExcisionFrame } from "../../graph/excision/excisionPlanner";
 import { importGraphFromFile } from "../../services/cage";
 
@@ -54,8 +53,8 @@ export const ExcisionPage = () => {
   const autoTimerRef = useRef<number | null>(null);
   const importInputRef = useRef<HTMLInputElement | null>(null);
 
-  const [girthG, setGirthG] = useState(5);
   const [inferredK, setInferredK] = useState(0);
+  const [inferredG, setInferredG] = useState(0);
   const [frames, setFrames] = useState<ExcisionFrame[]>([]);
   const [frameIndex, setFrameIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -96,10 +95,12 @@ export const ExcisionPage = () => {
     };
   }, []);
 
-  const refreshK = () => {
+  const refreshInferred = () => {
     const editor = editorRef.current;
     if (!editor) return;
-    setInferredK(inferK(editor.toEdgeList()));
+    const edgeList = editor.toEdgeList();
+    setInferredK(inferK(edgeList));
+    setInferredG(inferGirth(edgeList));
   };
 
   const applyPhysics = (editor: InteractiveGraphEditor, enabled: boolean) => {
@@ -114,13 +115,13 @@ export const ExcisionPage = () => {
     editorRef.current = editor;
     if (editor) {
       applyPhysics(editor, physicsEnabled);
-      refreshK();
+      refreshInferred();
     }
   };
 
   const handleGraphChange = (edgeList: string) => {
     setHasGraph(edgeList.trim().length > 0);
-    refreshK();
+    refreshInferred();
   };
 
   const applyFrame = (frame: ExcisionFrame) => {
@@ -167,8 +168,7 @@ export const ExcisionPage = () => {
     editor.loadFromEdgeList(DODECAHEDRON_EDGE_LIST);
     applyPhysics(editor, physicsEnabled);
     setHasGraph(true);
-    setGirthG(5);
-    refreshK();
+    refreshInferred();
   };
 
   const resetAnimation = () => {
@@ -184,7 +184,7 @@ export const ExcisionPage = () => {
       editor.clearHighlights();
       setHasGraph(originalRef.current.trim().length > 0);
     }
-    refreshK();
+    refreshInferred();
   };
 
   const runExcision = () => {
@@ -196,7 +196,13 @@ export const ExcisionPage = () => {
     const original = editor.toEdgeList();
     originalRef.current = original;
 
-    const plan = planExcision(original, girthG);
+    const g = inferGirth(original);
+    if (!Number.isFinite(g) || g < 3) {
+      setPlanMessage("Build a graph with at least one cycle (girth 3 or more) before running excision.");
+      return;
+    }
+
+    const plan = planExcision(original, g);
     if (plan.frames.length === 0) {
       setPlanMessage(plan.message);
       return;
@@ -237,7 +243,7 @@ export const ExcisionPage = () => {
         editor.loadFromEdgeList(edgeList);
         applyPhysics(editor, physicsEnabled);
         setHasGraph(edgeList.trim().length > 0);
-        refreshK();
+        refreshInferred();
       }
     } catch (cause) {
       setImportError(cause instanceof Error ? cause.message : "Failed to import graph");
@@ -267,7 +273,7 @@ export const ExcisionPage = () => {
       >
         <EditorPlaceholder
           visible={!hasGraph}
-          intro="The excision editor. Build a (k,g)-graph by hand or import one, set the target girth g, then press Run to watch a tree get removed and the boundary stitched back into a smaller graph."
+          intro="The excision editor. Build a (k,g)-graph by hand or import one, then press Run to watch a tree get removed and the boundary stitched back into a smaller graph."
           showControls
         />
 
@@ -297,19 +303,15 @@ export const ExcisionPage = () => {
           <div className="text-sm font-semibold leading-5 text-textMain">Excision Editor</div>
 
           <div className="mt-4 grid grid-cols-2 gap-3">
-            <InputField
-              id="girthG"
-              label="Girth (g)"
-              type="number"
-              min={3}
-              max={12}
-              value={girthG}
-              className="py-2.5"
-              onChange={(event) => setGirthG(Number.parseInt(event.target.value, 10) || 0)}
-            />
             <div className="flex flex-col gap-2.5">
               <span className="label-base">Inferred k</span>
               <div className="input-base flex items-center py-2.5 text-textMain">{inferredK}</div>
+            </div>
+            <div className="flex flex-col gap-2.5">
+              <span className="label-base">Inferred g</span>
+              <div className="input-base flex items-center py-2.5 text-textMain">
+                {Number.isFinite(inferredG) ? inferredG : "∞"}
+              </div>
             </div>
           </div>
 
@@ -319,7 +321,7 @@ export const ExcisionPage = () => {
               className="rounded-md px-4 py-2 text-xs"
               onClick={() => loadDodecahedron()}
             >
-              Load dodecahedron (3,5)
+              Dodecahedron
             </SecondaryButton>
 
             <SecondaryButton
@@ -343,9 +345,7 @@ export const ExcisionPage = () => {
             />
           </div>
 
-          {importError && (
-            <p className="mt-2 text-xs text-textDim">{importError}</p>
-          )}
+          {importError && <p className="mt-2 text-xs text-textDim">{importError}</p>}
 
           {planMessage && (
             <div className="mt-2 rounded-xl border border-line2 bg-bg2/75 p-3 text-xs leading-5 text-textMuted">
@@ -423,7 +423,9 @@ export const ExcisionPage = () => {
             value={stepsPerTick}
             onChange={(value) => setStepsPerTick(value)}
           />
-          <p className="mt-1 text-xs text-textDim">How many frames each Step click and each auto-step tick advances.</p>
+          <p className="mt-1 text-xs text-textDim">
+            How many frames each Step click and each auto-step tick advances.
+          </p>
         </SettingGroup>
 
         <SettingGroup>
@@ -438,7 +440,9 @@ export const ExcisionPage = () => {
             value={autoDelay}
             onChange={(value) => setAutoDelay(value)}
           />
-          <p className="mt-1 text-xs text-textDim">Delay between automatic steps when auto-stepping is running.</p>
+          <p className="mt-1 text-xs text-textDim">
+            Delay between automatic steps when auto-stepping is running.
+          </p>
         </SettingGroup>
 
         <SettingGroup>
@@ -450,7 +454,9 @@ export const ExcisionPage = () => {
             />
             Enable spring physics
           </label>
-          <p className="mt-1 text-xs text-textDim">Spring layout that spreads the graph out automatically.</p>
+          <p className="mt-1 text-xs text-textDim">
+            Spring layout that spreads the graph out automatically.
+          </p>
         </SettingGroup>
       </SettingsModal>
     </div>
