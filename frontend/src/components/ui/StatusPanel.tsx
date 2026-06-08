@@ -21,6 +21,16 @@ const STAGE_LABELS: Record<"voltage" | "refine" | "excision", string> = {
   excision: "Excision"
 };
 
+const GENERATOR_LABELS: Record<string, string> = {
+  randomwalk: "Random walk",
+  bruteforce: "Bruteforce",
+  astar: "A* search",
+  rl: "RL agent",
+  voltage: "Voltage",
+  voltage_rl: "Voltage RL",
+  forge: "Forge"
+};
+
 export const StatusPanel = ({ status, error, successMessage, stoppedByUser }: StatusPanelProps) => {
   if (error) {
     return (
@@ -40,7 +50,7 @@ export const StatusPanel = ({ status, error, successMessage, stoppedByUser }: St
         <strong>Target:</strong> ({status.k},{status.g})-graph
       </div>
       <div className="mb-2">
-        <strong>Mode:</strong> {status.mode === "stepped" ? "RL step inspection" : "Fast search"}
+        <strong>Algorithm:</strong> {GENERATOR_LABELS[status.generator] ?? status.generator}
       </div>
       {status.generator === "forge" && status.stage != null && (
         <div className="mb-2">
