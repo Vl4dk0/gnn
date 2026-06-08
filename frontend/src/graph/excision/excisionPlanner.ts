@@ -396,11 +396,24 @@ const stitch = (
 
 /**
  * Plan an excision animation for the given edge list and target girth g.
- * Builds a sequence of frames: root pick, per-level BFS growth, tree removal,
- * per-edge stitching, and a final success/failure frame.
+ *
+ * Mirrors excise_and_repair / try_excise_root in
+ * ai/cage/excision/repair_search.py: iterate over ALL vertices as candidate
+ * roots (sorted ascending) and accept the FIRST root whose depth-d tree
+ * removal can be re-stitched into a strictly smaller, k-regular, girth->=g
+ * graph. If a specific `root` is passed, try only that root (manual mode).
+ *
+ * Frames stay watchable: each skipped/failed root contributes exactly one
+ * compact "scan" frame on the original edge list (so the canvas does not churn
+ * between roots), while the winning root gets the full detailed sequence (root
+ * pick, per-level BFS growth, removal, per-edge stitching, success).
  */
 export const planExcision = (edgeList: string, g: number, root?: number): ExcisionPlan => {
-  const MAX_EXPANSIONS = 20000;
+  // Per-root stitch budget. Generous enough to find a real solution on the
+  // small hand-built graphs this is used for (a 20-vertex dodecahedron is the
+  // largest expected), but bounded so trying every root never hangs the
+  // browser.
+  const MAX_EXPANSIONS = 8000;
   const adjacency = parseEdgeList(edgeList);
   const k = inferK(edgeList);
   const depth = (g - 1) >> 1;
@@ -433,12 +446,27 @@ export const planExcision = (edgeList: string, g: number, root?: number): Excisi
   const allVertices = Array.from(adjacency.keys()).sort((a, b) => a - b);
   const minOrder = mooreBound(k, g);
 
-  // Pick a root whose tree removal keeps order >= Moore bound and leaves a
-  // non-empty deficient set; otherwise fall back to the first vertex.
-  const deficientFor = (
+  // Candidate roots: a single explicit root (manual mode) or every vertex.
+  let candidateRoots: number[];
+  if (root !== undefined) {
+    if (!adjacency.has(root)) {
+      return fail(`Root ${root} is not in the graph.`);
+    }
+    candidateRoots = [root];
+  } else {
+    candidateRoots = allVertices;
+  }
+
+  // For each candidate, excise its depth-d tree and compute the deficient set.
+  const exciseFor = (
     candidate: number
-  ): { reduced: Adjacency; deficiency: Map<number, number>; treeNodes: Set<number> } => {
-    const { treeNodes } = growTree(adjacency, candidate, depth);
+  ): {
+    treeByLevel: number[][];
+    treeNodes: Set<number>;
+    reduced: Adjacency;
+    deficiency: Map<number, number>;
+  } => {
+    const { treeByLevel, treeNodes } = growTree(adjacency, candidate, depth);
     const reduced = cloneAdjacency(adjacency);
     for (const node of treeNodes) {
       for (const nb of reduced.get(node) ?? []) {
@@ -453,183 +481,163 @@ export const planExcision = (edgeList: string, g: number, root?: number): Excisi
         deficiency.set(id, missing);
       }
     }
-    return { reduced, deficiency, treeNodes };
+    return { treeByLevel, treeNodes, reduced, deficiency };
   };
 
-  let chosenRoot: number | null = root ?? null;
-  if (chosenRoot === null) {
-    for (const candidate of allVertices) {
-      const { reduced, deficiency } = deficientFor(candidate);
-      if (deficiency.size > 0 && reduced.size >= minOrder) {
-        chosenRoot = candidate;
-        break;
-      }
-    }
-    if (chosenRoot === null) {
-      chosenRoot = allVertices[0];
-    }
-  }
-
-  const rootNode = chosenRoot;
-  if (!adjacency.has(rootNode)) {
-    return fail(`Root ${rootNode} is not in the graph.`);
-  }
-
-  // Frame 1: root chosen.
-  const rootHighlight = new Map<number, string>([[rootNode, COLOR_ROOT]]);
-  frames.push({
-    edgeList: originalEdgeList,
-    nodeHighlights: new Map(rootHighlight),
-    edgeHighlights: new Map(),
-    caption: `Root ${rootNode} chosen (k=${k}, g=${g}, depth d=${depth})`
-  });
-
-  // Frames per BFS level.
-  const { treeByLevel, treeNodes } = growTree(adjacency, rootNode, depth);
-  const accumulated = new Set<number>([rootNode]);
-  for (let level = 1; level < treeByLevel.length; level += 1) {
-    for (const node of treeByLevel[level]) {
-      accumulated.add(node);
-    }
+  // Compact one-frame scan render for a skipped / failed root: highlight the
+  // root and its tree on the ORIGINAL edge list so the canvas stays stable.
+  const pushScanFrame = (
+    rootNode: number,
+    treeNodes: Set<number>,
+    caption: string
+  ): void => {
     const nodeHighlights = new Map<number, string>();
-    for (const node of accumulated) {
-      nodeHighlights.set(node, node === rootNode ? COLOR_ROOT : COLOR_TREE);
+    for (const node of treeNodes) {
+      nodeHighlights.set(node, COLOR_TREE);
     }
-    for (const node of treeByLevel[level]) {
-      nodeHighlights.set(node, COLOR_TREE_DEEP);
-    }
+    nodeHighlights.set(rootNode, COLOR_ROOT);
     frames.push({
       edgeList: originalEdgeList,
       nodeHighlights,
       edgeHighlights: new Map(),
-      caption: `BFS level ${level}: tree has ${accumulated.size} vertices`
+      caption
     });
-  }
+  };
 
-  // Build the reduced graph and deficient set.
-  const reduced = cloneAdjacency(adjacency);
-  for (const node of treeNodes) {
-    for (const nb of reduced.get(node) ?? []) {
-      reduced.get(nb)?.delete(node);
+  for (const rootNode of candidateRoots) {
+    const { treeByLevel, treeNodes, reduced, deficiency } = exciseFor(rootNode);
+
+    // Quick skips: nothing to stitch, or already below the Moore bound.
+    if (deficiency.size === 0) {
+      pushScanFrame(
+        rootNode,
+        treeNodes,
+        `Root ${rootNode}: removing its tree leaves nothing to re-stitch, trying next`
+      );
+      continue;
     }
-    reduced.delete(node);
-  }
-  const deficiency = new Map<number, number>();
-  for (const [id, neighbors] of reduced) {
-    const missing = k - neighbors.size;
-    if (missing > 0) {
-      deficiency.set(id, missing);
+    if (reduced.size < minOrder) {
+      pushScanFrame(
+        rootNode,
+        treeNodes,
+        `Root ${rootNode}: would drop below the Moore bound ${minOrder}, trying next`
+      );
+      continue;
     }
-  }
 
-  const reducedEdgeList = toEdgeList(reduced);
-  const deficientHighlights = new Map<number, string>();
-  for (const id of deficiency.keys()) {
-    deficientHighlights.set(id, COLOR_DEFICIENT);
-  }
+    // Run the backtracking repair and validate the result.
+    const { graph: repaired, steps } = stitch(reduced, deficiency, g, MAX_EXPANSIONS);
 
-  // Frame: removal.
-  frames.push({
-    edgeList: reducedEdgeList,
-    nodeHighlights: new Map(deficientHighlights),
-    edgeHighlights: new Map(),
-    caption: `Removed tree (${treeNodes.size} vertices); ${deficiency.size} deficient vertices remain`
-  });
+    let valid = false;
+    if (repaired !== null) {
+      const smaller = repaired.size < adjacency.size;
+      const regular = isKRegular(repaired, k);
+      const girth = computeGirth(repaired);
+      const girthOk = girth === Infinity || girth >= g;
+      valid = smaller && regular && girthOk;
+    }
 
-  if (deficiency.size === 0) {
-    const message =
-      "Removing this tree leaves no deficient vertices to re-stitch (root unusable).";
+    if (repaired === null || !valid) {
+      pushScanFrame(
+        rootNode,
+        treeNodes,
+        `Root ${rootNode}: no girth-safe stitch, trying next`
+      );
+      continue;
+    }
+
+    // Winner: emit the full detailed sequence for this root, then return.
+    const reducedEdgeList = toEdgeList(reduced);
+    const deficientHighlights = new Map<number, string>();
+    for (const id of deficiency.keys()) {
+      deficientHighlights.set(id, COLOR_DEFICIENT);
+    }
+
+    // Frame: root chosen.
     frames.push({
-      edgeList: reducedEdgeList,
-      nodeHighlights: new Map(),
+      edgeList: originalEdgeList,
+      nodeHighlights: new Map<number, string>([[rootNode, COLOR_ROOT]]),
       edgeHighlights: new Map(),
-      caption: message
+      caption: `Root ${rootNode} chosen (k=${k}, g=${g}, depth d=${depth})`
     });
-    return {
-      frames,
-      success: false,
-      resultEdgeList: reducedEdgeList,
-      message,
-      root: rootNode,
-      k,
-      g,
-      depth
-    };
-  }
 
-  if (reduced.size < minOrder) {
-    const message = `Reduced graph (${reduced.size}) is below the Moore bound ${minOrder}; cannot reach a valid (k,g)-graph.`;
+    // Frames per BFS level (tree growth).
+    const accumulated = new Set<number>([rootNode]);
+    for (let level = 1; level < treeByLevel.length; level += 1) {
+      for (const node of treeByLevel[level]) {
+        accumulated.add(node);
+      }
+      const nodeHighlights = new Map<number, string>();
+      for (const node of accumulated) {
+        nodeHighlights.set(node, node === rootNode ? COLOR_ROOT : COLOR_TREE);
+      }
+      for (const node of treeByLevel[level]) {
+        nodeHighlights.set(node, COLOR_TREE_DEEP);
+      }
+      frames.push({
+        edgeList: originalEdgeList,
+        nodeHighlights,
+        edgeHighlights: new Map(),
+        caption: `BFS level ${level}: tree has ${accumulated.size} vertices`
+      });
+    }
+
+    // Frame: removal (switch to the reduced edge list).
     frames.push({
       edgeList: reducedEdgeList,
       nodeHighlights: new Map(deficientHighlights),
       edgeHighlights: new Map(),
-      caption: message
+      caption: `Removed tree (${treeNodes.size} vertices); ${deficiency.size} deficient vertices remain`
     });
-    return {
-      frames,
-      success: false,
-      resultEdgeList: reducedEdgeList,
-      message,
-      root: rootNode,
-      k,
-      g,
-      depth
-    };
-  }
 
-  // Stitch with backtracking, emitting a frame per accepted / undone edge.
-  const { graph: repaired, steps, exhausted } = stitch(
-    reduced,
-    deficiency,
-    g,
-    MAX_EXPANSIONS
-  );
+    // Frames per accepted / undone stitch edge.
+    const liveEdgeHighlights = new Map<string, string>();
+    const liveNodeHighlights = new Map(deficientHighlights);
+    const liveGraph = cloneAdjacency(reduced);
 
-  const liveEdgeHighlights = new Map<string, string>();
-  const liveNodeHighlights = new Map(deficientHighlights);
-  const liveGraph = cloneAdjacency(reduced);
-
-  for (const step of steps) {
-    const key = edgeKey(step.u, step.v);
-    if (step.undo) {
-      liveGraph.get(step.u)?.delete(step.v);
-      liveGraph.get(step.v)?.delete(step.u);
-      liveEdgeHighlights.delete(key);
+    for (const step of steps) {
+      const key = edgeKey(step.u, step.v);
+      if (step.undo) {
+        liveGraph.get(step.u)?.delete(step.v);
+        liveGraph.get(step.v)?.delete(step.u);
+        liveEdgeHighlights.delete(key);
+        frames.push({
+          edgeList: toEdgeList(liveGraph),
+          nodeHighlights: new Map(liveNodeHighlights),
+          edgeHighlights: new Map(liveEdgeHighlights),
+          caption: `Backtrack: undo ${step.u}-${step.v}`
+        });
+        continue;
+      }
+      liveGraph.get(step.u)?.add(step.v);
+      liveGraph.get(step.v)?.add(step.u);
+      liveEdgeHighlights.set(key, COLOR_NEW_EDGE);
+      liveNodeHighlights.set(step.u, COLOR_STITCH_ENDPOINT);
+      liveNodeHighlights.set(step.v, COLOR_STITCH_ENDPOINT);
       frames.push({
         edgeList: toEdgeList(liveGraph),
         nodeHighlights: new Map(liveNodeHighlights),
         edgeHighlights: new Map(liveEdgeHighlights),
-        caption: `Backtrack: undo ${step.u}-${step.v}`
+        caption: `Stitch ${step.u}-${step.v} (distance was >= g-1)`
       });
-      continue;
     }
-    liveGraph.get(step.u)?.add(step.v);
-    liveGraph.get(step.v)?.add(step.u);
-    liveEdgeHighlights.set(key, COLOR_NEW_EDGE);
-    liveNodeHighlights.set(step.u, COLOR_STITCH_ENDPOINT);
-    liveNodeHighlights.set(step.v, COLOR_STITCH_ENDPOINT);
-    frames.push({
-      edgeList: toEdgeList(liveGraph),
-      nodeHighlights: new Map(liveNodeHighlights),
-      edgeHighlights: new Map(liveEdgeHighlights),
-      caption: `Stitch ${step.u}-${step.v} (distance was >= g-1)`
-    });
-  }
 
-  if (repaired === null) {
-    const message = exhausted
-      ? "Backtracking budget exceeded; no girth-safe stitching found from this root."
-      : "No girth-safe stitch found from this root.";
+    // `repaired` is non-null and validated here (narrowed by the skip above).
+    const resultEdgeList = toEdgeList(repaired);
+    const message = `Success: smaller (k,g)-graph, ${repaired.size} vertices, girth >= ${g}`;
+    const finalEdgeHighlights = new Map(liveEdgeHighlights);
+
     frames.push({
-      edgeList: reducedEdgeList,
-      nodeHighlights: new Map(deficientHighlights),
-      edgeHighlights: new Map(),
+      edgeList: resultEdgeList,
+      nodeHighlights: new Map(),
+      edgeHighlights: finalEdgeHighlights,
       caption: message
     });
+
     return {
       frames,
-      success: false,
-      resultEdgeList: reducedEdgeList,
+      success: true,
+      resultEdgeList,
       message,
       root: rootNode,
       k,
@@ -638,42 +646,20 @@ export const planExcision = (edgeList: string, g: number, root?: number): Excisi
     };
   }
 
-  const resultEdgeList = toEdgeList(repaired);
-  const smaller = repaired.size < adjacency.size;
-  const regular = isKRegular(repaired, k);
-  const girth = computeGirth(repaired);
-  const girthOk = girth === Infinity || girth >= g;
-  const success = smaller && regular && girthOk;
-
-  let message: string;
-  if (success) {
-    message = `Success: smaller (k,g)-graph, ${repaired.size} vertices, girth >= ${g}`;
-  } else if (!smaller) {
-    message = "Result is not smaller than the input.";
-  } else if (!regular) {
-    message = "Result is not k-regular.";
-  } else {
-    message = `Result girth ${girth} < ${g}.`;
-  }
-
-  const finalEdgeHighlights = new Map<string, string>();
-  for (const [key, color] of liveEdgeHighlights) {
-    finalEdgeHighlights.set(key, color);
-  }
-
+  // No root yielded a smaller valid (k,g)-graph.
+  const message = `Tried ${candidateRoots.length} root${candidateRoots.length === 1 ? "" : "s"}; none yields a smaller (k,g)-graph.`;
   frames.push({
-    edgeList: resultEdgeList,
+    edgeList: originalEdgeList,
     nodeHighlights: new Map(),
-    edgeHighlights: finalEdgeHighlights,
+    edgeHighlights: new Map(),
     caption: message
   });
-
   return {
     frames,
-    success,
-    resultEdgeList,
+    success: false,
+    resultEdgeList: originalEdgeList,
     message,
-    root: rootNode,
+    root: null,
     k,
     g,
     depth
