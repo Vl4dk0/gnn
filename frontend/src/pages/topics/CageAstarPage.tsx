@@ -15,8 +15,7 @@ export const CageAstarPage = () => {
         </h1>
         <p className="text-base leading-[1.7] text-textMuted">
           Best-first search over partial (k,g)-graphs. The search keeps a frontier of partial
-          graphs, always expands the most promising one, and backtracks when no move can extend a
-          graph without breaking the girth constraint.
+          graphs, always expands the most promising one.
         </p>
       </DocsHero>
 
