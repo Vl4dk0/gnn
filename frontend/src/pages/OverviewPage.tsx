@@ -38,10 +38,22 @@ const STORY_ITEMS = [
     description: "Stamp a tiny base graph over a group, and regularity comes for free."
   },
   {
-    href: "/excision",
+    href: "/refinement",
     index: 6,
+    title: "Refinement",
+    description: "Edge swaps that remove a near-miss lift's short cycles while keeping every degree."
+  },
+  {
+    href: "/excision",
+    index: 7,
     title: "Excision",
     description: "Shrink a valid (k,g)-graph toward the cage by removing a tree and re-stitching."
+  },
+  {
+    href: "/forge",
+    index: 8,
+    title: "Forge pipeline",
+    description: "Lift, refine, and excise composed end to end, each method doing what it does best."
   }
 ];
 

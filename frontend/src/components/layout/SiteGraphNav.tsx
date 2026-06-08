@@ -28,12 +28,15 @@ const INITIAL_NODES: GraphNode[] = [
   { id: "astar", label: "A*", path: "/cage/astar", group: "doc" },
   { id: "rl", label: "RL", path: "/cage/rl", group: "doc" },
   { id: "voltage", label: "Voltage", path: "/cage/voltage", group: "doc" },
+  { id: "refinement", label: "Refine", path: "/refinement", group: "doc" },
   { id: "excision", label: "Excision", path: "/excision", group: "doc" },
+  { id: "forge", label: "Forge", path: "/forge", group: "doc" },
   // Apps (Editors)
   { id: "app-degree", label: "Editor", path: "/degree", group: "app" },
   { id: "app-cycle", label: "Editor", path: "/min_cycle", group: "app" },
   { id: "app-cage", label: "Editor", path: "/cage", group: "app" },
   { id: "app-lift", label: "Lift", path: "/lift", group: "app" },
+  { id: "app-refine", label: "Refine", path: "/refine", group: "app" },
   { id: "app-excise", label: "Editor", path: "/excise", group: "app" }
 ];
 
@@ -45,7 +48,9 @@ const getPathNumber = (path: string): number | null => {
   if (path === "/cage/astar") return 3;
   if (path === "/cage/rl") return 4;
   if (path === "/cage/voltage") return 5;
-  if (path === "/excision") return 6;
+  if (path === "/refinement") return 6;
+  if (path === "/excision") return 7;
+  if (path === "/forge") return 8;
   return null;
 };
 
@@ -57,13 +62,17 @@ const INITIAL_LINKS: GraphLink[] = [
   { source: "root", target: "astar" },
   { source: "root", target: "rl" },
   { source: "root", target: "voltage" },
+  { source: "root", target: "refinement" },
   { source: "root", target: "excision" },
+  { source: "root", target: "forge" },
   // Sequential edges (topics flow in order)
   { source: "degree", target: "cycle" },
   { source: "cycle", target: "astar" },
   { source: "astar", target: "rl" },
   { source: "rl", target: "voltage" },
-  { source: "voltage", target: "excision" },
+  { source: "voltage", target: "refinement" },
+  { source: "refinement", target: "excision" },
+  { source: "excision", target: "forge" },
   // Branches to apps (editors)
   { source: "degree", target: "app-degree" },
   { source: "cycle", target: "app-cycle" },
@@ -71,6 +80,7 @@ const INITIAL_LINKS: GraphLink[] = [
   { source: "rl", target: "app-cage" },
   { source: "voltage", target: "app-cage" },
   { source: "voltage", target: "app-lift" },
+  { source: "refinement", target: "app-refine" },
   { source: "excision", target: "app-excise" }
 ];
 
@@ -154,7 +164,8 @@ export const SiteGraphNav = () => {
             // Sequential edges between consecutive docs: short, tight chain
             const seqPairs = [
               ["degree", "cycle"], ["cycle", "astar"], ["astar", "rl"],
-              ["rl", "voltage"], ["voltage", "excision"]
+              ["rl", "voltage"], ["voltage", "refinement"],
+              ["refinement", "excision"], ["excision", "forge"]
             ];
             if (seqPairs.some(([a, b]) => (src === a && tgt === b) || (src === b && tgt === a))) {
               return 65;
@@ -173,12 +184,14 @@ export const SiteGraphNav = () => {
           .y((d: any) => {
             // Vertical guidance — evenly spaced chain
             if (d.group === "root") return 35;
-            if (d.id === "degree") return 110;
-            if (d.id === "cycle") return 185;
-            if (d.id === "astar") return 260;
-            if (d.id === "rl") return 335;
-            if (d.id === "voltage") return 410;
-            if (d.id === "excision") return 485;
+            if (d.id === "degree") return 95;
+            if (d.id === "cycle") return 150;
+            if (d.id === "astar") return 205;
+            if (d.id === "rl") return 260;
+            if (d.id === "voltage") return 315;
+            if (d.id === "refinement") return 370;
+            if (d.id === "excision") return 425;
+            if (d.id === "forge") return 480;
 
             return height / 2;
           })

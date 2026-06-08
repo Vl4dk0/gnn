@@ -174,7 +174,7 @@ def compute_lift_girth(
 
       <div className="mt-10 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-5">
         <DocsNextButton href="/cage/rl" direction="back" label="Reinforcement learning" />
-        <DocsNextButton href="/excision" label="Excision" />
+        <DocsNextButton href="/refinement" label="Refinement" />
       </div>
     </DocsLayout>
   );

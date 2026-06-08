@@ -10,7 +10,9 @@ export const DOCS_SEQUENCE: DocsItem[] = [
   { href: "/cage/astar", title: "A* + backtracking", short: "A*" },
   { href: "/cage/rl", title: "Reinforcement learning", short: "RL" },
   { href: "/cage/voltage", title: "Voltage lifts", short: "Voltage" },
-  { href: "/excision", title: "Excision", short: "Excision" }
+  { href: "/refinement", title: "Refinement", short: "Refine" },
+  { href: "/excision", title: "Excision", short: "Excision" },
+  { href: "/forge", title: "Forge pipeline", short: "Forge" }
 ];
 
 export const getNextDocsItem = (currentHref: string): DocsItem | null => {

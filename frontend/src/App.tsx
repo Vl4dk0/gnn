@@ -10,11 +10,14 @@ import { MinCycleTaskPage } from "./pages/topics/MinCycleTaskPage";
 import { CageAstarPage } from "./pages/topics/CageAstarPage";
 import { CageRlPage } from "./pages/topics/CageRlPage";
 import { CageVoltagePage } from "./pages/topics/CageVoltagePage";
+import { RefinementPage } from "./pages/topics/RefinementPage";
 import { ExcisionTopicPage } from "./pages/topics/ExcisionPage";
+import { ForgePage } from "./pages/topics/ForgePage";
 import { PredictionPage } from "./pages/apps/PredictionPage";
 import { CagePage } from "./pages/apps/CagePage";
 import { VoltageLiftPage } from "./pages/apps/VoltageLiftPage";
 import { ExcisionPage } from "./pages/apps/ExcisionPage";
+import { RefinePage } from "./pages/apps/RefinePage";
 
 // Layout for full-screen apps (canvas + nav overlay)
 const AppLayoutWrapper = ({ children }: { children: React.ReactNode }) => {
@@ -40,7 +43,9 @@ const AppRoutes = () => {
           <Route path="/cage/astar" element={<CageAstarPage />} />
           <Route path="/cage/rl" element={<CageRlPage />} />
           <Route path="/cage/voltage" element={<CageVoltagePage />} />
+          <Route path="/refinement" element={<RefinementPage />} />
           <Route path="/excision" element={<ExcisionTopicPage />} />
+          <Route path="/forge" element={<ForgePage />} />
 
           {/* Editors */}
           <Route
@@ -80,6 +85,14 @@ const AppRoutes = () => {
             element={
               <AppLayoutWrapper>
                 <ExcisionPage />
+              </AppLayoutWrapper>
+            }
+          />
+          <Route
+            path="/refine"
+            element={
+              <AppLayoutWrapper>
+                <RefinePage />
               </AppLayoutWrapper>
             }
           />

@@ -133,7 +133,8 @@ def is_legal_edge(G: nx.Graph[int], u: int, v: int, g_target: int) -> bool:
       </DocsCard>
 
       <div className="mt-10 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-5">
-        <DocsNextButton href="/cage/voltage" direction="back" label="Voltage lifts" />
+        <DocsNextButton href="/refinement" direction="back" label="Refinement" />
+        <DocsNextButton href="/forge" label="Forge pipeline" />
       </div>
     </DocsLayout>
   );
