@@ -54,18 +54,14 @@ def step(
 
     u, v = self.idx_to_edge(action_idx)
 
+    # Illegal actions are masked before the policy chooses, so the selected
+    # edge is always a legal add or remove.
     if self.graph.has_edge(u, v):
-        if self._can_remove_edge(u, v):
-            self.graph.remove_edge(u, v)
-            reward += self.REMOVE_PENALTY
-        else:
-            reward += self.INVALID_PENALTY
+        self.graph.remove_edge(u, v)
+        reward += self.REMOVE_PENALTY
     else:
-        if self._can_add_edge(u, v):
-            self.graph.add_edge(u, v)
-            reward += self.ADD_REWARD
-        else:
-            reward += self.INVALID_PENALTY
+        self.graph.add_edge(u, v)
+        reward += self.ADD_REWARD
 
     # Potential-based shaping: reward = Phi(s') - Phi(s)
     new_potential = self._potential()
