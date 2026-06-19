@@ -15,12 +15,7 @@ import { SingleRangeSlider } from "../../components/ui/SingleRangeSlider";
 import { StatusPanel } from "../../components/ui/StatusPanel";
 import { useCageGeneration } from "../../hooks/useCageGeneration";
 import type { CageMethodId, CageSettings } from "../../types/api";
-import {
-  FROM_PARAM_TO_GROUP,
-  GROUP_DEFAULTS,
-  GROUP_LABELS,
-  methodsForGroup
-} from "./cageMethods";
+import { FROM_PARAM_TO_GROUP, GROUP_DEFAULTS, GROUP_LABELS, methodsForGroup } from "./cageMethods";
 import type { CageMethodGroup } from "./cageMethods";
 
 const ALL_GROUPS: CageMethodGroup[] = ["classical", "rl", "voltage"];
@@ -57,6 +52,8 @@ export const CagePage = () => {
     onEditorReady,
     start,
     stepOnce,
+    stepBack,
+    canStepBack,
     startAutoStepping,
     pauseAutoStepping,
     stop,
@@ -154,7 +151,11 @@ export const CagePage = () => {
 
   return (
     <div className="relative h-dvh overflow-hidden bg-transparent">
-      <GraphCanvas onReady={onEditorReady} onGraphChange={handleGraphChange} canvasClassName="rounded-none">
+      <GraphCanvas
+        onReady={onEditorReady}
+        onGraphChange={handleGraphChange}
+        canvasClassName="rounded-none"
+      >
         <BackButton
           href={backHref}
           label="Back to Docs"
@@ -315,6 +316,14 @@ export const CagePage = () => {
               </PrimaryButton>
             ) : (
               <>
+                <SecondaryButton
+                  fullWidth={false}
+                  className="rounded-full bg-bg1/92 px-6 py-3 text-sm tracking-[0.8px] backdrop-blur-sm"
+                  onClick={() => stepBack()}
+                  disabled={!canStepBack || isStepping || isAutoStepping}
+                >
+                  Back
+                </SecondaryButton>
                 <PrimaryButton
                   fullWidth={false}
                   className="rounded-full bg-bg1/92 px-6 py-3 text-sm tracking-[0.8px] backdrop-blur-sm"
@@ -402,7 +411,9 @@ export const CagePage = () => {
                 }));
               }}
             />
-            <p className="mt-1 text-xs text-textDim">How often the view refreshes during a fast search.</p>
+            <p className="mt-1 text-xs text-textDim">
+              How often the view refreshes during a fast search.
+            </p>
           </SettingGroup>
         )}
 
@@ -426,7 +437,9 @@ export const CagePage = () => {
                   }));
                 }}
               />
-              <p className="mt-1 text-xs text-textDim">How many moves each manual or auto step performs.</p>
+              <p className="mt-1 text-xs text-textDim">
+                How many moves each manual or auto step performs.
+              </p>
             </SettingGroup>
 
             <SettingGroup>

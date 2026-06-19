@@ -227,6 +227,15 @@ export const ExcisionPage = () => {
     });
   };
 
+  const stepBackward = () => {
+    if (frames.length === 0) return;
+    setFrameIndex((current) => {
+      const prev = Math.max(current - stepsPerTick, 0);
+      applyFrame(frames[prev]);
+      return prev;
+    });
+  };
+
   const startAutoStepping = () => {
     if (frames.length === 0) return;
     setIsAutoStepping(true);
@@ -379,6 +388,14 @@ export const ExcisionPage = () => {
               </PrimaryButton>
             ) : (
               <>
+                <SecondaryButton
+                  fullWidth={false}
+                  className="rounded-full bg-bg1/92 px-6 py-3 text-sm tracking-[0.8px] backdrop-blur-sm"
+                  onClick={() => stepBackward()}
+                  disabled={frameIndex === 0 || isAutoStepping}
+                >
+                  Back
+                </SecondaryButton>
                 <PrimaryButton
                   fullWidth={false}
                   className="rounded-full bg-bg1/92 px-6 py-3 text-sm tracking-[0.8px] backdrop-blur-sm"

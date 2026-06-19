@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import type { CageExportFormat, CageExecutionMode, CageSettings, CageStatusResponse } from "../types/api";
+import type {
+  CageExportFormat,
+  CageExecutionMode,
+  CageSettings,
+  CageStatusResponse
+} from "../types/api";
 import {
   exportCageGraph,
   fetchCageStatus,
@@ -92,9 +97,18 @@ const normalizeSettings = (raw: Record<string, unknown>): CageSettings => {
   };
 };
 
+// How many recent stepped snapshots are retained so the user can step Back.
+// The backend session is forward-only, so this is a client-side visual buffer.
+const STEP_HISTORY_CAP = 10;
+
 export const useCageGeneration = () => {
   const editorRef = useRef<InteractiveGraphEditor | null>(null);
   const latestSessionIdRef = useRef<string | null>(null);
+
+  // Bounded snapshot buffer for the Back button. The last element is the live
+  // backend head; historyCursor points at the snapshot currently displayed.
+  const historyRef = useRef<CageStatusResponse[]>([]);
+  const [historyCursor, setHistoryCursor] = useState(0);
 
   const [degreeK, setDegreeK] = useState(3);
   const [girthG, setGirthG] = useState(5);
@@ -203,41 +217,57 @@ export const useCageGeneration = () => {
     [voltageModels]
   );
 
-  const applyStatus = useCallback((currentStatus: CageStatusResponse) => {
+  // Render a snapshot without recording it or running terminal logic. Used for
+  // replaying cached snapshots when stepping Back or forward after a rewind.
+  const displayStatus = useCallback((currentStatus: CageStatusResponse) => {
     setStatus(currentStatus);
-
     if (currentStatus.current_graph) {
       editorRef.current?.updateFromEdgeList(currentStatus.current_graph);
     }
+  }, []);
 
-    if (currentStatus.stopped) {
+  const applyStatus = useCallback(
+    (currentStatus: CageStatusResponse) => {
+      displayStatus(currentStatus);
+
+      // Record this fresh backend frame and move the cursor to the live head.
+      const history = historyRef.current;
+      history.push(currentStatus);
+      if (history.length > STEP_HISTORY_CAP) {
+        history.shift();
+      }
+      setHistoryCursor(history.length - 1);
+
+      if (currentStatus.stopped) {
+        setSessionId(null);
+        setPhase("complete");
+        setError(
+          currentStatus.timed_out
+            ? "Generation timed out"
+            : "Generation stopped - page was navigated away"
+        );
+        return;
+      }
+
+      if (!currentStatus.is_complete) {
+        return;
+      }
+
       setSessionId(null);
       setPhase("complete");
-      setError(
-        currentStatus.timed_out
-          ? "Generation timed out"
-          : "Generation stopped - page was navigated away"
-      );
-      return;
-    }
 
-    if (!currentStatus.is_complete) {
-      return;
-    }
-
-    setSessionId(null);
-    setPhase("complete");
-
-    if (currentStatus.success) {
-      setSuccessMessage(
-        `Valid (${currentStatus.k},${currentStatus.g})-graph! (${formatElapsed(currentStatus.elapsed_time)})`
-      );
-    } else {
-      setError(
-        `Generation completed but the (${currentStatus.k},${currentStatus.g})-graph is not valid. Nodes: ${currentStatus.num_nodes}, Girth: ${currentStatus.girth ?? "∞"}`
-      );
-    }
-  }, []);
+      if (currentStatus.success) {
+        setSuccessMessage(
+          `Valid (${currentStatus.k},${currentStatus.g})-graph! (${formatElapsed(currentStatus.elapsed_time)})`
+        );
+      } else {
+        setError(
+          `Generation completed but the (${currentStatus.k},${currentStatus.g})-graph is not valid. Nodes: ${currentStatus.num_nodes}, Girth: ${currentStatus.girth ?? "∞"}`
+        );
+      }
+    },
+    [displayStatus]
+  );
 
   const pollStatus = useCallback(
     async (activeSessionId: string) => {
@@ -307,6 +337,8 @@ export const useCageGeneration = () => {
     setSuccessMessage(null);
     setStoppedByUser(false);
     setPhase("starting");
+    historyRef.current = [];
+    setHistoryCursor(0);
 
     const mode: CageExecutionMode = isSteppedMode ? "stepped" : "async";
     const { generator, model_id } = resolveGenerationArgs(settings.methodId);
@@ -346,7 +378,20 @@ export const useCageGeneration = () => {
   ]);
 
   const stepOnce = useCallback(async () => {
-    if (!sessionId || phase === "stepping" || phase === "auto-stepping") {
+    if (phase === "stepping" || phase === "auto-stepping") {
+      return;
+    }
+
+    // If the user has stepped Back, replay forward from the cached snapshots
+    // instead of advancing the backend, until we catch up to the live head.
+    if (historyCursor < historyRef.current.length - 1) {
+      const nextCursor = historyCursor + 1;
+      setHistoryCursor(nextCursor);
+      displayStatus(historyRef.current[nextCursor]);
+      return;
+    }
+
+    if (!sessionId) {
       return;
     }
 
@@ -363,7 +408,18 @@ export const useCageGeneration = () => {
       setPhase("stepped-ready");
       setError(cause instanceof Error ? cause.message : "Failed to step generation");
     }
-  }, [applyStatus, phase, sessionId, settings.stepsPerTick]);
+  }, [applyStatus, displayStatus, historyCursor, phase, sessionId, settings.stepsPerTick]);
+
+  const stepBack = useCallback(() => {
+    if (historyCursor <= 0) {
+      return;
+    }
+    const prevCursor = historyCursor - 1;
+    setHistoryCursor(prevCursor);
+    displayStatus(historyRef.current[prevCursor]);
+  }, [displayStatus, historyCursor]);
+
+  const canStepBack = historyCursor > 0;
 
   useEffect(() => {
     if (!sessionId || phase !== "auto-stepping") {
@@ -403,9 +459,16 @@ export const useCageGeneration = () => {
   const startAutoStepping = useCallback(() => {
     if (sessionId && phase === "stepped-ready") {
       setError(null);
+      // Resume from the live backend head if the user had stepped Back, so the
+      // auto loop continues from the true position rather than jumping past it.
+      const head = historyRef.current.length - 1;
+      if (head >= 0 && historyCursor < head) {
+        setHistoryCursor(head);
+        displayStatus(historyRef.current[head]);
+      }
       setPhase("auto-stepping");
     }
-  }, [phase, sessionId]);
+  }, [displayStatus, historyCursor, phase, sessionId]);
 
   const pauseAutoStepping = useCallback(() => {
     if (phase === "auto-stepping") {
@@ -462,15 +525,12 @@ export const useCageGeneration = () => {
 
   const canDownload = status !== null && status.num_nodes > 0;
 
-  const saveSettings = useCallback(
-    (nextSettings: CageSettings) => {
-      const safe = normalizeSettings(nextSettings as unknown as Record<string, unknown>);
-      setSettings(safe);
-      writeStored(STORAGE_KEY, safe);
-      setSettingsOpen(false);
-    },
-    []
-  );
+  const saveSettings = useCallback((nextSettings: CageSettings) => {
+    const safe = normalizeSettings(nextSettings as unknown as Record<string, unknown>);
+    setSettings(safe);
+    writeStored(STORAGE_KEY, safe);
+    setSettingsOpen(false);
+  }, []);
 
   return {
     degreeK,
@@ -500,6 +560,8 @@ export const useCageGeneration = () => {
     onEditorReady,
     start,
     stepOnce,
+    stepBack,
+    canStepBack,
     startAutoStepping,
     pauseAutoStepping,
     stop,
