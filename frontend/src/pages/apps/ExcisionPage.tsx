@@ -198,7 +198,9 @@ export const ExcisionPage = () => {
 
     const g = inferGirth(original);
     if (!Number.isFinite(g) || g < 3) {
-      setPlanMessage("Build a graph with at least one cycle (girth 3 or more) before running excision.");
+      setPlanMessage(
+        "Build a graph with at least one cycle (girth 3 or more) before running excision."
+      );
       return;
     }
 
