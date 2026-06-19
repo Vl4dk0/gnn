@@ -1,0 +1,4 @@
+# Build / preview artifacts (regenerate from slides.typ)
+slides_handout.pdf
+preview_contact_sheet.png
+hero_*.png
