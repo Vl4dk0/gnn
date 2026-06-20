@@ -10,6 +10,7 @@ import type { InteractiveGraphEditor } from "../../graph/InteractiveGraphEditor"
 import { VoltageBaseEditor } from "../../graph/voltage/VoltageBaseEditor";
 import {
   buildLiftEdgeList,
+  buildLiftLabels,
   computeGirth,
   liftVertexCount,
   type BaseArc
@@ -23,18 +24,20 @@ interface Preset {
   arcs: BaseArc[];
 }
 
-// Dumbbell base (2 nodes, 3 parallel arcs 0 -> 1) with voltages 1, 2, 4 over
-// Z_7 gives the Heawood graph: 14 vertices, 3-regular, girth 6 (the (3,6)-cage).
+// Base of 2 nodes over Z_5: a self-loop on node 0 (voltage 1, the outer
+// 5-cycle), a self-loop on node 1 (voltage 2, the inner pentagram), and one
+// connecting arc 0 -> 1 (voltage 0, the spokes). The lift has 2 * 5 = 10
+// vertices, is 3-regular, has girth 5: the Petersen graph, the (3,5)-cage.
 const PRESETS: Preset[] = [
   {
-    id: "heawood",
-    label: "Dumbbell + Z₇ → Heawood (3,6)",
-    n: 7,
+    id: "petersen",
+    label: "Two loops + Z₅ → Petersen (3,5)",
+    n: 5,
     nodeIds: [0, 1],
     arcs: [
-      { id: 0, from: 0, to: 1, voltage: 1 },
-      { id: 1, from: 0, to: 1, voltage: 2 },
-      { id: 2, from: 0, to: 1, voltage: 4 }
+      { id: 0, from: 0, to: 0, voltage: 1 },
+      { id: 1, from: 1, to: 1, voltage: 2 },
+      { id: 2, from: 0, to: 1, voltage: 0 }
     ]
   },
   {
@@ -112,6 +115,7 @@ export const VoltageLiftPage = () => {
     const n = editor.getGroupOrder();
     const edgeList = buildLiftEdgeList(editor.getNodeIds(), editor.getArcs(), n);
     preview.loadFromEdgeList(edgeList);
+    preview.setNodeLabels(buildLiftLabels(editor.getNodeIds(), n));
     setStats({
       vertices: liftVertexCount(editor.getNodeIds(), n),
       girth: computeGirth(edgeList)

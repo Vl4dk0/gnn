@@ -99,6 +99,11 @@ export class InteractiveGraphEditor {
   private nodeHighlights = new Map<number, string>();
   private edgeHighlights = new Map<string, string>();
 
+  // Optional per-node display labels keyed by node id. Empty by default, so
+  // nodes show their integer id. The voltage-lift preview sets these to show
+  // lift vertices as "(base,fiber)" tuples.
+  private nodeLabels = new Map<number, string>();
+
   private disposed = false;
   private readonly unbinders: Array<() => void> = [];
 
@@ -914,11 +919,12 @@ export class InteractiveGraphEditor {
       this.ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
       this.ctx.fill();
 
+      const label = this.nodeLabels.get(node.id) ?? node.id.toString();
       this.ctx.fillStyle = theme.text;
-      this.ctx.font = "bold 14px Arial";
+      this.ctx.font = label.length > 2 ? "bold 11px Arial" : "bold 14px Arial";
       this.ctx.textAlign = "center";
       this.ctx.textBaseline = "middle";
-      this.ctx.fillText(node.id.toString(), node.x, node.y);
+      this.ctx.fillText(label, node.x, node.y);
 
       if (node.hasPrediction()) {
         const offsetX = node.x + node.radius * 0.8;
@@ -977,6 +983,7 @@ export class InteractiveGraphEditor {
   }
 
   public loadFromEdgeList(edgeListText: string): void {
+    this.nodeLabels = new Map();
     this.graph.fromEdgeList(edgeListText, this.canvas.width, this.canvas.height);
     this.selectedNode = null;
 
@@ -1004,7 +1011,16 @@ export class InteractiveGraphEditor {
     this.graph.clear();
     this.selectedNode = null;
     this.edgeStart = null;
+    this.nodeLabels = new Map();
     this.emitGraphChange();
+  }
+
+  /**
+   * Override the integer labels drawn inside nodes. Keys are node ids; ids not
+   * present fall back to their integer id. Cleared by clear()/loadFromEdgeList.
+   */
+  public setNodeLabels(labels: Map<number, string>): void {
+    this.nodeLabels = labels;
   }
 
   public clearPredictions(): void {

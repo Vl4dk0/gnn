@@ -92,6 +92,22 @@ export function buildLiftEdgeList(nodeIds: number[], arcs: BaseArc[], n: number)
   return lines.join("\n");
 }
 
+/**
+ * Map each lift vertex id (vIndex * n + g) to a "(baseId,g)" display label.
+ * Mirrors the encoding used by buildLiftEdgeList so labels and edges agree.
+ */
+export function buildLiftLabels(nodeIds: number[], n: number): Map<number, string> {
+  const sortedIds = [...nodeIds].sort((a, b) => a - b);
+  const order = Math.max(2, Math.floor(n));
+  const labels = new Map<number, string>();
+  sortedIds.forEach((baseId, vIdx) => {
+    for (let g = 0; g < order; g += 1) {
+      labels.set(vIdx * order + g, `(${baseId},${g})`);
+    }
+  });
+  return labels;
+}
+
 /** Number of vertices in the lift: |V(base)| * n. */
 export function liftVertexCount(nodeIds: number[], n: number): number {
   return nodeIds.length * Math.max(2, Math.floor(n));
