@@ -569,6 +569,78 @@ def draw_dodecahedron_numbered(ax: Axes) -> None:
     _ = ax.set_ylim(-1.0 - margin, 1.0 + margin)
 
 
+# ---------------------------------------------------------------------------
+# dodecahedron base / degree / girth  —  same Schlegel layout, no numbers.
+#   dodecahedron-base.pdf   : plain greyscale dodecahedron.
+#   dodecahedron-degree.pdf : vertex 0 and its 3 incident edges highlighted.
+#   dodecahedron-girth.pdf  : the outer pentagon (a shortest 5-cycle) highlighted.
+# ---------------------------------------------------------------------------
+
+DODECA_DEGREE_HI_NODE = 0
+DODECA_DEGREE_HI_EDGES: list[tuple[int, int]] = [(0, 1), (0, 19), (0, 10)]
+DODECA_GIRTH_HI_NODES: set[int] = {0, 1, 2, 3, 19}
+DODECA_GIRTH_HI_EDGES: list[tuple[int, int]] = [
+    (0, 1),
+    (1, 2),
+    (2, 3),
+    (3, 19),
+    (19, 0),
+]
+
+
+def _dodeca_limits(ax: Axes) -> None:
+    _ = ax.set_aspect("equal")
+    _ = ax.axis("off")
+    margin = 0.18
+    _ = ax.set_xlim(-1.0 - margin, 1.0 + margin)
+    _ = ax.set_ylim(-1.0 - margin, 1.0 + margin)
+
+
+def draw_dodecahedron_base(ax: Axes) -> None:
+    g: nx.Graph[int] = cast("nx.Graph[int]", nx.dodecahedral_graph())
+    pos = dodecahedron_pos()
+    _ = nx.draw_networkx_edges(
+        g,
+        pos,
+        ax=ax,
+        edgelist=list(g.edges()),
+        edge_color=EDGE_BASE,
+        width=EDGE_WIDTH_BASE,
+    )
+    _ = nx.draw_networkx_nodes(
+        g, pos, ax=ax, node_size=DODECAHEDRON_NODE_SIZE, node_color=NODE_BASE
+    )
+    _dodeca_limits(ax)
+
+
+def _draw_dodeca_highlight(
+    ax: Axes, hi_nodes: set[int], hi_edges: list[tuple[int, int]]
+) -> None:
+    g: nx.Graph[int] = cast("nx.Graph[int]", nx.dodecahedral_graph())
+    pos = dodecahedron_pos()
+    hi_set = {frozenset(e) for e in hi_edges}
+    base_edges = [e for e in g.edges() if frozenset(e) not in hi_set]
+    node_colors = [NODE_HI if v in hi_nodes else NODE_BASE for v in g.nodes()]
+    _ = nx.draw_networkx_edges(
+        g, pos, ax=ax, edgelist=base_edges, edge_color=EDGE_BASE, width=EDGE_WIDTH_BASE
+    )
+    _ = nx.draw_networkx_edges(
+        g, pos, ax=ax, edgelist=hi_edges, edge_color=EDGE_HI, width=EDGE_WIDTH_HI
+    )
+    _ = nx.draw_networkx_nodes(
+        g, pos, ax=ax, node_size=DODECAHEDRON_NODE_SIZE, node_color=node_colors
+    )
+    _dodeca_limits(ax)
+
+
+def draw_dodecahedron_degree(ax: Axes) -> None:
+    _draw_dodeca_highlight(ax, {DODECA_DEGREE_HI_NODE}, DODECA_DEGREE_HI_EDGES)
+
+
+def draw_dodecahedron_girth(ax: Axes) -> None:
+    _draw_dodeca_highlight(ax, DODECA_GIRTH_HI_NODES, DODECA_GIRTH_HI_EDGES)
+
+
 def main() -> None:
     plt.rcParams["figure.facecolor"] = BG
     plt.rcParams["axes.facecolor"] = BG
@@ -614,6 +686,21 @@ def main() -> None:
     draw_dodecahedron_numbered(ax_dn)
     save(fig_dn, "petersen/dodecahedron-numbered.pdf")
     plt.close(fig_dn)
+
+    fig_db, ax_db = make_fig()
+    draw_dodecahedron_base(ax_db)
+    save(fig_db, "petersen/dodecahedron-base.pdf")
+    plt.close(fig_db)
+
+    fig_dd, ax_dd = make_fig()
+    draw_dodecahedron_degree(ax_dd)
+    save(fig_dd, "petersen/dodecahedron-degree.pdf")
+    plt.close(fig_dd)
+
+    fig_dg, ax_dg = make_fig()
+    draw_dodecahedron_girth(ax_dg)
+    save(fig_dg, "petersen/dodecahedron-girth.pdf")
+    plt.close(fig_dg)
 
 
 if __name__ == "__main__":

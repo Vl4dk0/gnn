@@ -365,13 +365,15 @@ def _draw_aggregate(ax: Axes, base_colors: dict[str, str]) -> None:
     Arrows are offset by the node radius at both ends so they start at the
     neighbour boundary and stop at v's boundary (no overshoot, no doubled edge
     underneath, consistent style).
+
+    v keeps its ORIGINAL colour here: the slide presents SUM aggregation, whose
+    result (the summed vector) overflows the 0..255 range and is shown as a
+    formula in the slide text, not as a recoloured node.
     """
     g = build_graph()
     focus = [V, N1, N2, N3]
 
-    result = diffuse_v_mean()  # (135, 145, 105), olive
     fills = {n: base_colors[n] for n in focus}
-    fills[V] = rgb_hex(result)
 
     # Approximate node radius in data units from the marker area (points^2).
     # area = pi * r_pt^2  ->  r_pt; convert via axis scale after limits are set.
@@ -423,18 +425,6 @@ def _draw_aggregate(ax: Axes, base_colors: dict[str, str]) -> None:
     _ = ax.set_ylim(min(ys) - pad, max(ys) + pad)
     _ = ax.set_aspect("equal")
     _ = ax.axis("off")
-
-
-def diffuse_v_mean() -> tuple[float, float, float]:
-    """Mean of v and its three neighbours' colors.
-
-    With the message-passing init this is (135, 145, 105): v goes red -> olive,
-    a visible change.
-    """
-    cols = [MP_COLORS[V], MP_COLORS[N1], MP_COLORS[N2], MP_COLORS[N3]]
-    arr = np.array(cols, dtype=float)
-    m = arr.mean(axis=0)
-    return (float(m[0]), float(m[1]), float(m[2]))
 
 
 # --- Slides 2 & 3: diffusion --------------------------------------------------

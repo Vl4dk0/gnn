@@ -18,6 +18,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
+from matplotlib.cm import ScalarMappable
+from matplotlib.colors import LinearSegmentedColormap, Normalize
 from matplotlib.figure import Figure
 from matplotlib.patches import FancyArrowPatch, FancyBboxPatch, Rectangle
 
@@ -252,71 +254,170 @@ SOLVED: dict[str, set[str]] = {
 }
 
 
+# Mean solve time per (method, target) in seconds. Matches the SOLVED dict
+# cell-for-cell: a time exists exactly when that method solved that target.
+TIMES: dict[str, dict[str, float]] = {
+    "A*": {
+        "(5,3)": 0.01,
+        "(6,3)": 0.02,
+        "(7,3)": 0.03,
+        "(3,5)": 0.03,
+        "(5,4)": 0.03,
+        "(6,4)": 0.09,
+        "(3,6)": 0.07,
+        "(7,4)": 0.18,
+        "(3,7)": 7.33,
+        "(4,6)": 0.94,
+        "(3,8)": 1.16,
+        "(5,6)": 7.02,
+    },
+    "RandomWalk": {
+        "(5,3)": 0.01,
+        "(6,3)": 0.01,
+        "(7,3)": 0.01,
+        "(3,5)": 0.01,
+        "(5,4)": 0.03,
+        "(6,4)": 0.10,
+        "(3,6)": 0.03,
+        "(7,4)": 0.24,
+        "(4,6)": 0.53,
+        "(3,8)": 0.78,
+        "(5,6)": 5.30,
+        "(6,6)": 7.96,
+    },
+    "Bruteforce": {"(3,6)": 0.11, "(4,6)": 1.45, "(3,8)": 1.69},
+    "directRL": {
+        "(5,3)": 24.64,
+        "(6,3)": 25.07,
+        "(3,5)": 23.79,
+        "(5,4)": 34.70,
+        "(3,6)": 56.72,
+    },
+    "voltage": {
+        "(5,3)": 0.01,
+        "(6,3)": 0.03,
+        "(7,3)": 0.06,
+        "(3,5)": 0.01,
+        "(5,4)": 0.02,
+        "(6,4)": 0.04,
+        "(3,6)": 0.01,
+        "(7,4)": 0.07,
+        "(4,5)": 0.61,
+        "(3,7)": 5.41,
+        "(4,6)": 0.91,
+        "(5,5)": 13.62,
+        "(3,8)": 20.47,
+        "(5,6)": 31.16,
+    },
+    "voltage-rl": {
+        "(5,3)": 0.06,
+        "(6,3)": 0.14,
+        "(7,3)": 0.54,
+        "(3,5)": 0.02,
+        "(5,4)": 0.06,
+        "(6,4)": 0.10,
+        "(3,6)": 0.02,
+        "(7,4)": 0.16,
+        "(4,5)": 0.22,
+        "(3,7)": 0.35,
+        "(4,6)": 0.06,
+        "(5,5)": 3.86,
+        "(3,8)": 0.66,
+        "(6,5)": 20.44,
+        "(5,6)": 0.22,
+        "(3,9)": 0.83,
+        "(3,10)": 1.58,
+        "(6,6)": 1.16,
+        "(4,8)": 15.22,
+    },
+    "Forge": {
+        "(5,3)": 0.04,
+        "(6,3)": 0.16,
+        "(7,3)": 0.72,
+        "(3,5)": 0.15,
+        "(5,4)": 0.08,
+        "(6,4)": 0.14,
+        "(3,6)": 0.17,
+        "(7,4)": 0.39,
+        "(4,5)": 28.25,
+        "(3,7)": 39.48,
+        "(4,6)": 14.15,
+    },
+}
+
+
 def draw_results() -> Figure:
     n_t = len(TARGETS)
     n_m = len(METHODS)
-    solved_grid: list[list[bool]] = [[t in SOLVED[m] for m in METHODS] for t in TARGETS]
+    # Wide/landscape layout: rows = methods, columns = targets (easy left -> hard
+    # right). solved_grid[r][c] is True iff method r solves target c.
+    solved_grid: list[list[bool]] = [
+        [TARGETS[c] in SOLVED[METHODS[r]] for c in range(n_t)] for r in range(n_m)
+    ]
 
     figure = cast(Callable[..., Figure], plt.figure)
-    fig: Figure = figure(figsize=(9.4, 6.4), facecolor=BG)
+    fig: Figure = figure(figsize=(13.0, 5.5), facecolor=BG)
     ax: Axes = fig.add_subplot(1, 1, 1)
     _ = ax.set_facecolor(BG)
 
-    # Navy sequential colormap (light -> deep navy), coherent with the deck's
-    # dark-blue accent. A solved cell is filled with a tone whose depth tracks
-    # the target's difficulty rank, so solved cells stand out against the
-    # neutral light-grey unsolved cells while keeping a sober look.
-    cmap = plt.get_cmap("Blues")
-    for i in range(n_t):
-        # depth in [0.12, 0.95] by difficulty (top rows easy, bottom rows hard)
-        depth = 0.12 + 0.83 * (i / max(n_t - 1, 1))
-        solved_color = cmap(depth)
-        for j in range(n_m):
-            solved = solved_grid[i][j]
+    # Solved cells coloured by mean solve time on a LINEAR scale from 0 to the
+    # 60 s search budget (fast = grey, slow = blue), using a two-tone grey->blue
+    # gradient. Unsolved cells are white so they read as "empty" against the
+    # grey fast cells. Cell borders are light grey so the white cells stay visible.
+    grey_blue = LinearSegmentedColormap.from_list("grey_blue", ["#c4ced4", NAVY])
+    norm = Normalize(vmin=0.0, vmax=60.0)
+    to_rgba = cast(
+        Callable[..., object], ScalarMappable(norm=norm, cmap=grey_blue).to_rgba
+    )
+
+    for r in range(n_m):
+        for c in range(n_t):
+            solved = solved_grid[r][c]
+            if solved:
+                t_sec = min(TIMES[METHODS[r]][TARGETS[c]], 60.0)
+                cell_color = to_rgba(t_sec)
+            else:
+                cell_color = "#ffffff"
             _ = ax.add_patch(
                 Rectangle(
-                    (j, n_t - 1 - i),
+                    (c, n_m - 1 - r),
                     1,
                     1,
-                    facecolor=(solved_color if solved else "#ececed"),
-                    edgecolor="#ffffff",
-                    linewidth=1.5,
+                    facecolor=cell_color,
+                    edgecolor="#dcdcdc",
+                    linewidth=1.2,
                 )
             )
 
-    _ = ax.set_xlim(0, n_m)
-    _ = ax.set_ylim(0, n_t)
-    _ = ax.set_xticks([j + 0.5 for j in range(n_m)])
-    _ = ax.set_xticklabels(METHODS, fontsize=9, color=INK, rotation=55, ha="left")
-    _ = ax.set_yticks([n_t - 1 - i + 0.5 for i in range(n_t)])
-    _ = ax.set_yticklabels(TARGETS, fontsize=9.5, color=INK)
+    _ = ax.set_xlim(0, n_t)
+    _ = ax.set_ylim(0, n_m)
+    _ = ax.set_xticks([c + 0.5 for c in range(n_t)])
+    _ = ax.set_xticklabels(TARGETS, fontsize=13, color=INK, rotation=45, ha="right")
+    _ = ax.set_yticks([n_m - 1 - r + 0.5 for r in range(n_m)])
+    _ = ax.set_yticklabels(METHODS, fontsize=13, color=INK)
     ax.tick_params(length=0)
     for s in ax.spines.values():
         s.set_visible(False)
-    # Compress the 22-row grid vertically (cells wider than tall) so the figure
-    # is landscape enough to fit the slide content band without clipping the
-    # column headers. A square aspect would make the figure far too tall.
-    _ = ax.set_aspect(0.42)
-    ax.xaxis.set_ticks_position("top")
-    ax.xaxis.set_label_position("top")
+    _ = ax.set_aspect("equal")
+    ax.xaxis.set_ticks_position("bottom")
+    ax.xaxis.set_label_position("bottom")
 
-    # Targets nobody solves within 60 s are fully empty rows. Tag each with a
-    # side note so the row order can follow the thesis table faithfully (the
-    # three unsolved targets are not contiguous at the bottom).
-    for i, t in enumerate(TARGETS):
-        if t in UNSOLVED_BY_ALL:
-            y = n_t - 1 - i + 0.5
-            _ = ax.annotate(
-                "nikto do 60 s",
-                xy=(n_m + 0.25, y),
-                fontsize=8.5,
-                color=MUTED,
-                va="center",
-                ha="left",
-                annotation_clip=False,
-            )
+    # Colorbar legend keyed to mean solve time, sharing the cell norm so the
+    # viewer can read which shade maps to which solve time. Linear 0..60 s with
+    # the 60 s budget as the explicit ceiling.
+    sm = ScalarMappable(norm=norm, cmap=grey_blue)
+    colorbar = cast(Callable[..., object], fig.colorbar)
+    cbar = colorbar(sm, ax=ax, location="bottom", fraction=0.045, pad=0.16)
+    set_ticks = cast(Callable[..., None], getattr(cbar, "set_ticks"))
+    set_ticks(
+        [0, 15, 30, 45, 60],
+        labels=["0 s", "15 s", "30 s", "45 s", "60 s"],
+    )
+    set_label = cast(Callable[..., None], getattr(cbar, "set_label"))
+    set_label("čas do vyriešenia", fontsize=13, color=INK)
+    cbar_ax = cast(Axes, getattr(cbar, "ax"))
+    cbar_ax.tick_params(labelsize=12, colors=MUTED)
 
-    _ = ax.set_xlim(0, n_m + 2.4)
     fig.tight_layout()
     return fig
 
