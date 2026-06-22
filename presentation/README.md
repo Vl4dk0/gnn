@@ -21,13 +21,17 @@ Degree and Girth* (Vladimír Jančár, FMFI UK Bratislava, 2026), built in
 Needs the [Typst](https://github.com/typst/typst) CLI (≥ 0.13).
 
 ```bash
-typst compile slides.typ slides.pdf      # one-shot
-typst watch  slides.typ slides.pdf       # live preview while editing
+typst compile --font-path fonts slides.typ slides.pdf      # one-shot
+typst watch  --font-path fonts slides.typ slides.pdf       # live preview while editing
 ```
 
+`--font-path fonts` is required — the deck uses **Fraunces** (static TTFs in `fonts/`
+downloaded from the [official Fraunces release](https://github.com/undercasetype/Fraunces/releases)).
+Without it Typst cannot find Fraunces and falls back to a default serif.
+
 On first compile, Typst downloads the `touying` package from the `@preview`
-registry (needs internet once). The deck uses the `metropolis` theme with a muted
-academic-blue palette.
+registry (needs internet once). The deck uses the `metropolis` theme reskinned to
+the achromatic greyscale palette of vladimirjancar.sk (light mode).
 
 ### Incremental reveals & handout
 

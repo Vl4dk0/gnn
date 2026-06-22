@@ -2,7 +2,7 @@
 #SBATCH --job-name=benchmark
 #SBATCH --output=benchmark_runs/%x_%j.out
 #SBATCH --error=benchmark_runs/%x_%j.err
-#SBATCH --partition=CPU
+#SBATCH --partition=cpu_short
 #SBATCH --account=perun2501173
 #SBATCH --qos=perun2501173
 #SBATCH --cpus-per-task=256
