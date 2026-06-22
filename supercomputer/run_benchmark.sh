@@ -34,9 +34,9 @@ cd ~/gnn
 uv run python -u -m results.runner \
     --benchmarks degree,min_cycle,cage,refine,excision \
     --seeds 5 \
-    --cage-budget 60 \
+    --cage-budget 300 \
     --cage-max-steps 200000 \
-    --task-timeout 120 \
+    --task-timeout 360 \
     --workers 128 \
     --out-root results/runs
 
