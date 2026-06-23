@@ -223,6 +223,26 @@
 #title-slide()
 
 // =============================================================================
+// CIEĽ PRÁCE — broad motivating question (supervisor) then the concrete goal.
+// =============================================================================
+#slide(title: [Cieľ práce], repeat: 2, self => {
+  let s = self.subslide
+  let ln(body, step) = if s >= step { body } else { hide(body) }
+  set align(horizon)
+  text(size: 1.1em)[
+    #ln(
+      [Dajú sa grafové neurónové siete využiť v algebraickej teórii grafov?],
+      1,
+    )
+    #v(1.0em)
+    #ln(
+      [Zistiť, či vieme pomocou GNN generovať grafy na základe ich algebraických vlastností, konkrétne grafy daného stupňa a obvodu.],
+      2,
+    )
+  ]
+})
+
+// =============================================================================
 // GRAFOVÉ NEURÓNOVÉ SIETE — ONE slide, four SCENES (subslides), so the slide
 // counter treats the whole GNN story as a single slide and the reveal-dots show
 // the scene, not four separate slide numbers:
@@ -333,7 +353,7 @@
 // (k,g)-graphs: start with the dodecahedron (a (3,5)-graph: 3-regular, girth 5),
 // note it is NOT the cage, then reveal the Petersen graph as the actual cage.
 // The Moore's-bound slide that follows explains WHY Petersen is the smallest.
-#slide(title: [(k,g)-grafy], repeat: 5, self => {
+#slide(title: [(k,g)-grafy], repeat: 7, self => {
   let s = self.subslide
 
   let src = if s == 1 {
@@ -343,9 +363,11 @@
   } else if s == 3 {
     "figures/petersen/dodecahedron-girth.pdf"
   } else if s == 4 {
-    "figures/petersen/dodecahedron-base.pdf"
-  } else {
+    "figures/petersen/dodecahedron-numbered.pdf"
+  } else if s == 5 {
     "figures/petersen/petersen-base.pdf"
+  } else {
+    "figures/petersen/petersen-numbered.pdf"
   }
 
   grid(
@@ -357,17 +379,23 @@
       #if s <= 4 [
         Toto je (3,5)-graf
         #v(0.5em)
-        #if s >= 2 [lebo je *3*-regulárny] else [#hide[lebo je *3*-regulárny]]
+        #if s >= 2 [Je *3*-regulárny] else [#hide[Je *3*-regulárny]]
         #v(0.5em)
-        #if s >= 3 [a jeho obvod je *5*] else [#hide[a jeho obvod je *5*]]
+        #if s >= 3 [Jeho obvod je *5*] else [#hide[Jeho obvod je *5*]]
         #v(0.5em)
         #if (
           s >= 4
         ) [Ale *nie je* klietka\ - najmenší možný (k,g)-graf] else [#hide[Ale *nie je* klietka\ - najmenší možný (k,g)-graf]]
       ] else [
-        Toto je tiež (3,5)-graf
+        #if (
+          s >= 5
+        ) [Toto je tiež (3,5)-graf] else [#hide[Toto je tiež (3,5)-graf]]
         #v(0.5em)
-        a je to *klietka*
+        #if (s >= 6) [Je to *klietka*] else [#hide[Je to *klietka*]]
+        #v(0.5em)
+        #if (
+          s >= 7
+        ) [Vieme to vďaka Moore's bound] else [#hide[Vieme to vďaka Moore's bound]]
       ]
     ],
   )
@@ -512,7 +540,7 @@
       #v(0.5em)
       #line(
         [
-          Na liftu potrebujeme:
+          Na lift potrebujeme:
         ],
         2,
       )
@@ -994,8 +1022,37 @@
 
 // =============================================================================
 //  QUESTION SLIDES — supervisor + opponent. For now ONLY the question text is
-//  shown (answers to be added later). One question per slide, before the záver.
+//  shown (answers to be added later). One question per slide, after the záver.
 // =============================================================================
+
+// Záver: scene 1 poses the question, then it disappears and the three takeaways
+// are revealed one per scene (cumulative). hide() reserves space so nothing jumps.
+#slide(title: [Záver], repeat: 4, self => {
+  let s = self.subslide
+  set align(horizon)
+  if s == 1 {
+    align(center, text(size: 1.3em)[Čo sa mi počas práce podarilo?])
+  } else {
+    let ln(body, step) = if s >= step { body } else { hide(body) }
+    text(size: 1.05em)[
+      #ln(
+        [Efektívne som implementoval metódy na generovanie (k,g)-grafov a porovnal učené verzie s neučenými],
+        2,
+      )
+      #v(0.7em)
+      #ln(
+        [Zistil som, že učením sa oplatí navádzať hľadanie, ale neoplatí sa nechať hľadanie úplne na GNN],
+        3,
+      )
+      #v(0.7em)
+      #ln(
+        [Pipeline Forge má potenciál, len je potrebné zlepšiť kvalitu refinement kroku a/alebo kandidátov],
+        4,
+      )
+    ]
+  }
+})
+
 
 #slide(title: [Otázka školiteľa (1)], repeat: 6, self => {
   let s = self.subslide
@@ -1245,31 +1302,6 @@
       if s >= 4 { tree } else { hide(tree) },
     )
   }
-})
-
-
-// Záver: three sentences, one revealed per scene (cumulative). hide() reserves
-// space so the centred block never jumps as sentences appear.
-#slide(title: [Záver], repeat: 3, self => {
-  let s = self.subslide
-  let ln(body, step) = if s >= step { body } else { hide(body) }
-  set align(horizon)
-  text(size: 1.05em)[
-    #ln(
-      [Efektívne som implementoval metódy na generovanie (k,g)-grafov a porovnal učené verzie s neučenými],
-      1,
-    )
-    #v(0.7em)
-    #ln(
-      [Hlavné zistenie je, že učením sa oplatí navádzať hľadanie, ale neoplatí sa nechať hľadanie úplne na GNN],
-      2,
-    )
-    #v(0.7em)
-    #ln(
-      [Pipeline Forge má potenciál, len je potrebné zlepšiť kvalitu refinement kroku a/alebo kandidátov],
-      3,
-    )
-  ]
 })
 
 
