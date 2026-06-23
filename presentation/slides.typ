@@ -1054,6 +1054,53 @@
 })
 
 
+// =============================================================================
+//  THANKS — full-bleed light closer. Built on touying-slide directly (like the
+//  section divider) so no header bar / progress chrome shows. Big editorial
+//  Fraunces type, an oversized whisper-faint background glyph for drama, and an
+//  accent hairline — all in the deck's greyscale identity.
+// =============================================================================
+#let thanks-slide = touying-slide-wrapper(self => {
+  // Faint heart-shaped graphs scattered behind the hero: (x, y) as fractions of
+  // the slide, rotation, and size. Tuned to avoid the central headline band.
+  let hearts = (
+    (3%, 8%, -14deg, 16%),
+    (78%, 5%, 11deg, 20%),
+    (88%, 34%, -8deg, 14%),
+    (6%, 40%, 9deg, 13%),
+    (2%, 74%, 17deg, 18%),
+    (40%, 84%, -10deg, 15%),
+    (84%, 78%, 13deg, 19%),
+    (66%, 90%, -16deg, 12%),
+    (24%, 2%, 8deg, 13%),
+  )
+  let body = {
+    for (x, y, rot, w) in hearts {
+      place(
+        top + left,
+        dx: x,
+        dy: y,
+        rotate(rot, image("figures/petersen/fig-heart.pdf", width: w)),
+      )
+    }
+    set align(center + horizon)
+    text(
+      font: "Fraunces 9pt",
+      size: 3.0em,
+      weight: 700,
+      fill: rgb("#1a1a1a"),
+    )[Ďakujem za pozornosť]
+  }
+
+  self = utils.merge-dicts(self, config-page(
+    fill: self.colors.neutral-lightest,
+  ))
+  touying-slide(self: self, body)
+})
+
+#thanks-slide
+
+
 #slide(title: [Otázka školiteľa (1)], repeat: 6, self => {
   let s = self.subslide
   let reveal(body, n) = if s >= n { body } else { hide(body) }
