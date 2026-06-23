@@ -63,6 +63,7 @@ class AStarGenerator:
     start_time: float
     explored_states: int
     duplicates_skipped: int
+    candidates_evaluated: int
 
     def __init__(self, k: int, g: int, max_steps: int = 100_000):
         self.k = k
@@ -100,6 +101,7 @@ class AStarGenerator:
         self.start_time = 0.0
         self.explored_states = 0
         self.duplicates_skipped = 0
+        self.candidates_evaluated = 0
 
     def elapsed_time(self) -> float:
         """Get elapsed time since first step."""
@@ -139,6 +141,7 @@ class AStarGenerator:
         # Update current graph for visualization
         self.graph = current_graph.copy()
         self.explored_states += 1
+        self.candidates_evaluated += 1
 
         # Check if we've exceeded the upper bound
         if current_graph.number_of_nodes() > self.upper_bound:
@@ -170,6 +173,8 @@ class AStarGenerator:
 
             # Score and add to queue
             succ_score = self._score_graph(succ_graph)
+            # scored successors counted, not just pops — intentionally > step_count
+            self.candidates_evaluated += 1
             heapq.heappush(self.pq, (-succ_score, self.counter, succ_graph))
             self.counter += 1
 

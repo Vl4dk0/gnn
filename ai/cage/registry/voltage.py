@@ -61,6 +61,7 @@ class VoltageSearchGenerator:
     g: int
     graph: nx.Graph[int]
     step_count: int
+    candidates_evaluated: int
     is_complete: bool
     success: bool
     start_time: float
@@ -109,6 +110,7 @@ class VoltageSearchGenerator:
         self.is_complete = False
         self.success = False
         self.start_time = 0.0
+        self.candidates_evaluated = 0
         self.best_near_miss = None
         self.best_near_miss_girth = 0
         self.harvest = harvest
@@ -187,6 +189,7 @@ class VoltageSearchGenerator:
         current_cost = count_short_identity_walks(
             self._base, self._group, self._voltages, self.g
         )
+        self.candidates_evaluated += 1
 
         if current_cost == 0:
             # Might be a solution — verify
@@ -229,6 +232,7 @@ class VoltageSearchGenerator:
                 new_cost = count_short_identity_walks(
                     self._base, self._group, self._voltages, self.g
                 )
+                self.candidates_evaluated += 1
                 self._voltages[edge_idx] = old_val
 
                 if new_cost < best_move_cost and (not is_tabu or new_cost == 0):

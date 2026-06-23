@@ -36,6 +36,7 @@ class BruteforceGenerator:
     graph: nx.Graph[int]
     search_stack: list[tuple[nx.Graph[int], list[Action]]]
     step_count: int
+    candidates_evaluated: int
     is_complete: bool
     success: bool
     start_time: float
@@ -52,6 +53,7 @@ class BruteforceGenerator:
         # Search state
         self.search_stack = []  # Stack of (graph, actions_remaining)
         self.step_count = 0
+        self.candidates_evaluated = 0
         self.is_complete = False
         self.success = False
         self.start_time = 0.0
@@ -75,6 +77,7 @@ class BruteforceGenerator:
         if self.start_time == 0:
             self.start_time = time.time()
         self.step_count += 1
+        self.candidates_evaluated += 1
 
         # Check if we've exceeded the upper bound
         if self.graph.number_of_nodes() > self.upper_bound:

@@ -213,6 +213,13 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--throughput-seconds",
+        type=float,
+        default=None,
+        dest="throughput_seconds",
+        help="Wall-clock budget per throughput trial (s)",
+    )
+    parser.add_argument(
         "--out-root",
         default="results/runs",
         dest="out_root",
@@ -229,6 +236,9 @@ def main() -> None:
     cage_max_steps: int = int(args.cage_max_steps)
     workers: int | None = int(args.workers) if args.workers is not None else None
     task_timeout: float = float(args.task_timeout)
+    throughput_seconds: float | None = (
+        float(args.throughput_seconds) if args.throughput_seconds is not None else None
+    )
     out_root: str = str(args.out_root)
 
     benchmark_names = [b.strip() for b in benchmarks_str.split(",")]
@@ -247,6 +257,9 @@ def main() -> None:
             k_str, g_str = tok.split("-")
             targets.append((int(k_str), int(g_str)))
 
+    extra: dict[str, object] = {}
+    if throughput_seconds is not None:
+        extra["throughput_seconds"] = throughput_seconds
     config = RunConfig(
         benchmarks=benchmark_names,
         quick=quick,
@@ -258,6 +271,7 @@ def main() -> None:
         task_timeout_s=task_timeout,
         approaches=approaches,
         targets=targets,
+        extra=extra,
     )
 
     stamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")

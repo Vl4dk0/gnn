@@ -105,6 +105,9 @@ def _write_summary(out_dir: Path, by_benchmark: dict[str, list[TrialResult]]) ->
 
         lines.append("")
 
+        if benchmark == "throughput":
+            _append_throughput_breakdown(lines, bench_results)
+
         _append_kg_matrices(lines, bench_results)
 
     _ = (out_dir / "summary.md").write_text("\n".join(lines))
@@ -221,6 +224,103 @@ def _emit_kg_matrix(
             ]
             row.append("·" if not cell else cell_fn(cell))
         lines.append("| " + " | ".join(row) + " |")
+
+    lines.append("")
+
+
+def _append_throughput_breakdown(
+    lines: list[str], bench_results: list[TrialResult]
+) -> None:
+    """Append focused throughput comparison and forge stage breakdown tables."""
+    # Group by (approach, variant)
+    groups: dict[tuple[str, str], list[TrialResult]] = {}
+    for r in bench_results:
+        groups.setdefault((r.approach, r.variant), []).append(r)
+
+    # Sort groups by mean candidates_per_sec descending
+    def _mean_cps(group: list[TrialResult]) -> float:
+        vals: list[float | None] = [r.metrics.get("candidates_per_sec") for r in group]
+        m = _safe_mean(vals)
+        return m if m is not None else 0.0
+
+    sorted_groups = sorted(
+        groups.items(), key=lambda kv: _mean_cps(kv[1]), reverse=True
+    )
+
+    lines.append("### Throughput (candidates vs steps)\n")
+    lines.append(
+        "_A step is one scheduler iteration (one gen.step()); a candidate is one graph whose fitness is actually computed. cand/step shows how many graphs each step evaluates._\n"
+    )
+    header = [
+        "approach",
+        "variant",
+        "solved",
+        "mean elapsed_s",
+        "cand/sec",
+        "steps/sec",
+        "cand/step",
+    ]
+    lines.append("| " + " | ".join(header) + " |")
+    lines.append("| " + " | ".join("---" for _ in header) + " |")
+
+    for (approach, variant), group in sorted_groups:
+        n = len(group)
+        success_rate = sum(1 for r in group if r.success) / n if n else 0.0
+        mean_elapsed = _safe_mean([r.elapsed_s for r in group])
+        cps = _safe_mean([r.metrics.get("candidates_per_sec") for r in group])
+        sps = _safe_mean([r.metrics.get("steps_per_sec") for r in group])
+        cpstep = _safe_mean([r.metrics.get("candidates_per_step") for r in group])
+        row = [
+            approach,
+            variant if variant else "—",
+            f"{success_rate:.0%}",
+            _fmt(mean_elapsed),
+            _fmt(cps, 1),
+            _fmt(sps, 1),
+            _fmt(cpstep, 2),
+        ]
+        lines.append("| " + " | ".join(row) + " |")
+
+    lines.append("")
+
+    # Forge stage breakdown
+    forge_rows = [r for r in bench_results if r.approach == "forge"]
+    if not forge_rows:
+        return
+
+    lines.append("### Forge stage breakdown (candidates, steps)\n")
+    lines.append(
+        "_Per-stage candidates and steps inside the forge pipeline. excision is 0 when the producer never yields a valid graph to shrink (hard targets)._\n"
+    )
+    forge_groups: dict[str, list[TrialResult]] = {}
+    for r in forge_rows:
+        forge_groups.setdefault(r.variant, []).append(r)
+
+    header2 = ["variant", "producer", "refine", "excision", "total cand"]
+    lines.append("| " + " | ".join(header2) + " |")
+    lines.append("| " + " | ".join("---" for _ in header2) + " |")
+
+    for variant, group in sorted(forge_groups.items()):
+
+        def _stage_cell(stage: str, grp: list[TrialResult] = group) -> str:
+            cands = _safe_mean(
+                [grp_r.metrics.get(f"{stage}_candidates") for grp_r in grp]
+            )
+            steps = _safe_mean([grp_r.metrics.get(f"{stage}_steps") for grp_r in grp])
+            c_str = f"{cands:.0f}" if cands is not None else "—"
+            s_str = f"{steps:.0f}" if steps is not None else "—"
+            return f"{c_str} ({s_str} steps)"
+
+        total = _safe_mean([r.metrics.get("candidates_total") for r in group])
+        total_str = f"{total:.0f}" if total is not None else "—"
+        row2 = [
+            variant if variant else "—",
+            _stage_cell("producer"),
+            _stage_cell("refine"),
+            _stage_cell("excision"),
+            total_str,
+        ]
+        lines.append("| " + " | ".join(row2) + " |")
 
     lines.append("")
 

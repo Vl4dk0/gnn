@@ -214,7 +214,7 @@ def main() -> None:
     # --- Right: feed-forward network -----------------------------------------
     draw_network(ax, x_left=10.0, layers=[4, 6, 4, 1], y_center=3.0, span=4.2)
 
-    _ = ax.set_xlim(-0.3, 14.0)
+    _ = ax.set_xlim(-0.3, 15.8)
     _ = ax.set_ylim(0.0, 6.0)
     _ = ax.set_aspect("equal")
     _ = ax.axis("off")

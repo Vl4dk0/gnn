@@ -487,6 +487,137 @@ def gen_step(
 
 
 # ---------------------------------------------------------------------------
+# vlift-copies.pdf  —  the vertex-copying step of a voltage lift
+#   2-row grid, one row per base vertex (0 and 1). Each row shows the base
+#   vertex on the left, a right-pointing arrow, and 5 labelled copies for the
+#   elements of Z5.
+# ---------------------------------------------------------------------------
+
+
+def gen_copies() -> None:
+    fig_fn = cast(Callable[..., Figure], plt.figure)
+    fig: Figure = fig_fn(figsize=(8.5, 4.5))
+    fig.patch.set_alpha(0.0)
+
+    # Layout constants
+    base_x = 0.04  # x centre of the base-vertex circle (axes fraction)
+    arrow_x0 = 0.12  # arrow start x
+    arrow_x1 = 0.20  # arrow end x (before first copy column)
+    copies_x0 = 0.25  # left edge of copy columns
+    copies_x1 = 0.95  # right edge of copy columns
+    row_y = [0.72, 0.28]  # y centres of the two rows (axes fraction)
+    node_r = 0.038  # circle radius in axes-fraction units
+
+    # Column x centres for the 5 copies
+    col_x = [copies_x0 + (copies_x1 - copies_x0) * i / (N - 1) for i in range(N)]
+
+    ax: Axes = fig.add_axes((0.0, 0.0, 1.0, 1.0))
+    _ = ax.set_xlim(0.0, 1.0)
+    _ = ax.set_ylim(0.0, 1.0)
+    _ = ax.set_aspect("equal")
+    _ = ax.axis("off")
+    fig.set_facecolor("none")
+
+    # Column headers above the top row
+    header_y = row_y[0] + 0.20
+    # "prvok Z5" caption to the left of headers
+    _ = ax.text(
+        copies_x0 - 0.03,
+        header_y,
+        "prvok Z₅",
+        ha="right",
+        va="center",
+        fontsize=9,
+        color=VOLT,
+    )
+    for i in range(N):
+        _ = ax.text(
+            col_x[i],
+            header_y,
+            str(i),
+            ha="center",
+            va="center",
+            fontsize=9,
+            color=VOLT,
+        )
+
+    for base in range(2):
+        y = row_y[base]
+
+        # Base vertex circle
+        base_circ = Circle(
+            (base_x, y),
+            node_r,
+            facecolor=NODE_BASE,
+            edgecolor="none",
+            transform=ax.transData,
+            zorder=4,
+        )
+        _ = ax.add_patch(base_circ)
+        _ = ax.text(
+            base_x,
+            y,
+            str(base),
+            ha="center",
+            va="center",
+            fontsize=11,
+            fontweight="bold",
+            color=LABEL_ON_BASE,
+            zorder=5,
+        )
+
+        # Right-pointing arrow from base vertex into the copy row
+        arrow = FancyArrowPatch(
+            (arrow_x0, y),
+            (arrow_x1, y),
+            arrowstyle="-|>",
+            mutation_scale=14,
+            linewidth=1.8,
+            color=NODE_BASE,
+            zorder=3,
+        )
+        _ = ax.add_patch(arrow)
+
+        # "× Z5" label above the top row's arrow
+        if base == 0:
+            _ = ax.text(
+                (arrow_x0 + arrow_x1) / 2.0,
+                y + 0.07,
+                "× Z₅",
+                ha="center",
+                va="bottom",
+                fontsize=9,
+                color=VOLT,
+            )
+
+        # 5 copy circles
+        for g in range(N):
+            cx = col_x[g]
+            copy_circ = Circle(
+                (cx, y),
+                node_r,
+                facecolor=NODE_BASE,
+                edgecolor="none",
+                transform=ax.transData,
+                zorder=4,
+            )
+            _ = ax.add_patch(copy_circ)
+            _ = ax.text(
+                cx,
+                y,
+                f"{base},{g}",
+                ha="center",
+                va="center",
+                fontsize=7,
+                fontweight="bold",
+                color=LABEL_ON_BASE,
+                zorder=5,
+            )
+
+    save(fig, "voltage/vlift-copies.pdf")
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
@@ -631,6 +762,7 @@ def main() -> None:
     gen_base()
     gen_base_no_voltage()
     gen_nodes()
+    gen_copies()
     gen_labeled()
     gen_concept()
 

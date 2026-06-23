@@ -32,6 +32,7 @@ class VoltageRLGenerator:
     obs: Data
     graph: nx.Graph[int]
     step_count: int
+    candidates_evaluated: int
     episode_count: int
     is_complete: bool
     success: bool
@@ -71,6 +72,7 @@ class VoltageRLGenerator:
         self.episode_count = 0
         self.is_complete = False
         self.success = False
+        self.candidates_evaluated = 0
         self.start_time = 0.0
         self.last_event = None
 
@@ -160,6 +162,7 @@ class VoltageRLGenerator:
             self.start_time = time.time()
 
         self.step_count += 1
+        self.candidates_evaluated += 1
 
         with torch.no_grad():
             action, _, _ = self.model.get_action(

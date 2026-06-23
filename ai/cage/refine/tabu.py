@@ -266,6 +266,7 @@ class TabuRefineGenerator:
     is_complete: bool
     success: bool
     iteration: int
+    candidates_evaluated: int
     current_cost: float
     best_cost: float
     last_action: str
@@ -310,6 +311,7 @@ class TabuRefineGenerator:
         self._tabu = {}
         self._stagnation = 0
         self.iteration = 0
+        self.candidates_evaluated = 0
         self.is_complete = False
         self.success = self.current_cost == 0.0
         self.last_action = "init"
@@ -380,6 +382,7 @@ class TabuRefineGenerator:
                 is_tabu = self._tabu.get(tabu_key, -1) > iteration
                 candidate_graph = apply_2_switch(self._current, swap)
                 c_cost = short_cycle_cost(candidate_graph, self.g_target)
+                self.candidates_evaluated += 1
                 aspirate = c_cost < self.best_cost
                 if not is_tabu or aspirate:
                     best_swap = swap
@@ -391,6 +394,7 @@ class TabuRefineGenerator:
                 is_tabu = self._tabu.get(tabu_key, -1) > iteration
                 candidate_graph = apply_2_switch(self._current, swap)
                 c_cost = short_cycle_cost(candidate_graph, self.g_target)
+                self.candidates_evaluated += 1
                 aspirate = c_cost < self.best_cost
                 if is_tabu and not aspirate:
                     continue
@@ -450,6 +454,7 @@ class TabuRefineGenerator:
         for swap3 in enumerate_3_switches(self._current, r.sample_size):
             g3 = apply_3_switch(self._current, swap3)
             c3 = short_cycle_cost(g3, self.g_target)
+            self.candidates_evaluated += 1
             if c3 < best3_cost:
                 best3_cost = c3
                 best3 = swap3

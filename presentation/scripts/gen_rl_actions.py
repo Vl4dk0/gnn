@@ -1,4 +1,4 @@
-"""Generate the direct-RL action/legality figure for the defense deck.
+"""Generate the RL action/legality figure for the defense deck.
 
 The agent's action is a vertex pair (u,v): if the edge is missing it is added,
 if present it is removed. A move is only legal when it keeps the graph buildable
@@ -29,9 +29,9 @@ matplotlib.rcParams["pdf.fonttype"] = 42
 
 FIGURES = Path(__file__).resolve().parents[1] / "figures"
 
-NODE_FILL = "#d3dade"
-NODE_EDGE = "#2f4250"
-EDGE = "#6b7b85"
+NODE_FILL = "#6b6b6b"
+NODE_EDGE = "#6b6b6b"
+EDGE = "#aaaaaa"
 GREEN = "#3c7d4a"
 RED = "#8c3b3b"
 INK = "#1a1a1a"
@@ -67,7 +67,7 @@ def draw_edge(
     *,
     color: str = EDGE,
     dashed: bool = False,
-    width: float = 2.0,
+    width: float = 1.8,
 ) -> None:
     line = Line2D(
         [p[0], q[0]],

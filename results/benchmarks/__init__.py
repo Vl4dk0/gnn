@@ -13,3 +13,4 @@ from . import node_tasks  # noqa: F401  — registers "degree" and "min_cycle"
 from . import cage  # noqa: F401
 from . import refine  # noqa: F401
 from . import excision  # noqa: F401
+from . import throughput  # noqa: F401

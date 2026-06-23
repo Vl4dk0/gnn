@@ -31,6 +31,7 @@ class RandomWalkGenerator:
     max_steps: int
     graph: nx.Graph[int]
     step_count: int
+    candidates_evaluated: int
     is_complete: bool
     success: bool
     start_time: float
@@ -49,6 +50,7 @@ class RandomWalkGenerator:
             self.graph.add_node(i)
 
         self.step_count = 0
+        self.candidates_evaluated = 0
         self.is_complete = False
         self.success = False
         self.start_time = 0.0
@@ -71,6 +73,7 @@ class RandomWalkGenerator:
         if self.start_time == 0:
             self.start_time = time.time()
         self.step_count += 1
+        self.candidates_evaluated += 1
 
         if self.step_count > self.max_steps:
             self.is_complete = True

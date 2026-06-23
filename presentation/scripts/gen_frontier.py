@@ -2,7 +2,7 @@
 
 Rows = degree k (3..7), columns = girth g (3..10).
 Each cell is coloured by the group that achieved the smallest successful
-Moore ratio: grey = classical (A*/randomwalk/bruteforce), navy = forge/voltage,
+Moore ratio: grey = classical (A*/bruteforce), navy = forge/voltage,
 white/hatched = nobody succeeded.
 
 Output: presentation/figures/results/fig-frontier.pdf
@@ -55,7 +55,7 @@ MOORE: dict[tuple[int, int], int] = {
     (7, 5): 50,
 }
 
-CLASSICAL = {"astar", "bruteforce", "randomwalk"}
+CLASSICAL = {"astar", "bruteforce"}
 
 COLOR_CLASSICAL = "#b8b8b8"
 COLOR_FORGE = "#1f3a5f"

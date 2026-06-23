@@ -30,6 +30,7 @@ class RLGenerator:
     num_nodes: int
     graph: nx.Graph[int]
     step_count: int
+    candidates_evaluated: int
     is_complete: bool
     success: bool
     start_time: float
@@ -80,6 +81,7 @@ class RLGenerator:
         _ = self.model.eval()
 
         self.step_count = 0
+        self.candidates_evaluated = 0
         self.is_complete = False
         self.success = False
         self.start_time = 0.0
@@ -251,6 +253,7 @@ class RLGenerator:
 
         action_idx = self._pick_action(mask)
         next_obs, reward, done, info = self.env.step(action_idx)
+        self.candidates_evaluated += 1
 
         self.obs = next_obs
         self.graph = self.env.graph

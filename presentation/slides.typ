@@ -223,89 +223,76 @@
 #title-slide()
 
 // =============================================================================
-// GNN OPENING SLIDE — ultra-minimal: one hero image, one sentence below.
+// GRAFOVÉ NEURÓNOVÉ SIETE — ONE slide, four SCENES (subslides), so the slide
+// counter treats the whole GNN story as a single slide and the reveal-dots show
+// the scene, not four separate slide numbers:
+//   1) hero pipeline photo,
+//   2) vector <-> colour intro (same graph/values as the diffusion that follows),
+//   3) sum-diffusion progression (rounds 0, 2, 8),
+//   4) read-out: vertices AS vectors -> neural network.
 // =============================================================================
+#slide(title: [Grafové neurónové siete], repeat: 4, self => {
+  let s = self.subslide
 
-== Grafové neurónové siete
-
-#v(1fr)
-#align(center, image("figures/gnn/fig-gnn-overall.png", width: 100%))
-#v(1fr)
-
-// =============================================================================
-// VECTOR <-> COLOR INTRO — every vertex carries a vector, which we draw as a
-// colour. The SAME graph, vectors and colours as the diffusion progression that
-// follows (diff-sum round 0), so the example is consistent end to end.
-// =============================================================================
-#slide(title: [Grafové neurónové siete], self => {
-  let column(img, cap) = stack(
-    dir: ttb,
-    spacing: 0.4em,
-    image(img, height: 70%),
-    text(size: 0.85em, cap),
-  )
-  v(0.3em)
-  grid(
-    columns: (1fr, 1fr),
-    gutter: 1.6em,
-    align: center + bottom,
-    align(center, column(
-      "figures/gnn/diff-sum-nums.pdf",
-      [Každý vrchol má vektor],
-    )),
-    align(center, column(
-      "figures/gnn/diff-sum-0.pdf",
-      [Zobrazme ako farby (podľa RGB)],
-    )),
-  )
+  if s == 1 {
+    // Hero: the full pipeline photo.
+    v(1fr)
+    align(center, image("figures/gnn/fig-gnn-overall.png", width: 100%))
+    v(1fr)
+  } else if s == 2 {
+    // Vector <-> colour intro: a vertex IS a vector, drawn as an RGB colour.
+    let column(img, cap) = stack(
+      dir: ttb,
+      spacing: 0.4em,
+      image(img, height: 70%),
+      text(size: 0.85em, cap),
+    )
+    v(0.3em)
+    grid(
+      columns: (1fr, 1fr),
+      gutter: 1.6em,
+      align: center + bottom,
+      align(center, column(
+        "figures/gnn/diff-sum-nums.pdf",
+        [Každý vrchol má vektor],
+      )),
+      align(center, column(
+        "figures/gnn/diff-sum-0.pdf",
+        [Zobrazme ako farby (podľa RGB)],
+      )),
+    )
+  } else if s == 3 {
+    // Sum-diffusion progression: rounds 0, 2, 8 side by side.
+    let col(src, cap) = stack(
+      dir: ttb,
+      spacing: 0.4em,
+      image(src, width: 100%),
+      text(size: 0.8em, fill: muted, cap),
+    )
+    v(0.5em)
+    grid(
+      columns: (1fr, 1fr, 1fr),
+      gutter: 1.4em,
+      align: center + bottom,
+      col("figures/gnn/diff-sum-0.pdf", [začiatok]),
+      col("figures/gnn/diff-sum-2.pdf", [po 2 kolách]),
+      col("figures/gnn/diff-sum-8.pdf", [po 8 kolách]),
+    )
+  } else {
+    // Read-out: vertices shown AS vectors, fed into a neural network. Size by
+    // HEIGHT so the wide composite never overflows onto a phantom page.
+    v(1fr)
+    align(center, image("figures/gnn/gnn-readout.pdf", height: 62%))
+    v(0.7em)
+    align(
+      center,
+      text(
+        size: 0.9em,
+      )[Po message-passingu vektory zachytávajú aj stav svojho okolia],
+    )
+    v(1fr)
+  }
 })
-
-// =============================================================================
-// DIFFUSION SLIDE HELPER — same numbers->colors intro as the mechanics slide,
-// then the round progression:
-//   r1: LEFT = numbers graph ("Vektory ako čísla."), RIGHT half reserved.
-//   r2: RIGHT = colored round-0 graph ("Vektory ako farby."), so the two halves
-//       side by side show the (a,b,c) -> color transformation.
-//   r3: scene switch to the 3-column round progression 0 | 2 | 8.
-// No #pause inside the #grid (Touying bug); gated on self.subslide.
-// =============================================================================
-// SUM DIFFUSION PROGRESSION — repeating SUM aggregation over the same graph.
-// One step further than the mechanics slide: do it for every vertex, round
-// after round. Vectors grow and saturate; after 8 rounds each vector encodes
-// the neighbourhood up to depth 8. Three snapshots side by side (0, 2, 8).
-#slide(title: [Grafové neurónové siete], self => {
-  let col(src, cap) = stack(
-    dir: ttb,
-    spacing: 0.4em,
-    image(src, width: 100%),
-    text(size: 0.8em, fill: muted, cap),
-  )
-  v(0.5em)
-  grid(
-    columns: (1fr, 1fr, 1fr),
-    gutter: 1.4em,
-    align: center + bottom,
-    col("figures/gnn/diff-sum-0.pdf", [začiatok]),
-    col("figures/gnn/diff-sum-2.pdf", [po 2 kolách]),
-    col("figures/gnn/diff-sum-8.pdf", [po 8 kolách]),
-  )
-})
-
-// READ-OUT — after message passing each vertex carries a vector; those vectors
-// are the input to a neural network. Size by HEIGHT so the wide composite never
-// overflows onto a phantom page.
-== Grafové neurónové siete
-
-#v(1fr)
-#align(center, image("figures/gnn/gnn-readout.pdf", height: 62%))
-#v(0.7em)
-#align(
-  center,
-  text(
-    size: 0.9em,
-  )[Po message-passingu nesie každý vrchol vektor svojho okolia, ktorý je vstupom do neurónovej siete],
-)
-#v(1fr)
 
 == Regularita a Obvod
 
@@ -367,18 +354,20 @@
     align: horizon,
     align(center, image(src, height: 70%)),
     text(size: 0.9em)[
-      #if s <= 3 [
+      #if s <= 4 [
         Toto je (3,5)-graf
         #v(0.5em)
-        #if s >= 2 [lebo je 3-regulárny] else [#hide[lebo je 3-regulárny]]
+        #if s >= 2 [lebo je *3*-regulárny] else [#hide[lebo je *3*-regulárny]]
         #v(0.5em)
-        #if s >= 3 [a jeho obvod je 5] else [#hide[a jeho obvod je 5]]
-      ] else if s == 4 [
-        Tento (3,5)-graf ale *nie je* klietka
+        #if s >= 3 [a jeho obvod je *5*] else [#hide[a jeho obvod je *5*]]
+        #v(0.5em)
+        #if (
+          s >= 4
+        ) [Ale *nie je* klietka\ - najmenší možný (k,g)-graf] else [#hide[Ale *nie je* klietka\ - najmenší možný (k,g)-graf]]
       ] else [
         Toto je tiež (3,5)-graf
         #v(0.5em)
-        a je to *klietka* - najmenší možný (3,5)-graf
+        a je to *klietka*
       ]
     ],
   )
@@ -391,19 +380,11 @@
 == Moore's bound
 
 #v(0.3em)
-#align(
-  center,
-  text(size: 0.95em)[Najmenší počet vrcholov, ktorý (k,g)-graf vôbec musí mať],
-)
-#v(0.3em)
-#align(center, image("figures/petersen/fig-moore.pdf", height: 60%))
+#align(center, image("figures/petersen/fig-moore.pdf", height: 85%))
 #v(0.3em)
 #align(
   center,
-  text(
-    size: 0.85em,
-    fill: muted,
-  )[Z koreňa: k susedov, potom každý ďalší k-1. Do hĺbky (g-1)/2 musia byť všetky rôzne, inak vznikne cyklus kratší ako g],
+  text(size: 0.95em)[Najmenší počet vrcholov, ktorý potrebujeme na (k,g)-graf],
 )
 
 
@@ -415,16 +396,17 @@
   let s = self.subslide
   if s == 1 {
     // What reinforcement learning is: the classic agent-environment loop.
+    // Large, page-filling, to match the figure-heavy slides around it.
     set align(horizon)
     align(center)[
-      #set text(size: 15pt)
+      #set text(size: 26pt)
       #diagram(
-        node-stroke: 1.3pt + linecol,
+        node-stroke: 1.6pt + linecol,
         node-fill: white,
-        node-inset: 10pt,
-        spacing: (9em, 4em),
-        node((0, 0), [Agent], corner-radius: 5pt),
-        node((1, 0), [Prostredie], corner-radius: 5pt),
+        node-inset: 16pt,
+        spacing: (13em, 7em),
+        node((0, 0), [Agent], corner-radius: 6pt),
+        node((1, 0), [Prostredie], corner-radius: 6pt),
         edge(
           (0, 0),
           (1, 0),
@@ -432,8 +414,8 @@
           [akcia],
           label-pos: 0.5,
           label-side: left,
-          bend: 28deg,
-          stroke: 1.2pt + muted,
+          bend: 30deg,
+          stroke: 1.5pt + muted,
         ),
         edge(
           (1, 0),
@@ -442,14 +424,14 @@
           [stav, odmena],
           label-pos: 0.5,
           label-side: left,
-          bend: 28deg,
-          stroke: 1.2pt + muted,
+          bend: 30deg,
+          stroke: 1.5pt + muted,
         ),
       )
-      #v(0.8em)
+      #v(1.2em)
       #text(
-        size: 0.9em,
-      )[Agent stavia graf hranu po hrane, za to dostáva odmenu a z nej sa učí]
+        size: 1.1em,
+      )[Agent stavia graf hranu po hrane\ Dostáva odmenu a z nej sa učí]
     ]
   } else if s == 2 {
     // The action and its legality rules, shown on three example moves. The big
@@ -461,25 +443,33 @@
     align(
       center,
       text(size: 0.9em)[
-        Akcia je dvojica vrcholov $(u, v)$: ak hrana chýba, pridá sa, inak sa odoberie
+        Akcia je *toggle* hrany $(u, v)$: pridá sa, ak chýba, odoberie sa, ak tam je
       ],
     )
   } else {
-    // Goal + reward. Invalid moves are impossible by design (the action mask
-    // only offers legal moves), so there is no invalid-move penalty to mention.
+    // Goal + the EXACT reward constants from ai/cage/rl/env.py. Invalid moves are
+    // impossible by design (the action mask only offers legal moves), so there is
+    // no invalid-move penalty.
     set align(horizon)
     align(center)[
-      #text(size: 1.15em)[Cieľ: *k-regulárny graf s obvodom aspoň g*]
-      #v(1.0em)
-      #text(size: 0.92em)[
-        Veľká odmena za hotový graf, priebežne malá odmena za každý vrchol,
-        ktorý dosiahne stupeň k, a za pridávané hrany
-      ]
-      #v(0.8em)
+      #text(size: 1.15em)[Agentov cieľ: *k-regulárny graf s obvodom aspoň g*]
+      #v(0.9em)
+      #set text(size: 0.92em)
+      #grid(
+        columns: (auto, auto),
+        column-gutter: 1.0em,
+        row-gutter: 0.6em,
+        align: (right, left),
+        [*+50*], [za hotový graf],
+        [*+0,05*], [keď sa graf stane k-regulárnym alebo dosiahne obvod g],
+        [*+0,01*], [za pridanie hrany],
+        [*−0,02*], [za odobratie hrany],
+      )
+      #v(0.7em)
       #text(
-        size: 0.85em,
+        size: 0.82em,
         fill: muted,
-      )[Agent dostane pevný počet vrcholov a aktivuje ich hranami]
+      )[K tomu priebežná odmena za postup k cieľu]
     ]
   }
 })
@@ -491,7 +481,7 @@
 #align(center)[
   #text(
     size: 1.1em,
-  )[Priame RL zvládlo len najmenšie ciele: (5,3), (3,5), (6,3) a podobné]
+  )[RL zvládlo len najmenšie ciele: (5,3), (3,5), (6,3) a podobné]
   #v(1.0em)
   #text(
     size: 1.0em,
@@ -503,7 +493,7 @@
 
 // Voltage lifts — concept first (small k-regular graph -> bigger one), then the
 // concrete Z5 -> Petersen construction. Stepped, one image per reveal.
-#slide(title: [Voltage lifts], repeat: 4, self => {
+#slide(title: [Voltage lifts], repeat: 5, self => {
   let s = self.subslide
   let line(body, step) = if s >= step [#body] else [#hide[#body]]
   grid(
@@ -518,24 +508,29 @@
       image("figures/voltage/fig-voltage-lift.pdf", height: 70%),
     )),
     text(size: 0.95em)[
-      #line([Zachová k-regularitu a zväčší graf], 1)
-      #v(0.7em)
+      #line([Z malého grafu spraví veľký a zachová regularitu], 1)
+      #v(0.5em)
       #line(
         [
-          Potrebujeme zvoliť základný graf $G$ a grupu $Gamma$
+          Na liftu potrebujeme:
         ],
         2,
       )
-      #v(0.7em)
-      #line([Priradiť jej prvky hranám - napätia], 3)
-      #v(0.7em)
+      #v(0.5em)
       #line(
         [
-          Výsledný počet vrcholov =
-          #v(0em)
-          |$Gamma$| × |V(grafu)|
+          Zvoliť základný graf $G$ a grupu $Gamma$
         ],
-        4,
+        3,
+      )
+      #v(0.5em)
+      #line([Priradiť jej prvky hranám - napätia], 4)
+      #v(0.5em)
+      #line(
+        [
+          |V(lift($G$))| = |$Gamma$| × |V($G$)|
+        ],
+        5,
       )
     ],
   )
@@ -543,7 +538,7 @@
 
 // Concrete construction: group Z5, a 2-vertex base graph, lifted to Petersen.
 // Each reveal swaps one large image in place (no #pause inside a grid).
-#slide(title: [Voltage lifts], repeat: 7, self => {
+#slide(title: [Voltage lifts], repeat: 8, self => {
   let s = self.subslide
 
   let src = if s == 1 {
@@ -553,27 +548,31 @@
   } else if s == 3 {
     "figures/voltage/vlift-base.pdf"
   } else if s == 4 {
-    "figures/voltage/vlift-nodes.pdf"
+    "figures/voltage/vlift-copies.pdf"
   } else if s == 5 {
-    "figures/voltage/vlift-step1.pdf"
+    "figures/voltage/vlift-nodes.pdf"
   } else if s == 6 {
+    "figures/voltage/vlift-step1.pdf"
+  } else if s == 7 {
     "figures/voltage/vlift-step2.pdf"
   } else {
     "figures/voltage/vlift-step3.pdf"
   }
 
   let cap = if s == 1 [
-    Základný graf
+    Základný graf $G$
   ] else if s == 2 [
     Zvolená grupa: $Z_5 = {0,1,2,3,4}$
   ] else if s == 3 [
     Zvolené napätia
   ] else if s == 4 [
-    Pre každý prvok $Z_5$ jedna kópia vrcholu
+    Každý vrchol skopírujeme pre každý prvok $Z_5$\ Značenie (vrchol, prvok): napr. 1,2 je vrchol 1 pre prvok 2
   ] else if s == 5 [
-    Slučka na 0 dá hrany (0,x) → (0,x+1). Vznikne vonkajší päťuholník
+    Pre prehľadnosť zoradíme vrcholy takto.
   ] else if s == 6 [
-    Slučka na 1 dá hrany (1,x) → (1,x+2). Vznikne vnútorná hviezda
+    Slučka na 0 dá hrany (0,x) → (0,x+1)
+  ] else if s == 7 [
+    Slučka na 1 dá hrany (1,x) → (1,x+2)
   ] else [
     Hrana 0→1 dá hrany (0,x) → (1,x). Výsledok je Petersenov graf
   ]
@@ -631,15 +630,15 @@
         )
       ],
       text(size: 0.92em)[
-        Napätia hľadáme prehľadávaním
+        Bez GNN: napätia priradzujeme náhodne a po každom lifte kontrolujeme obvod
 
         #v(0.4em)
-        GNN vie ohodnotiť kandidátov a navádzať hľadanie
+        GNN predikuje obvod liftu podľa daných napätí
 
         #v(0.6em)
         #text(
           fill: muted,
-        )[Algebraické 63 %, s GNN predikciou 59 %. GNN tu nepomohlo.]
+        )[bez GNN 63 %,\ s GNN 59 %\ GNN tu nepomohlo]
       ],
     )
   } else {
@@ -649,48 +648,41 @@
       align: horizon,
       align(center)[
         #set text(size: 13pt)
+        // Same loop layout as scene 1, so the two diagrams read as variants of
+        // one process. Only the highlighted node (the RL policy instead of the
+        // scoring GNN) and the feedback-edge label (reward instead of "<g") differ.
         #diagram(
           node-stroke: 1.3pt + linecol,
           node-fill: white,
           node-inset: 8pt,
-          spacing: (4.6em, 3.4em),
+          spacing: (2.2em, 3.0em),
           node(
-            (0, 0),
-            align(center)[RL politika\ (GNN)],
+            (1, -2),
+            align(center)[grupa $Gamma$\ + základný graf],
+            corner-radius: 5pt,
+          ),
+          node(
+            (1, -1),
+            align(center)[RL-agent (GNN)\ priradí napätia],
             corner-radius: 5pt,
             stroke: 1.5pt + ink,
             fill: dgsteelfill,
           ),
-          node(
-            (1, 0),
-            align(center)[napätie na\ ďalšiu hranu],
-            corner-radius: 5pt,
-          ),
-          node((2, 0), align(center)[po lifte:\ obvod], corner-radius: 5pt),
-          edge(
-            (0, 0),
-            (1, 0),
-            "-|>",
-            [akcia],
-            label-side: left,
-            stroke: 1.2pt + muted,
-          ),
-          edge((1, 0), (2, 0), "-|>", stroke: 1.2pt + muted),
-          edge(
-            (2, 0),
-            (0, 0),
-            "-|>",
-            [odmena = obvod],
-            bend: 34deg,
-            stroke: 1.2pt + muted,
-          ),
+          node((0, 0), align(center)[spočítaj lift], corner-radius: 5pt),
+          node((1, 1), align(center)[over obvod], corner-radius: 5pt),
+          node((1, 2), align(center)[hotovo], corner-radius: 5pt),
+          edge((1, -2), (1, -1), "-|>", stroke: 1.2pt + muted),
+          edge((1, -1), (0, 0), "-|>", stroke: 1.2pt + muted),
+          edge((0, 0), (1, 1), "-|>", stroke: 1.2pt + muted),
+          edge((1, 1), (1, 2), "-|>", [$>=$g], stroke: 1.2pt + muted),
+          edge((1, 1), (1, -1), "-|>", [$<$g], stroke: 1.2pt + muted),
         )
       ],
       text(size: 0.92em)[
-        RL politika priraďuje napätia po jednej hrane
+        GNN RL-agent priraďuje napätia hranám
 
         #v(0.4em)
-        Odmena = obvod grafu po lifte
+        Tento prístup neskôr nazývam *voltage_rl*
 
         #v(0.6em)
         #text(
@@ -785,13 +777,17 @@
   ],
   [
     #text(size: 0.92em)[
-      GNN navrhuje poradie kandidátov
+      Bez GNN: náhodne skúšame kandidátov na 2-swap
+
+      #pause
+      #v(0.5em)
+      GNN zoraduje kandidátov podľa pravdepodobnosti, že swap zvýši obvod
 
       #pause
       #v(0.5em)
       #text(
         fill: muted,
-      )[Krok bol rýchlejší, no úspešnosť nižšia: 51 % oproti 75 % bez GNN]
+      )[Úspešnosť sa znížila\ 51% s GNN vs. 75% bez GNN]
     ]
   ],
 )
@@ -800,7 +796,7 @@
 // Excision as a six-cell storyboard: five graph cells fill in one per reveal
 // (dodecahedron -> BFS depth 2 -> remove -> stitch -> Petersen), the sixth cell
 // carries the running caption. hide() reserves space so the grid never reflows.
-#slide(title: [Excision], repeat: 6, self => {
+#slide(title: [Excízia], repeat: 6, self => {
   let s = self.subslide
   let cell(idx, path) = {
     let img = align(center + horizon, image(
@@ -812,9 +808,9 @@
   let caps = (
     [Z veľkého (k,g)-grafu spravíme menší (k,g)-graf],
     [Začneme s priveľkým (3,5)-grafom: dodekaéder, 20 vrcholov],
-    [Z koreňa vyrastieme BFS strom do hĺbky 2 - Moorov polomer],
-    [Strom naraz odstránime],
-    [Chýbajúce hrany zošijeme tak, aby obvod ostal 5],
+    [Zakoreníme strom hĺbky 2 - Moorov polomer $floor((g-1)/2)$],
+    [Strom vyrežeme, ostane 10 vrcholov, obvod 5, no už nie je k-regulárny],
+    [Vrcholy zošijeme tak, aby obvod ostal 5],
     [Výsledok je Petersenov graf, teda (3,5)-klietka],
   )
   v(0.3em)
@@ -831,7 +827,7 @@
   )
 })
 
-== Excision a GNN
+== Excízia a GNN
 
 #grid(
   columns: (1.5fr, 1fr),
@@ -868,13 +864,13 @@
   ],
   [
     #text(size: 0.92em)[
-      GNN navrhuje ktoré hrany vytvoriť.
+      GNN navrhuje ktoré vrcholy zošiť.
 
       #pause
       #v(0.5em)
       #text(
         fill: muted,
-      )[Bez excízie 2,06× Moore, s ňou 1,51×. Naučené zošitie zatiaľ neukázalo zisk]
+      )[Bez excízie 2,06× Moore, s ňou 1,51×\ GNN excíziu zrýchlilo]
     ]
   ],
 )
@@ -889,34 +885,13 @@
   let s = self.subslide
 
   if s == 1 {
-    // WEAKNESS framing: one card per method (strength + weakness).
+    // Opening statement: the three methods chained into one pipeline.
     set align(horizon)
-    let card(name, good, bad) = box(
-      stroke: 1.2pt + linecol,
-      radius: 6pt,
-      inset: 12pt,
-      width: 100%,
-      stack(
-        dir: ttb,
-        spacing: 0.7em,
-        text(weight: 800, size: 1.0em, name),
-        text(size: 0.85em)[#text(fill: dgsteel)[#sym.checkmark] #good],
-        text(size: 0.85em, fill: muted)[#sym.crossmark #bad],
-      ),
-    )
-    v(0.3em)
-    grid(
-      columns: (1fr, 1fr, 1fr),
-      gutter: 1.2em,
-      align: horizon,
-      card([Voltage lifts], [veľký dosah], [grafy ~2× Moore]),
-      card([Klasické hľadanie], [veľkosť klietky], [úzky dosah]),
-      card([Refinement + Excision], [opraví a zmenší], [samy nič nepostavia]),
-    )
-    v(1.0em)
-    align(center, text(
-      size: 0.9em,
-    )[Každá metóda je silná inde. Forge ich zreťazí, nech každá robí len to svoje.])
+    align(center, text(size: 1.5em)[
+      Z *voltage lifts*, *refinementu* a *excízie*
+      #linebreak()
+      sme vytvorili jednu pipeline
+    ])
   } else if s == 2 {
     // PIPELINE with a real graph flowing through (reused vector figures).
     let stage(img, name, cap) = stack(
@@ -935,15 +910,15 @@
       stage(
         "figures/refine/refine-0.pdf",
         [Producer],
-        [lift, často skoro-dobrý],
+        [skoro-dobrý lift],
       ),
       arrow,
       stage("figures/refine/refine-final.pdf", [Refinement], [obvod = g]),
       arrow,
       stage(
         "figures/excision/exc-petersen.pdf",
-        [Excision],
-        [zmenšený ku klietke],
+        [Excízia],
+        [zmenšený (k,g)-graf],
       ),
     )
   } else {
@@ -959,7 +934,7 @@
           node-fill: white,
           node-inset: 10pt,
           spacing: (7em, 3.0em),
-          node((0, 0), align(center)[skoro-dobrý\ lift], corner-radius: 5pt),
+          node((0, 0), align(center)[skoro-dobrý lift], corner-radius: 5pt),
           node(
             (1, 0),
             align(center)[defective\ fraction $<= tau$ ?],
@@ -1012,7 +987,7 @@
   if s == 1 {
     image("figures/results/fig-results.pdf", width: 100%)
   } else {
-    image("figures/results/fig-tradeoff.pdf", height: 86%)
+    image("figures/results/fig-tradeoff.pdf", width: 100%)
   }
 })
 
@@ -1022,8 +997,9 @@
 //  shown (answers to be added later). One question per slide, before the záver.
 // =============================================================================
 
-#slide(title: [Otázka školiteľa (1)], repeat: 2, self => {
+#slide(title: [Otázka školiteľa (1)], repeat: 6, self => {
   let s = self.subslide
+  let reveal(body, n) = if s >= n { body } else { hide(body) }
   if s == 1 {
     set align(horizon)
     text(size: 1.05em)[
@@ -1032,19 +1008,66 @@
       voltage-RL pri hľadaní aspoň nejakého príkladu. Čo zapríčinilo dané výsledky?
     ]
   } else {
-    v(0.1em)
-    align(center, image("figures/results/fig-frontier.pdf", height: 60%))
-    v(0.3em)
-    align(center, text(size: 0.74em)[
-      A\* je presné len na ľahkých cieľoch. Voltage-RL má dosah, no grafy okolo 2× Moore.
-      Na *ťažkej hranici*, kde A\* nič nevráti, je *Forge* najmenší platný graf (okolo
-      1,23× Moore). Nevyhráva stĺpec, lebo stĺpce sa vyhrávajú na ľahkých cieľoch.
-    ])
+    set align(horizon)
+    set text(size: 0.82em)
+    // Left: stacked answer reveals.  Right: the (3,12) throughput table, which
+    // appears with the reach point (reveal 3) and sits beside the text to save
+    // vertical space.
+    grid(
+      columns: (1.55fr, 1fr),
+      gutter: 1.4em,
+      align: horizon,
+      pad(left: 0.6em, stack(
+        dir: ttb,
+        spacing: 0.78em,
+        reveal(
+          [*Forge mal byť najlepším* - pokus o najlepšiu metódu, keď samotné metódy nedávali výsledky, aké som chcel],
+          2,
+        ),
+        reveal(
+          [*voltage-RL má lepší dosah* - prejde za rovnaký čas _viac grafov_],
+          3,
+        ),
+        reveal(
+          [*A\* nájde menšie grafy* - Je best-first, uprednostňuje malé grafy a k veľkým sa ani nedostane. Forge producer môže vytvoriť veľký (k,g)-graf, ktorý excission nezmenší],
+          4,
+        ),
+        reveal(
+          [*Najväčší problém robí refinement* - Pravdepodobne dostáva zlých kandidátov. Producer je trénovaný na produkciu dobrých grafov, nie skoro-dobrých],
+          5,
+        ),
+        reveal(
+          text(
+            fill: muted,
+          )[_Future work:_ producer učený na skoro-dobré grafy],
+          6,
+        ),
+      )),
+      reveal(
+        align(center, stack(
+          dir: ttb,
+          spacing: 0.5em,
+          table(
+            columns: (auto, auto),
+            inset: (x: 0.7em, y: 0.42em),
+            align: (left, right),
+            stroke: 0.7pt + linecol,
+            table.header([metóda], [grafov/s]),
+            [Forge], [≈ 26],
+            [voltage-RL], [≈ 40],
+            [Forge\ bez refinementu], [≈ 65],
+          ),
+          text(size: 0.82em, fill: muted)[pri hľadaní (3,12)],
+        )),
+        3,
+      ),
+    )
   }
 })
 
-#slide(title: [Otázka školiteľa (2)], repeat: 2, self => {
+#slide(title: [Otázka školiteľa (2)], repeat: 5, self => {
   let s = self.subslide
+  let reveal(body, n) = if s >= n { body } else { hide(body) }
   if s == 1 {
     set align(horizon)
     text(size: 1.05em)[
@@ -1052,14 +1075,25 @@
       učením nepotrebovali viac času na konvergenciu?
     ]
   } else {
-    v(0.1em)
-    align(center, image("figures/results/fig-time-budget.pdf", height: 60%))
-    v(0.3em)
-    align(center, text(size: 0.74em)[
-      Začal som na 5 minútach, no výsledok bol vždy rovnaký: čo sa podarí, podarí sa do
-      minúty, inak ani za päť. Preto 1 minúta, *rovnaký rozpočet pre všetky metódy*.
-      Učenie modelov je *offline pri tréningu*, nie počas hľadania.
-    ])
+    set align(horizon)
+    set text(size: 1.0em)
+    pad(x: 1.2em, stack(
+      dir: ttb,
+      spacing: 1.3em,
+      reveal([Najprv som benchmarkoval na *5 minútach*], 2),
+      reveal(
+        [Ak sa podarí nájsť graf, podarí sa to *do 1 minúty*. Ak nie, *ani za 5*],
+        3,
+      ),
+      reveal(
+        [Neskôr som benchmarky len rozširoval a vyhradený čas už nemenil],
+        4,
+      ),
+      reveal(
+        [Modely *konvergujú pri tréningu*, nezávisle od tohto času. Výsledky sú z benchmarkov *po* tréningu],
+        5,
+      ),
+    ))
   }
 })
 
@@ -1073,56 +1107,182 @@
       zachytil globálnu cyklickú štruktúru grafu?
     ]
   } else {
-    v(0.1em)
-    align(center, image("figures/gnn/fig-girth-receptive.pdf", height: 60%))
+    // Two panels side by side, each with its OWN caption underneath, then the
+    // answer text below both (starting with the Loopy inspiration).
+    let panel(img, cap) = stack(
+      dir: ttb,
+      spacing: 0.5em,
+      image(img, height: 50%),
+      text(size: 0.8em, cap),
+    )
     v(0.2em)
-    align(center, text(size: 0.74em)[
-      Problém je *reprezentačný*: MPNN nevie spočítať obvod (Garg, 2020), 1-WL nevidí
-      dlhé cykly. Riešením je pridať príznaky: *(1) RWSE*, *(2) počty cyklov (GSN)*,
-      *(3) spektrálne kódovanie*. Náš model *Loopy* už ide týmto smerom.
+    grid(
+      columns: (1fr, 1fr),
+      gutter: 2.0em,
+      align: center + bottom,
+      panel(
+        "figures/gnn/fig-loopy-standard.pdf",
+        [Štandardné GNN vidí len susedov],
+      ),
+      panel(
+        "figures/gnn/fig-loopy-loopy.pdf",
+        [Loopy vidí aj slučku okolo $v$],
+      ),
+    )
+    v(0.5em)
+    align(center, text(size: 0.82em)[
+      Inšpiroval by som sa architektúrou *Loopy*, ktorá sa to snaží riešiť: agreguje aj po
+      slučke okolo vrcholu, a tak jeho vektor lepšie zachytí, na akom cykle leží.
     ])
   }
 })
 
-#slide(title: [Otázka oponenta (2)], repeat: 2, self => {
+#slide(title: [Otázka oponenta (2)], repeat: 4, self => {
   let s = self.subslide
   if s == 1 {
     set align(horizon)
     text(size: 1.05em)[
-      Pipeline Forge kombinuje voltage producer, refinement a excision. Ako by ste
+      Pipeline Forge kombinuje voltage producer, refinement a excíziu. Ako by ste
       systematicky ladili prah defective fraction a ako by ste experimentálne
       odlíšili prínos diverzity kandidátov od kvality naučenej politiky?
     ]
+  } else if s == 2 {
+    // Part 1: the tau sweep answers the threshold-tuning half of the question.
+    align(center, text(size: 1.05em)[Systematické ladenie prahu $tau$])
+    v(0.3em)
+    align(center, image("figures/results/fig-tau-sweep.pdf", height: 82%))
   } else {
-    v(0.1em)
-    align(center, image("figures/results/fig-tau-policy.pdf", height: 60%))
-    v(0.2em)
-    align(center, text(size: 0.74em)[
-      Prah $tau$ je kompromis výťažok/náklad, ladený sweepom cez validačné ciele
-      (zvolené 0,2). Prínos *diverzity* a *politiky* oddelíme 2×2 abláciou. Doterajšie
-      dáta: zisk je zo *šírky hľadania*, nie z naučenej politiky.
+    // Part 2 (s >= 3): diversity vs. policy quality. The clarification stays
+    // pinned at the top; the diagnostic experiment appears at s >= 4. The
+    // experiment never retrains and uses no new knob: it just MEASURES the
+    // producer's own output stream, split along two independent axes.
+    //   quality   = how many emitted lifts are even near-good (def. frac. <= tau)
+    //   diversity = among the near-good ones, how many are distinct
+    let intro = align(center, text(size: 1.05em)[
+      *Diverzita vs. kvalita producera:* voltage-RL je samostatne najlepší, ale ako Forge producer najslabší
     ])
+
+    let tree = {
+      set text(size: 17pt)
+      align(center, diagram(
+        node-stroke: 1.4pt + linecol,
+        node-fill: white,
+        node-inset: 11pt,
+        spacing: (4.2em, 5.2em),
+        node(
+          (0, 0),
+          align(center)[kandidáti\ producera],
+          corner-radius: 5pt,
+        ),
+        node(
+          (1, 0),
+          align(center)[skoro-dobré?],
+          corner-radius: 5pt,
+          stroke: 1.5pt + ink,
+          fill: dgsteelfill,
+        ),
+        node(
+          (1, 1.35),
+          align(center)[*KVALITA*],
+          corner-radius: 5pt,
+          stroke: 1.3pt + dgbronze,
+        ),
+        node(
+          (2, 0),
+          align(center)[rôzne?],
+          corner-radius: 5pt,
+          stroke: 1.5pt + ink,
+          fill: dgsteelfill,
+        ),
+        node(
+          (2, 1.35),
+          align(center)[*DIVERZITA*],
+          corner-radius: 5pt,
+          stroke: 1.3pt + dgbronze,
+        ),
+        node((3, 0), align(center)[problém je inde], corner-radius: 5pt),
+        edge((0, 0), (1, 0), "-|>", stroke: 1.2pt + muted),
+        edge(
+          (1, 0),
+          (1, 1.35),
+          "-|>",
+          [málo],
+          label-side: right,
+          stroke: 1.2pt + muted,
+        ),
+        edge(
+          (1, 0),
+          (2, 0),
+          "-|>",
+          [dosť],
+          label-side: left,
+          stroke: 1.2pt + muted,
+        ),
+        edge(
+          (2, 0),
+          (2, 1.35),
+          "-|>",
+          [málo],
+          label-side: right,
+          stroke: 1.2pt + muted,
+        ),
+        edge(
+          (2, 0),
+          (3, 0),
+          "-|>",
+          [dosť],
+          label-side: left,
+          stroke: 1.2pt + muted,
+        ),
+      ))
+    }
+
+    set align(horizon)
+    stack(
+      dir: ttb,
+      spacing: 2.4em,
+      intro,
+      if s >= 4 { tree } else { hide(tree) },
+    )
   }
 })
 
 
-== Záver
+// Záver: three sentences, one revealed per scene (cumulative). hide() reserves
+// space so the centred block never jumps as sentences appear.
+#slide(title: [Záver], repeat: 3, self => {
+  let s = self.subslide
+  let ln(body, step) = if s >= step { body } else { hide(body) }
+  set align(horizon)
+  text(size: 1.05em)[
+    #ln(
+      [Efektívne som implementoval metódy na generovanie (k,g)-grafov a porovnal učené verzie s neučenými],
+      1,
+    )
+    #v(0.7em)
+    #ln(
+      [Hlavné zistenie je, že učením sa oplatí navádzať hľadanie, ale neoplatí sa nechať hľadanie úplne na GNN],
+      2,
+    )
+    #v(0.7em)
+    #ln(
+      [Pipeline Forge má potenciál, len je potrebné zlepšiť kvalitu refinement kroku a/alebo kandidátov],
+      3,
+    )
+  ]
+})
 
-#v(1.0em)
-// PLACEHOLDER — prepísať. Tri vety na záver.
-#text(size: 1.05em)[
-  Postavil som postupnosť metód na generovanie (k,g)-grafov a porovnal učené
-  verzie s neučenými.
 
-  #v(0.5em)
-  Hlavné zistenie je, že učenie navádza hľadanie, ale nenahrádza exaktné overenie.
+// Recommended state-exam questions (committee reference), after the conclusion.
+== Oponentom odporúčané otázky na štátnice
 
-  #v(0.5em)
-  Ďalej by sa dali pridať pozičné a štruktúrne príznaky pre lepšiu predikciu obvodu.
+#v(0.9em)
+#text(size: 1.0em)[
+  *5.P.* Efektívne reprezentácie dátovej štruktúry graf. Využitie problému
+  Union-find pri hľadaní kostry grafu.
+
+  #v(0.9em)
+  *10.P.* Spôsoby prehľadávania stavového priestoru, do hĺbky a do šírky,
+  Dijkstrov algoritmus. Porovnanie implementácií v rôznych jazykoch.
 ]
 
-
-// -----------------------------------------------------------------------------
-#focus-slide[
-  Ďakujem za pozornosť.
-]

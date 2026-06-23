@@ -269,6 +269,92 @@ def _variant_params(approach: str, variant: str) -> dict[str, object]:
     return params
 
 
+# Public aliases so sibling benchmarks can import without private-usage warnings.
+SPECS = _SPECS
+variant_params = _variant_params
+
+
+# ---------------------------------------------------------------------------
+# build_generator
+# ---------------------------------------------------------------------------
+
+
+def build_generator(
+    approach: str,
+    k: int,
+    g: int,
+    model_id: str | None,
+    payload: dict[str, object],
+) -> (
+    RandomWalkGenerator
+    | AStarGenerator
+    | BruteforceGenerator
+    | RLGenerator
+    | VoltageSearchGenerator
+    | VoltageRLGenerator
+    | ForgeGenerator
+):
+    """Construct a cage generator from an approach name and payload tunables."""
+    if approach == "randomwalk":
+        return RandomWalkGenerator(k, g)
+    elif approach == "astar":
+        return AStarGenerator(k, g)
+    elif approach == "bruteforce":
+        return BruteforceGenerator(k, g)
+    elif approach == "rl":
+        return RLGenerator(k, g, model_id=model_id)
+    elif approach == "voltage":
+        # Hyperparameter-sweep variants thread beam_width / beam_probe_interval /
+        # tabu_tenure through the payload; absent keys fall back to the
+        # generator's own defaults so the plain Algebraic/predictor rows are
+        # unaffected.
+        beam_width = cast(int, payload.get("beam_width", DEFAULT_BEAM_WIDTH))
+        beam_probe_interval = cast(
+            int, payload.get("beam_probe_interval", BEAM_PROBE_INTERVAL)
+        )
+        tabu_tenure = cast(int, payload.get("tabu_tenure", DEFAULT_TABU_TENURE))
+        return VoltageSearchGenerator(
+            k,
+            g,
+            model_id=model_id,
+            beam_width=beam_width,
+            beam_probe_interval=beam_probe_interval,
+            tabu_tenure=tabu_tenure,
+        )
+    elif approach == "voltage_rl":
+        deterministic = cast(bool, payload.get("vrl_deterministic", False))
+        return VoltageRLGenerator(k, g, model_id=model_id, deterministic=deterministic)
+    elif approach == "forge":
+        # Producer + stage flags + sweep values all ride in via the payload
+        # (decoded from the variant by _variant_params); absent keys fall back to
+        # ForgeGenerator's own defaults.
+        producer = cast(str, payload.get("forge_producer", DEFAULT_FORGE_PRODUCER))
+        use_refine = cast(bool, payload.get("forge_use_refine", True))
+        use_excision = cast(bool, payload.get("forge_use_excision", True))
+        max_candidates = cast(
+            int, payload.get("forge_max_candidates", DEFAULT_MAX_CANDIDATES)
+        )
+        refine_margin = cast(int, payload.get("forge_refine_margin", REFINE_MARGIN))
+        refine_gate = cast(str, payload.get("forge_refine_gate", DEFAULT_REFINE_GATE))
+        refine_defect_tau = cast(
+            float,
+            payload.get("forge_refine_defect_tau", DEFAULT_REFINE_DEFECT_TAU),
+        )
+        return ForgeGenerator(
+            k,
+            g,
+            producer=producer,
+            use_refine=use_refine,
+            use_excision=use_excision,
+            max_candidates=max_candidates,
+            refine_margin=refine_margin,
+            refine_gate=refine_gate,
+            refine_defect_tau=refine_defect_tau,
+        )
+    else:
+        raise ValueError(f"Unknown approach: {approach!r}")
+
+
 # ---------------------------------------------------------------------------
 # make_tasks
 # ---------------------------------------------------------------------------
@@ -338,77 +424,7 @@ def execute(task: Task) -> list[TrialResult]:
     # (its embedded voltage->refine->excision cascade advances one move per
     # step), so it runs through the shared step loop and honours the same
     # max_steps / time_budget guards.
-    gen: (
-        RandomWalkGenerator
-        | AStarGenerator
-        | BruteforceGenerator
-        | RLGenerator
-        | VoltageSearchGenerator
-        | VoltageRLGenerator
-        | ForgeGenerator
-    )
-    if approach == "randomwalk":
-        gen = RandomWalkGenerator(k, g)
-    elif approach == "astar":
-        gen = AStarGenerator(k, g)
-    elif approach == "bruteforce":
-        gen = BruteforceGenerator(k, g)
-    elif approach == "rl":
-        gen = RLGenerator(k, g, model_id=model_id)
-    elif approach == "voltage":
-        # Hyperparameter-sweep variants thread beam_width / beam_probe_interval /
-        # tabu_tenure through the payload; absent keys fall back to the
-        # generator's own defaults so the plain Algebraic/predictor rows are
-        # unaffected.
-        beam_width = cast(int, task.payload.get("beam_width", DEFAULT_BEAM_WIDTH))
-        beam_probe_interval = cast(
-            int, task.payload.get("beam_probe_interval", BEAM_PROBE_INTERVAL)
-        )
-        tabu_tenure = cast(int, task.payload.get("tabu_tenure", DEFAULT_TABU_TENURE))
-        gen = VoltageSearchGenerator(
-            k,
-            g,
-            model_id=model_id,
-            beam_width=beam_width,
-            beam_probe_interval=beam_probe_interval,
-            tabu_tenure=tabu_tenure,
-        )
-    elif approach == "voltage_rl":
-        deterministic = cast(bool, task.payload.get("vrl_deterministic", False))
-        gen = VoltageRLGenerator(k, g, model_id=model_id, deterministic=deterministic)
-    elif approach == "forge":
-        # Producer + stage flags + sweep values all ride in via the payload
-        # (decoded from the variant by _variant_params); absent keys fall back to
-        # ForgeGenerator's own defaults.
-        producer = cast(str, task.payload.get("forge_producer", DEFAULT_FORGE_PRODUCER))
-        use_refine = cast(bool, task.payload.get("forge_use_refine", True))
-        use_excision = cast(bool, task.payload.get("forge_use_excision", True))
-        max_candidates = cast(
-            int, task.payload.get("forge_max_candidates", DEFAULT_MAX_CANDIDATES)
-        )
-        refine_margin = cast(
-            int, task.payload.get("forge_refine_margin", REFINE_MARGIN)
-        )
-        refine_gate = cast(
-            str, task.payload.get("forge_refine_gate", DEFAULT_REFINE_GATE)
-        )
-        refine_defect_tau = cast(
-            float,
-            task.payload.get("forge_refine_defect_tau", DEFAULT_REFINE_DEFECT_TAU),
-        )
-        gen = ForgeGenerator(
-            k,
-            g,
-            producer=producer,
-            use_refine=use_refine,
-            use_excision=use_excision,
-            max_candidates=max_candidates,
-            refine_margin=refine_margin,
-            refine_gate=refine_gate,
-            refine_defect_tau=refine_defect_tau,
-        )
-    else:
-        raise ValueError(f"Unknown approach: {approach!r}")
+    gen = build_generator(approach, k, g, model_id, task.payload)
 
     # Run the step loop with both budget guards
     t0 = time.perf_counter()

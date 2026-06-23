@@ -159,6 +159,7 @@ class _ExcisionWorker:
     _roots: list[int]
     _idx: int
     _max_backtracks: int
+    candidates_evaluated: int
 
     def __init__(
         self,
@@ -185,6 +186,9 @@ class _ExcisionWorker:
         # runs one root-attempt per scheduler step across many depths), so we use
         # a far smaller cap than the one-shot ``excise_and_repair`` default.
         self._max_backtracks = max_backtracks
+        # Each try_excise_root attempt builds one stitched-and-repaired candidate
+        # graph; count them so excision throughput reflects the graphs we try.
+        self.candidates_evaluated = 0
 
     def step(self) -> str:
         """Try one root (depths largest-first); return a description of the move."""
@@ -208,6 +212,7 @@ class _ExcisionWorker:
                 depth=depth,
                 max_backtracks=self._max_backtracks,
             )
+            self.candidates_evaluated += 1
             if cand is not None:
                 best = cand
                 break
@@ -262,7 +267,9 @@ class ForgeGenerator:
     _refine_queue: list[nx.Graph[int]]
     _excise_queue: list[nx.Graph[int]]
     _refiner: TabuRefineGenerator | None
+    _refine_candidates_done: int
     _excision: _ExcisionWorker | None
+    _stage_steps: list[int]
 
     # Round-robin scheduler cursor over the three stages.
     _rr: int
@@ -330,8 +337,10 @@ class ForgeGenerator:
 
         self._refine_queue = []
         self._excise_queue = []
+        self._refine_candidates_done = 0
         self._refiner = None
         self._excision = None
+        self._stage_steps = [0, 0, 0]
 
         self._rr = 0
         self._result = None
@@ -389,6 +398,39 @@ class ForgeGenerator:
     def is_regular(self) -> bool:
         return is_k_regular(self.graph, self.k)
 
+    @property
+    def producer_candidates(self) -> int:
+        return sum(p.candidates_evaluated for p in self._producers)
+
+    @property
+    def refine_candidates(self) -> int:
+        total = self._refine_candidates_done
+        if self._refiner is not None:
+            total += self._refiner.candidates_evaluated
+        return total
+
+    @property
+    def excision_candidates(self) -> int:
+        return self._excision.candidates_evaluated if self._excision is not None else 0
+
+    @property
+    def candidates_evaluated(self) -> int:
+        return (
+            self.producer_candidates + self.refine_candidates + self.excision_candidates
+        )
+
+    @property
+    def producer_steps(self) -> int:
+        return self._stage_steps[0]
+
+    @property
+    def refine_steps(self) -> int:
+        return self._stage_steps[1]
+
+    @property
+    def excision_steps(self) -> int:
+        return self._stage_steps[2]
+
     # --- scheduler -------------------------------------------------------
 
     def step(self) -> None:
@@ -417,6 +459,7 @@ class ForgeGenerator:
             advanced = self._advance_stage(stage_idx)
             if advanced:
                 self._rr = (stage_idx + 1) % 3
+                self._stage_steps[stage_idx] += 1
                 # First valid (k,g)-graph out of excision normally wins and stops
                 # the run.  But a single fast excision of a voltage direct-hit
                 # would otherwise end the run before a slow, many-swap refiner
@@ -588,11 +631,13 @@ class ForgeGenerator:
         if girth >= self.g and is_k_regular(in_progress, self.k):
             # Refined up to a valid (k,g)-graph: hand it to excision, go idle.
             self._excise_queue.append(in_progress.copy())
+            self._refine_candidates_done += refiner.candidates_evaluated
             self._refiner = None
             self._emit(f"refine: reached girth {girth} -> excise {self._queue_tag()}")
             return True
         if refiner.is_complete:
             # Exhausted without reaching girth g: discard and go idle.
+            self._refine_candidates_done += refiner.candidates_evaluated
             self._refiner = None
             self._emit(f"refine: exhausted (discard) {self._queue_tag()}")
             return True
