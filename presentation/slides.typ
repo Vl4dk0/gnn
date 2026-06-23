@@ -1055,12 +1055,12 @@
 
 
 // =============================================================================
-//  THANKS — full-bleed light closer. Built on touying-slide directly (like the
-//  section divider) so no header bar / progress chrome shows. Big editorial
-//  Fraunces type, an oversized whisper-faint background glyph for drama, and an
-//  accent hairline — all in the deck's greyscale identity.
+//  THANKS — a regular themed slide (so the footer/counter/progress format
+//  IDENTICALLY to every other slide) but with the title bar dropped via
+//  config-page(header: none). Big editorial Fraunces headline over faint,
+//  scattered heart-shaped graphs, in the deck's greyscale identity.
 // =============================================================================
-#let thanks-slide = touying-slide-wrapper(self => {
+#slide(config: config-page(header: none), self => {
   // Faint heart-shaped graphs scattered behind the hero: (x, y) as fractions of
   // the slide, rotation, and size. Tuned to avoid the central headline band.
   let hearts = (
@@ -1074,31 +1074,22 @@
     (66%, 90%, -16deg, 12%),
     (24%, 2%, 8deg, 13%),
   )
-  let body = {
-    for (x, y, rot, w) in hearts {
-      place(
-        top + left,
-        dx: x,
-        dy: y,
-        rotate(rot, image("figures/petersen/fig-heart.pdf", width: w)),
-      )
-    }
-    set align(center + horizon)
-    text(
-      font: "Fraunces 9pt",
-      size: 3.0em,
-      weight: 700,
-      fill: rgb("#1a1a1a"),
-    )[Ďakujem za pozornosť]
+  for (x, y, rot, w) in hearts {
+    place(
+      top + left,
+      dx: x,
+      dy: y,
+      rotate(rot, image("figures/petersen/fig-heart.pdf", width: w)),
+    )
   }
-
-  self = utils.merge-dicts(self, config-page(
-    fill: self.colors.neutral-lightest,
-  ))
-  touying-slide(self: self, body)
+  set align(center + horizon)
+  text(
+    font: "Fraunces 9pt",
+    size: 3.0em,
+    weight: 700,
+    fill: rgb("#1a1a1a"),
+  )[Ďakujem za pozornosť]
 })
-
-#thanks-slide
 
 
 #slide(title: [Otázka školiteľa (1)], repeat: 6, self => {
